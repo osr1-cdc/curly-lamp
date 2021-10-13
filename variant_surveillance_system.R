@@ -1,23 +1,43 @@
 # Background
 
-#Emerging variants of SARS-CoV-2 with increasing share among cases are of potential public health concern. A survey design to track variants, based on the sequencing data residing at CDC and weighted to adjust for multiplicity of sources as well as variations in sequencing rates, is discussed here.
+#Emerging variants of SARS-CoV-2 with increasing share among cases are of potential public health concern. 
+# A survey design to track variants, based on the sequencing data residing at CDC and weighted to adjust 
+# for multiplicity of sources as well as variations in sequencing rates, is discussed here.
 
 # Data and methods
 
-#An event recorded in the surveillance system is the collection of a sample for (PCR) testing (labelled by date and place of collection) that results in a positive test and is selected for sequencing and submission to the system. Prevalence of variants is estimated from sequence data from multiple sources, weighted to adjust for variations in sequencing and testing rates over time, source and jurisdiction, using a design-based approach. In this analysis:
+#An event recorded in the surveillance system is the collection of a sample for (PCR) testing (labelled by 
+# date and place of collection) that results in a positive test and is selected for sequencing and 
+# submission to the system. Prevalence of variants is estimated from sequence data from multiple sources, 
+# weighted to adjust for variations in sequencing and testing rates over time, source and jurisdiction, 
+# using a design-based approach. In this analysis:
 # * The event time is date of collection of sample for testing
 # * The event location is currently set to the state reporting the test result
-# * The protocol for selection of positive test samples for sequencing is assumed to be random, as the commercial laboratories are unable to report their selection protocol, and the NS3 instructions neglect to specify any
+# * The protocol for selection of positive test samples for sequencing is assumed to be random, as the 
+#   commercial laboratories are unable to report their selection protocol, and the NS3 instructions neglect 
+#   to specify any
 # * The strata are U.S. states and territories.
-# * The clusters are the data streams: CDC NS3 surveillance, and (currently) three contractors -- Laboratory Corporation of America, Quest Diagnostics, and Helix. 
-# * Inverse-probability-of-selection weights are generated for estimates of prevalence among those sequenced (unweighted), among test positives, as well as among all infections.
+# * The clusters are the data streams: CDC NS3 surveillance, and (currently) three contractors -- Laboratory 
+#   Corporation of America, Quest Diagnostics, and Helix. 
+# * Inverse-probability-of-selection weights are generated for estimates of prevalence among those sequenced 
+#   (unweighted), among test positives, as well as among all infections.
 
 ## Current data streams and workflow
 
-#The current workflow is a provisional implementation of the methods. It begins with tapping the current data streams:
-# * Survey sample data: Genomic data (lineage and S gene mutation list), by collection date, reporting state, data source (lab, NS3, etc.) and any known sampling bias (targeted oversampling of "S gene target failure" specimens, etc.), from a server internal to CDC. Other variables available that may be used for stratified analysis or more careful weighting, but not used currently, are demographic information (limited completeness) on the individual tested, and ZIP code of specimen collection. 
-# * Supplementary sample data: Pangolin lineage data table, from the CDC internal server, for current lineage information
-# * Weighting data: Two tables, updated on or close to the date of analysis, are downloaded from HHS Protect: count of PCR tests results (positive, negative, etc.), aggregated by collection date and reporting state, and count of PCR tests results (positive, negative, etc.) from selected labs (currently lab names that contain substrings "labcorp", "laboratory corporation", "helix", "illumina", "quest"), aggregated by collection date, reporting state and lab name. 
+#The current workflow is a provisional implementation of the methods. It begins with tapping the current 
+# data streams:
+# * Survey sample data: Genomic data (lineage and S gene mutation list), by collection date, reporting 
+#   state, data source (lab, NS3, etc.) and any known sampling bias (targeted oversampling of "S gene 
+#   target failure" specimens, etc.), from a server internal to CDC. Other variables available that may 
+#   be used for stratified analysis or more careful weighting, but not used currently, are demographic 
+#   information (limited completeness) on the individual tested, and ZIP code of specimen collection. 
+# * Supplementary sample data: Pangolin lineage data table, from the CDC internal server, for current 
+#   lineage information
+# * Weighting data: Two tables, updated on or close to the date of analysis, are downloaded from HHS Protect: 
+#   count of PCR tests results (positive, negative, etc.), aggregated by collection date and reporting state, 
+#   and count of PCR tests results (positive, negative, etc.) from selected labs (currently lab names that 
+#   contain substrings "labcorp", "laboratory corporation", "helix", "illumina", "quest"), aggregated by 
+#   collection date, reporting state and lab name. 
 # * Supplementary weighting data: state population estimates (ACS 2018 5 year set)
 
 # ver: 1Sep202
@@ -163,15 +183,26 @@ for (cc in c("POSITIVE", "TOTAL")) {
 
 #---------------Weighting---------------
 
-#Weights are estimated by treating each source (contracting lab, or CDC surveillance) as a cluster nested with strata (states), calculated for each week (i.e., to ensure representation weekly). 
-#Two sets of weights are estimated: the first, $w_p$, for representation among (PCR) test positive indivduals; and, second, $w_i$, for representation among all prevalent infections. Assumptions (modifiable as data become available) in estimating weights are:
+#Weights are estimated by treating each source (contracting lab, or CDC surveillance) as a cluster 
+#   nested with strata (states), calculated for each week (i.e., to ensure representation weekly). 
+#Two sets of weights are estimated: the first, $w_p$, for representation among (PCR) test positive 
+#   indivduals; and, second, $w_i$, for representation among all prevalent infections. Assumptions 
+#   (modifiable as data become available) in estimating weights are:
   
-#  * Each positive (PCR) test is in the sampling frame of one of the source streams, so that for each state, week and source
+#  * Each positive (PCR) test is in the sampling frame of one of the source streams, so that for 
+#    each state, week and source
 #$$w_p = \frac{\mbox{number of positive PCR test results}}{\mbox{number of sequences submitted}}$$
-#  * Oversampling of SGTF samples by one source results in a reduction in weights of SGTF sequences from that source by a factor that is estimated using a logistic regression model relating the odds of finding an "SGTF variant" by source, state and week.
-# * Estimation of $w_i$ involves estimating the (unobserved) number of infections from test results. There is no reliable and precise method for this yet, so these weights are subject to considerable uncertainties. Here, a [strategy](https://www.medrxiv.org/content/10.1101/2020.10.07.20208504v2.full-text) based on test positivity is used (other [strategies](https://covid19-projections.com/estimating-true-infections-revisited/) are available, too):
+#  * Oversampling of SGTF samples by one source results in a reduction in weights of SGTF sequences 
+#   from that source by a factor that is estimated using a logistic regression model relating the 
+#   odds of finding an "SGTF variant" by source, state and week.
+#   There is no reliable and precise method for this yet, so these weights are subject to 
+#   considerable uncertainties. Here, a [strategy](https://www.medrxiv.org/content/10.1101/2020.10.07.20208504v2.full-text) 
+#   based on test positivity is used (other [strategies](https://covid19-projections.com/estimating-true-infections-revisited/) 
+#   are available, too):
 #  $$\frac{\mbox{number of prevalent infections}}{\mbox{number of test positives}} = \sqrt{\frac{\mbox{population of jurisdiction}}{\mbox{number of tests}}}$$
-#  If each source (lab) stream is assumed to sample from a base population with the same prevalence of infection as the jurisdiction (state), it can be shown that the weight specific to each source, based on the test positivity of each source, is:
+#  If each source (lab) stream is assumed to sample from a base population with the same prevalence 
+#   of infection as the jurisdiction (state), it can be shown that the weight specific to each source, 
+#   based on the test positivity of each source, is:
 #  $$w_i = \frac{\mbox{number of prevalent infections in source}}{\mbox{number of source positives}}
 #= \frac{\mbox{number of source positives}}{\mbox{number of source tests}}
 #{\frac{\sqrt{\mbox{population of jurisdiction}\times\mbox{number of tests}}}{\mbox{number of positives}}}$$
@@ -288,13 +319,23 @@ save(svy.dat, file=paste0("svydat_", Sys.Date(), ".RData"))
 
 #--------------- Limitations, etc.--------------- 
 
-#Merging multiple disparate data streams into a single unified survey design is achieved here by assuming each stream is a cluster in a PPS design. The analysis is limited by the limitations of this assumption, and by incomplete information about the sampling design within each stream. Owing to incomplete and imprecise test data, sources with substantial contribution to the sequence database may be underweighted.  
+#Merging multiple disparate data streams into a single unified survey design is achieved 
+# here by assuming each stream is a cluster in a PPS design. The analysis is limited by 
+# the limitations of this assumption, and by incomplete information about the sampling 
+# design within each stream. Owing to incomplete and imprecise test data, sources with 
+# substantial contribution to the sequence database may be underweighted.  
 
-# * Weights are derived using count of test results (including negatives) by state and collection date, currently from HHS Protect. There are a few states missing, and it has proved to be difficult to assign tests unambiguoisly to their source.
-# * The protocols used by different sources to select for sequences are unknown; an assumption of random selection is made here (with modifications for oversampling of SGTF samples, where noted), leading to the possibility of biased estimates.
+# * Weights are derived using count of test results (including negatives) by state and 
+#   collection date, currently from HHS Protect. There are a few states missing, and it 
+#   has proved to be difficult to assign tests unambiguoisly to their source.
+# * The protocols used by different sources to select for sequences are unknown; an 
+#   assumption of random selection is made here (with modifications for oversampling of 
+#   SGTF samples, where noted), leading to the possibility of biased estimates.
 # * Current [NS3 guidelines for sampling](https://www.aphl.org/programs/preparedness/Crisis-Management/Documents/FEB%202021%20Revised%20NS3%20Submission%20Guidance_02052021%20FNL.pdf) are inadequate:
 
-#  > Ideally, specimens should represent geographic, demographic (e.g., age), and clinical (e.g., disease severity or outcome) diversity from across the jurisdiction. This can be achieved through random selection of specimens collected within the last 7 days.
+#  > Ideally, specimens should represent geographic, demographic (e.g., age), and clinical 
+#   (e.g., disease severity or outcome) diversity from across the jurisdiction. This can be
+#   achieved through random selection of specimens collected within the last 7 days.
 
 
 # Changelog
@@ -305,7 +346,9 @@ save(svy.dat, file=paste0("svydat_", Sys.Date(), ".RData"))
 # * 2021-03-08: calibrated infections-over-positive weights to test-positivity by cluster
 # * 2021-03-08: switched to a PPS design to more accurately reflect subsampling within clusters
 # * 2021-03-09: added HHS region 
-# * 2021-04-XX: added populations for territories; removed lab based weights; infection rates imputed using HHS Regional rates for states with missing testing data; removed submission/receive dates from svy.dat; sgtf_weights are now weights even for SGTF_UPSAMPLING = FALSE
+# * 2021-04-XX: added populations for territories; removed lab based weights; infection rates 
+#   imputed using HHS Regional rates for states with missing testing data; removed 
+#   submission/receive dates from svy.dat; sgtf_weights are now weights even for SGTF_UPSAMPLING = FALSE
 
 # Known issues/next steps
 
