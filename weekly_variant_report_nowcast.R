@@ -5,13 +5,11 @@
 #
 # Updates: ~Survey design updated to have PSU=Source and strata= week and state
 #          ~Less reliable CIs are now flagged based on NCHS data presentation standards for proportions
-#          ~Code now generates state-level weighted estimates. Two types of state-level estimates:
-#               *weighted proportions at fixed/discrete 4 week time bins
-#               *weighted proportions at rolling 4 week time bins
-#          ~Multinomial model code updated to formally account for survey design in variance estimatino via svyrecvar
+#          ~Code now generates state-level weighted estimates for rolling 4 week time bins
+#          ~Multinomial model code updated to formally account for survey design in variance estimation via svyrecvar
 #          ~Function to calculate binomial CI for nowcast proportion
 #
-# Last updated: 9/30/2021 (by Molly Steele)
+# Last updated: 10/5/2021 (by Molly Steele)
 # Ver: KGCI_29Sep2021                            
 
 #capture system time
@@ -23,18 +21,20 @@ ci.type <- "KG" #variable specifying which CI estimator to use for weighted prop
 
 #variable for whether or not to include the state tagged sequences
 # Update the following each run ----------------------------------------
-time_end <- as.Date("2021-09-25")
-data_date <- as.Date("2021-10-01")  ## set date for data creation
+time_end <- as.Date("2021-10-02") #set end date for national and regional survey estimates  
+state_time_end=c(as.Date("2021-09-11"),as.Date("2021-09-18"),as.Date("2021-09-25")) # set end dates for state-level estimates
+data_date <- as.Date("2021-10-08")  # set date for data creation
+
 
 #variable for whether or not to include the state tagged sequences
-state_source <- "state_tag_included"
+state_source <- "state_tag_included" #argument indicating whether to include state tagged data
 tag <- paste0("_",state_source,"_Run2") #a tag for the filename to indicate which run from Lab TF request the results are for
 
 
 #arguments to indicate whether sublineages should be aggregated to parent lineage
 P.1_agg=TRUE
 B.1.351_agg=TRUE
-AY_agg=TRUE #aggregation argument added 8/13/21 
+AY_agg=TRUE 
 Q.1_3_agg=TRUE
 B.1.621_agg=TRUE
 B429_7_agg=TRUE
@@ -48,12 +48,7 @@ if(length(grep("Run1",tag))>0){
         "B.1.1.7",#*
         "B.1.617.2",#*
         "B.1.621",#*
-        "P.1",#*
-        "B.1.351",#*
-        "B.1.526",
-        "B.1.617.1",
-        "B.1.628",
-        "B.1.637"
+        "P.1"#*
   )
   
 } else if(length(grep("Run2",tag))>0) {
@@ -73,17 +68,13 @@ if(length(grep("Run1",tag))>0){
         "AY.25",
         "AY.26",
         "AY.32",
+        "AY.35",
         "AY.4",
         "AY.5",
         "B.1.1.7",#*
         "B.1.617.2",#* (non-enumerated AYs aggregated)
         "B.1.621",#*
-        "P.1",#*
-        "B.1.351",#*
-        "B.1.526",#
-        "B.1.617.1",#
-        "B.1.628",
-        "B.1.637"
+        "P.1"#*
   )
   
   #State-level run
@@ -102,8 +93,7 @@ if(length(grep("Run1",tag))>0){
         "P.2", 
         "B.1.621"# and B.1.621.1* 
   ) 
-} 
-
+}
 
 
 #Argument determining whether figures should be output as jpgs
@@ -618,8 +608,6 @@ svyDES = svydesign(ids=~STUSAB+SOURCE, strata=~HHS, weights= ~ SIMPLE_ADJ_WT, ne
 svyDES = svydesign(ids=~SOURCE, strata=~STUSAB+yr_wk, weights= ~ SIMPLE_ADJ_WT, nest=TRUE, data=src.dat)
 }
 
-src.dat$count=1
-
 
 src.dat$VARIANT2=as.character(src.dat$VARIANT)
 src.dat[src.dat$VARIANT %notin% voc,"VARIANT2"] <- "Other"
@@ -681,6 +669,8 @@ all.ftnt2$nchs_flag_wodf=ifelse(all.ftnt2$flag_eff.size==1|all.ftnt2$denom_count
 all.ftnt2=all.ftnt2[,c("USA_or_HHSRegion","Fortnight_ending","Variant","Share",           
                        "Share_lo","Share_hi","count","denom_count","DF","eff.size",
                        "CI_width","nchs_flag","nchs_flag_wodf")]
+
+all.ftnt2 <- all.ftnt2[order(all.ftnt2$USA_or_HHSRegion),]
 
 write.csv(all.ftnt2, paste0("method_development/variant_share_weighted_", ci.type,"CI_",svy.type,"_", data_date,tag, ".csv"), row.names=FALSE)
 
@@ -748,6 +738,7 @@ all.wkly2=all.wkly2[,c("USA_or_HHSRegion","WEEK_END","Variant","Share",
                        "Share_lo","Share_hi","count","denom_count","DF","eff.size",
                        "CI_width","nchs_flag","nchs_flag_wodf","count_LT20","count_LT10")]
 
+all.wkly2 <- all.wkly2[order(all.wkly2$USA_or_HHSRegion),]
 
 write.csv(all.wkly2, paste0("method_development/variant_share_weekly_weighted_", ci.type,"CI_",svy.type,"_", data_date,tag,  ".csv"), row.names=FALSE)
 
@@ -760,87 +751,71 @@ write.csv(all.wkly2, paste0("method_development/variant_share_weekly_weighted_",
 
 if (length(grep("Run3",tag))!=0){ #Only Run the state-level estimates when running the state list of lineages (i.e. Run 3) 
   
-#get the most recent week from src.dat
-data_max_week <- max(unique(src.dat$week))-1
-
-
-svyDES = svydesign(ids=~SOURCE, strata=~STUSAB+yr_wk, weights= ~ SIMPLE_ADJ_WT, nest=TRUE, data=src.dat) #redefine survey design to the new design for state-level estimates
-
-
-#get the week number for the last week in the rolling 4 week period
-rollwks=((data_max_week):(data_max_week - 3))
-
-all.state = expand.grid(Variant=reported_variants, Roll_4wk_end=rollwks,State=sort(unique(src.dat$STUSAB)))[, 3:1]
-ests = apply(all.state, 1, function(rr) myciprop(rr[3], rr[1], subset(svyDES, week >= (as.numeric(rr[2])- 3)), FALSE))
-all.state = cbind(all.state, Share=ests[1,], Share_lo=ests[2,], Share_hi=ests[3,],DF=ests[4,],eff.size=ests[5,], cv.mean=ests[6,])
-
-others = expand.grid(Variant="Other", Roll_4wk_end=rollwks,State=sort(unique(src.dat$STUSAB)))[, 3:1]
-ests = apply(others, 1, function(rr) myciprop(reported_variants, rr[1],subset(svyDES, week >= (as.numeric(rr[2])- 3)), FALSE))
-others = cbind(others, Share=1-ests[1,], Share_lo=1-ests[3,], Share_hi=1-ests[2,],DF=ests[4,],eff.size=ests[5,], cv.mean=ests[6,])
-
-all.state = rbind(all.state, others)
-
-#generate sequence counts by lineage, location and date
-all.state_out <- matrix(NA,nrow=1,ncol=ncol(all.state)+2)
-colnames(all.state_out) <- c(names(all.state),"count","denom_count")
-
-for (iter in rollwks){
-
-dat2 <- subset(src.dat, week >= as.numeric(iter) - 3)
-
-#make sure dates match dates in proportions dataframe 
-raw_counts_state <- aggregate(count~VARIANT2+STUSAB, data=dat2, FUN=sum)
-
-#merge sequence counts with weighted proportions estimates
-all.state2 <- merge(subset(all.state, Roll_4wk_end == as.numeric(iter)), raw_counts_state,by.x=c("State","Variant"),by.y=c("STUSAB","VARIANT2"),all=T) 
-
-all.state2[is.na(all.state2$count)==T & all.state2$Variant!="Other","count"] <- 0
-
-#calculate denominator counts
-dss <- aggregate(count~State+Roll_4wk_end, data=all.state2,FUN=sum)
-names(dss)[grep("count",names(dss))] <- "denom_count"
-all.state2 <- merge(all.state2, dss)
-
-all.state_out <- rbind(all.state_out,all.state2)
-
-}
-
-#drop the extraneous first row
-all.state_out <- all.state_out[-1,]
-
-#add variable that gives the date at the end of the rolling 4 week period 
-all.state_out$Roll_Fourweek_ending <- Sys.Date()
-for(i in rollwks){
-all.state_out[all.state_out$Roll_4wk_end==i,"Roll_Fourweek_ending"] <- as.Date(unique(src.dat$yr_wk[src.dat$week==i]))+6
+  #get the week number that corresponds to date defined in state_time_end
+  data_week <-unique(c(src.dat$week[src.dat$yr_wk==state_time_end[1]-6],
+                       src.dat$week[src.dat$yr_wk==state_time_end[2]-6],
+                       src.dat$week[src.dat$yr_wk==state_time_end[3]-6])) #have to subtract 6 days because the yr_wk variable defines week starting on Sunday whereas the state_time_end is defined as week ending Saturday
   
+  svyDES = svydesign(ids=~SOURCE, strata=~STUSAB+yr_wk, weights= ~ SIMPLE_ADJ_WT, nest=TRUE, data=src.dat) #redefine survey design to the new design for state-level estimates
+  
+  #
+  all.state = expand.grid(Variant=reported_variants, Roll_4wk_end=data_week,State=sort(unique(src.dat$STUSAB)))[, 3:1]
+  ests = apply(all.state, 1, function(rr) myciprop(rr[3], rr[1], subset(svyDES, week >= (as.numeric(rr[2])- 3) & week < (as.numeric(rr[2])+1)), FALSE))
+  all.state = cbind(all.state, Share=ests[1,], Share_lo=ests[2,], Share_hi=ests[3,],DF=ests[4,],eff.size=ests[5,], cv.mean=ests[6,])
+  
+  others = expand.grid(Variant="Other", Roll_4wk_end=data_week,State=sort(unique(src.dat$STUSAB)))[, 3:1]
+  ests.others = apply(others, 1, function(rr) myciprop(reported_variants, rr[1],subset(svyDES, week >= (as.numeric(rr[2])- 3) & week < (as.numeric(rr[2])+1)), FALSE))
+  others = cbind(others, Share=1-ests.others[1,], Share_lo=1-ests.others[3,], Share_hi=1-ests.others[2,],DF=ests.others[4,],eff.size=ests.others[5,], cv.mean=ests.others[6,])
+  
+  all.state = rbind(all.state, others)
+  
+  all.state.out <-c()
+  for(i in 1:length(data_week)){
+    dat2 <- src.dat[src.dat$week >= (as.numeric(data_week[i])- 3) & src.dat$week < (as.numeric(data_week[i])+1),]
+    
+    #make sure dates match dates in proportions dataframe 
+    raw_counts_state <- aggregate(count~VARIANT2+STUSAB, data=dat2, FUN=sum,drop=FALSE)
+    raw_counts_state$count <- ifelse(is.na(raw_counts_state$count)==T,0,raw_counts_state$count)
+    #merge sequence counts with weighted proportions estimates
+    all.state2 <- merge(all.state[all.state$Roll_4wk_end==data_week[i],], raw_counts_state,by.x=c("State","Variant"),by.y=c("STUSAB","VARIANT2"),all=T) 
+    
+    all.state2[is.na(all.state2$count)==T & all.state2$Variant!="Other","count"] <- 0
+    
+    
+    #calculate denominator counts
+    dss <- aggregate(count~State, data=all.state2,FUN=sum)
+    names(dss)[grep("count",names(dss))] <- "denom_count"
+    all.state2 <- merge(all.state2, dss,all=T)
+    
+    all.state2$Roll_Fourweek_ending <- unique(as.Date(src.dat$yr_wk[src.dat$week==data_week[i]]) + 6)
+    
+    all.state.out <- rbind.data.frame(all.state.out,all.state2)
+  }
+  
+  #calculate absolute CI width
+  all.state.out$CI_width=all.state.out$Share_hi-all.state.out$Share_lo
+  
+  #generate NCHS flags
+  all.state.out$flag_df=ifelse(all.state.out$DF<8,1,0)
+  all.state.out$flag_eff.size=ifelse(all.state.out$eff.size<30 | is.na(all.state.out$eff.size)==T,1,0 )
+  all.state.out$flag_dss=ifelse(all.state.out$denom_count<30| is.na(all.state.out$denom_count)==T,1,0 )
+  all.state.out$flag_abs.ciw=ifelse(all.state.out$CI_width>0.30 | is.na(all.state.out$CI_width)==T,1,0)
+  all.state.out$flag_rel.ciw=ifelse(((all.state.out$CI_width/all.state.out$Share)*100)>130 | is.na((all.state.out$CI_width/all.state.out$Share)*100)==T,1,0)
+  
+  all.state.out$nchs_flag=ifelse(all.state.out$flag_df==1| all.state.out$flag_eff.size==1| all.state.out$denom_count==1| 
+                                   all.state.out$flag_abs.ciw==1| all.state.out$flag_rel.ciw==1,1,0)
+  
+  all.state.out$nchs_flag_wodf=ifelse( all.state.out$flag_eff.size==1| all.state.out$denom_count==1| 
+                                         all.state.out$flag_abs.ciw==1| all.state.out$flag_rel.ciw==1,1,0)
+  
+  
+  all.state.out=all.state.out[,c("State","Roll_Fourweek_ending","Variant","Share",           
+                                 "Share_lo","Share_hi","count","denom_count","DF","eff.size",
+                                 "CI_width","nchs_flag","nchs_flag_wodf")]
+  
+  
+  write.csv(all.state.out, paste0("method_development/state_weighted_roll4wk_", ci.type,"CI_svyNEW_", data_date,tag,  ".csv"), row.names=FALSE)
 }
-
-
-#calculate absolute CI width
-all.state_out$CI_width=all.state_out$Share_hi-all.state_out$Share_lo
-
-#generate NCHS flags
-all.state_out$flag_df=ifelse(all.state_out$DF<8,1,0)
-all.state_out$flag_eff.size=ifelse(all.state_out$eff.size<30 | is.na(all.state_out$eff.size)==T,1,0 )
-all.state_out$flag_dss=ifelse(all.state_out$denom_count<30| is.na(all.state_out$denom_count)==T,1,0 )
-all.state_out$flag_abs.ciw=ifelse(all.state_out$CI_width>0.30 | is.na(all.state_out$CI_width)==T,1,0)
-all.state_out$flag_rel.ciw=ifelse(((all.state_out$CI_width/all.state_out$Share)*100)>130 | is.na((all.state_out$CI_width/all.state_out$Share)*100)==T,1,0)
-
-all.state_out$nchs_flag=ifelse(all.state_out$flag_df==1| all.state_out$flag_eff.size==1| all.state_out$denom_count==1| 
-                                 all.state_out$flag_abs.ciw==1| all.state_out$flag_rel.ciw==1,1,0)
-
-all.state_out$nchs_flag_wodf=ifelse( all.state_out$flag_eff.size==1| all.state_out$denom_count==1| 
-                                 all.state_out$flag_abs.ciw==1| all.state_out$flag_rel.ciw==1,1,0)
-
-
-all.state_out=all.state_out[,c("State","Roll_Fourweek_ending","Variant","Share",           
-                         "Share_lo","Share_hi","count","denom_count","DF","eff.size",
-                         "CI_width","nchs_flag","nchs_flag_wodf")]
-
-
-write.csv(all.state_out, paste0("method_development/state_weighted_roll4wk_", ci.type,"CI_svyNEW_", data_date,tag,  ".csv"), row.names=FALSE)
-}
-
 
 ### Model-smoothed estimates; needs Hessian for regional multinomial model ----------------------------------------
 
@@ -852,7 +827,7 @@ if (length(grep("Run2",tag))!=0){ #Run the nowcast output only when doing the ru
   AY_agg=AY_agg[AY_agg %notin% c("AY.1","AY.2")]
   
   #code below will throw error if code above didn't grab proportions for all the lineages you need to add to the model_vars vector
-  if(length(AY_add)!= length(AY2)) stop ("length of lineage proportion vector is not the same length as the lineage names vector")
+  #if(length(AY_add)!= length(AY2)) stop ("length of lineage proportion vector is not the same length as the lineage names vector")
   
   #concatenate the lineages to aggregate to the model_vars vector
   #model_vars <- c(model_vars,AY_add)
