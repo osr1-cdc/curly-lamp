@@ -11,95 +11,38 @@
 #
 # Last updated: 10/5/2021 (by Molly Steele)
 # Ver: KGCI_29Sep2021                            
+library(optparse)
+
+# optparse option list
+option_list <- list(
+  make_option(c("-r", "--run_number"), type = "character", default= "1",
+              help="User Name",
+              metavar = "character")
+  
+)
+
+# parseing options list
+opts <- parse_args(OptionParser(option_list = option_list))
+
+# get base directory
+initial.options <- commandArgs(trailingOnly = FALSE)
+file.arg.name <- "--file="
+script.name <- sub(file.arg.name, "", initial.options[grep(file.arg.name, initial.options)])
+script.basename <- dirname(script.name)
+# correction for if running from base repo interactively
+if(length(script.basename) == 0) {
+  script.basename = "."
+}
+
+# create results dir
+dir.create(paste0(script.basename,"/results"))
 
 #capture system time
 tstart=proc.time()
 
-# Update the following each run ----------------------------------------
-svy.type <- "svyNEW" #variable specifying which survey design to use
-ci.type <- "KG" #variable specifying which CI estimator to use for weighted proportion esimtates
+# source options from config.R file
+source(paste0(script.basename, "/config/config.R"))
 
-#variable for whether or not to include the state tagged sequences
-# Update the following each run ----------------------------------------
-time_end <- as.Date("2021-10-02") #set end date for national and regional survey estimates  
-state_time_end=c(as.Date("2021-09-11"),as.Date("2021-09-18"),as.Date("2021-09-25")) # set end dates for state-level estimates
-data_date <- as.Date("2021-10-08")  # set date for data creation
-
-
-#variable for whether or not to include the state tagged sequences
-state_source <- "state_tag_included" #argument indicating whether to include state tagged data
-tag <- paste0("_",state_source,"_Run2") #a tag for the filename to indicate which run from Lab TF request the results are for
-
-
-#arguments to indicate whether sublineages should be aggregated to parent lineage
-P.1_agg=TRUE
-B.1.351_agg=TRUE
-AY_agg=TRUE 
-Q.1_3_agg=TRUE
-B.1.621_agg=TRUE
-B429_7_agg=TRUE
-
-# List of variants to track (not just VOC or VOI):
-# VOCs for 10/1/2021 run 
-if(length(grep("Run1",tag))>0){
-  
-  voc=c("AY.1",
-        "AY.2",
-        "B.1.1.7",#*
-        "B.1.617.2",#*
-        "B.1.621",#*
-        "P.1"#*
-  )
-  
-} else if(length(grep("Run2",tag))>0) {
-  voc=c("AY.1",
-        "AY.2",
-        "AY.3",
-        "AY.3.1",
-        "AY.10",
-        "AY.12",
-        "AY.13",
-        "AY.14",
-        "AY.15",
-        "AY.16",
-        "AY.20",
-        "AY.23",
-        "AY.24",
-        "AY.25",
-        "AY.26",
-        "AY.32",
-        "AY.35",
-        "AY.4",
-        "AY.5",
-        "B.1.1.7",#*
-        "B.1.617.2",#* (non-enumerated AYs aggregated)
-        "B.1.621",#*
-        "P.1"#*
-  )
-  
-  #State-level run
-} else if(length(grep("Run3",tag))>0) {
-  voc=c("B.1.1.7",# with Q.1 to 8* 
-        "B.1.351", #and B.1.351.* 
-        "P.1", #and P.* 
-        "B.1.617.2", #and AY.3-AY.25* 
-        "AY.1", 
-        "AY.2", 
-        "B.1.427",#/B.1.429* 
-        "B.1.525", 
-        "B.1.526", 
-        "B.1.617.1", 
-        "B.1.617.3", 
-        "P.2", 
-        "B.1.621"# and B.1.621.1* 
-  ) 
-}
-
-
-#Argument determining whether figures should be output as jpgs
-fig_gen_run = FALSE
-
-`%notin%` <- Negate(`%in%`)
 # ----------------------------------------------------------------------
 library(survey) #package with survey desgin functions
 library(nnet) #package with multinomial regression for nowcast
@@ -108,7 +51,6 @@ options(stringsAsFactors=FALSE)
 
 
 # Load output from variant_surveillance_system.r ------------------------
-setwd("//cdc.gov/locker/NCIRD_nCoV_EpiTaskForce/EPI TF Surveillance and Analytics/Variant_share/")
 
 #Source the code with svycipropkg function created by Crescent Martin (odb4).
 #NOTE: the svyciprop function from the survey package uses the calculated 
@@ -116,25 +58,12 @@ setwd("//cdc.gov/locker/NCIRD_nCoV_EpiTaskForce/EPI TF Surveillance and Analytic
 #     The svycipropkg function caps the effective sample size at the actual sample size
 #CAVEATE: the svycipropkg code hasn't gone through comprehensive testing.
 
-source("svycipropkg.R")
+source(paste0(script.basename, "/svycipropkg.R"))
 
 #load the genomic surveillance data plus survey weights
 #load(paste0("svydat_", Sys.Date(), ".RData")) # Works only if svy.dat has been updated on day of report
 #load(paste0("svydat_", data_date, ".RData"))
-load(paste0("Results_for_LabTF/10.1.2021/svydat_", data_date, ".RData"))
-
-# Some parameters defining what is modeled and displayed ---------------
-n_top = 10 # Top by variant share that must be included in output
-n_recent_weeks = 7 # Window for estimates (focus to top variants in this model)
-model_weeks = 20 # Lookback for modeling (past 16 weeks of collection dates)
-share_cutoff = 0.01 # Criterion for inclusion in model (i.e to be included in model weighted share must be at least 0.01 in the n_recent_weeks)
-week0day1 = get0("week0day1", ifnotfound=as.Date("2020-01-05"))
-current_week = as.numeric(as.Date(data_date) - week0day1)%/%7 #as.numeric(Sys.Date() - week0day1)%/%7
-
-
-display_option = c("top7", "voc")[1] #define the display option for plotting
-display_lookback = 8 # Lookback for display
-mean_generation_time = 6/7 # weeks; CDC proposed modeling scenarios 2021-03-19
+load(paste0(script.basename, "/data/svydat_", data_date, ".RData"))
 
 # Convert any factor to string
 fac2str = sapply(svy.dat, class)
@@ -483,7 +412,7 @@ rownames(bp_us) = week_label(as.numeric(rownames(bp_us)) - current_week)
 col.dk = hcl.colors(length(display_vars), palette="TealRose", alpha=0.8)
 names(col.dk) = display_vars
 
-stub = paste0("method_development/figures/wtd_shares_", format(Sys.Date(), "%Y%m%d"), "_") 
+stub = paste0(script.basename, "/results/wtd_shares_", format(Sys.Date(), "%Y%m%d"), "_") 
 
 
 if (fig_gen_run) jpeg(paste0(stub, "barplot_US",tag,".jpg"), width=1500, height=1500, pointsize=40)
@@ -537,7 +466,8 @@ if (fig_gen_run)  dev.off()
 gr_tab = cbind(variant=c(names(model_vars), "OTHER"), 
                variant_share=(100 * us.summary$p_i), 
                growth_rate=gr)
-write.csv(gr_tab, paste0("method_development/wow_growth_variant_share", Sys.Date(), tag,".csv"), row.names=FALSE)
+
+write.csv(gr_tab, paste0(script.basename, "/results/wow_growth_variant_share", Sys.Date(), tag,".csv"), row.names=FALSE)
 
 # 
 # Weighted variant shares of the top variants in the past `r display_lookback` weeks (number of sequences collected weekly above each bar), and model-based smoothed estimates, for each HHS region:
@@ -672,7 +602,7 @@ all.ftnt2=all.ftnt2[,c("USA_or_HHSRegion","Fortnight_ending","Variant","Share",
 
 all.ftnt2 <- all.ftnt2[order(all.ftnt2$USA_or_HHSRegion),]
 
-write.csv(all.ftnt2, paste0("method_development/variant_share_weighted_", ci.type,"CI_",svy.type,"_", data_date,tag, ".csv"), row.names=FALSE)
+write.csv(all.ftnt2, paste0(script.basename, "/results/variant_share_weighted_", ci.type,"CI_",svy.type,"_", data_date,tag, ".csv"), row.names=FALSE)
 
 # Weekly estimates --------------------------------------------------------------------
 #if (update_wk == 2) {wks = head(sort(unique(subset(src.dat, DAY >= as.numeric(as.Date("2021-01-25") - week0day1))$yr_wk)), -1)} else { 
@@ -740,7 +670,7 @@ all.wkly2=all.wkly2[,c("USA_or_HHSRegion","WEEK_END","Variant","Share",
 
 all.wkly2 <- all.wkly2[order(all.wkly2$USA_or_HHSRegion),]
 
-write.csv(all.wkly2, paste0("method_development/variant_share_weekly_weighted_", ci.type,"CI_",svy.type,"_", data_date,tag,  ".csv"), row.names=FALSE)
+write.csv(all.wkly2, paste0(script.basename, "/results/variant_share_weekly_weighted_", ci.type,"CI_",svy.type,"_", data_date,tag,  ".csv"), row.names=FALSE)
 
 }
 
@@ -814,7 +744,7 @@ if (length(grep("Run3",tag))!=0){ #Only Run the state-level estimates when runni
                                  "CI_width","nchs_flag","nchs_flag_wodf")]
   
   
-  write.csv(all.state.out, paste0("method_development/state_weighted_roll4wk_", ci.type,"CI_svyNEW_", data_date,tag,  ".csv"), row.names=FALSE)
+  write.csv(all.state.out, paste0(script.basename, "/results/state_weighted_roll4wk_", ci.type,"CI_svyNEW_", data_date,tag,  ".csv"), row.names=FALSE)
 }
 
 ### Model-smoothed estimates; needs Hessian for regional multinomial model ----------------------------------------
@@ -881,7 +811,7 @@ if (length(grep("Run2",tag))!=0){ #Run the nowcast output only when doing the ru
   
   proj.res = proj.res[, c("USA_or_HHSRegion", "Fortnight_ending", "Variant", "Share", "Share_lo", "Share_hi")]
   
-  write.csv(proj.res, paste0("method_development/updated_nowcast_fortnightly_", data_date,tag, ".csv"), row.names=FALSE)
+  write.csv(proj.res, paste0(script.basename, "/results/updated_nowcast_fortnightly_", data_date,tag, ".csv"), row.names=FALSE)
   
   ## Weekly
   
@@ -917,7 +847,7 @@ if (length(grep("Run2",tag))!=0){ #Run the nowcast output only when doing the ru
   
   proj.res = proj.res[, c("USA_or_HHSRegion", "Week_ending", "Variant", "Share", "Share_lo", "Share_hi")]
   
-  write.csv(proj.res, paste0("method_development/updated_nowcast_weekly_", data_date,tag, ".csv"), row.names=FALSE)
+  write.csv(proj.res, paste0(script.basename, "/results/updated_nowcast_weekly_", data_date,tag, ".csv"), row.names=FALSE)
 }
 
 #capture system time

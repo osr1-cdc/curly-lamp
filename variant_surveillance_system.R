@@ -1,3 +1,4 @@
+options(java.parameters = "-Xmx8000m")
 # Background
 
 #Emerging variants of SARS-CoV-2 with increasing share among cases are of potential public health concern. 
@@ -46,10 +47,39 @@
 library(implyr)
 library(odbc)
 library(survey)
+library(dplyr)
+library(RJDBC)
+library(optparse)
 
-options(survey.adjust.domain.lonely=T,survey.lonely.psu="average") 
+# optparse option list
+option_list <- list(
+  make_option(c("-u", "--user"), type = "character", default= NA,
+              help="User Name",
+              metavar = "character"),
+  make_option(c("-p", "--password"), type = "character", default= NA,
+              help="Password",
+              metavar = "character")
+  
+)
 
-setwd("//cdc.gov/locker/NCIRD_nCoV_EpiTaskForce/EPI TF Surveillance and Analytics/Variant_share/")
+# parseing options list
+opts <- parse_args(OptionParser(option_list = option_list))
+
+# get base directory and driver location
+initial.options = commandArgs(trailingOnly = FALSE)
+file.arg.name = "--file="
+script.name = sub(file.arg.name, "", initial.options[grep(file.arg.name, initial.options)])
+script.basename = dirname(script.name)
+# correction for if running from base repo interactively
+if(length(script.basename) == 0) {
+  script.basename = "."
+}
+# create data dir
+dir.create(paste0(script.basename,"/data"))
+
+jdbc_driver = paste0(script.basename, "/jdbc/ClouderaImpalaJDBC-2.6.20.1024/ClouderaImpalaJDBC41-2.6.20.1024/")
+
+options(survey.adjust.domain.lonely=T,survey.lonely.psu="average")
 
 #load("variant_survey_dat2021-08-06.RData")
 
@@ -62,16 +92,28 @@ make.svy.dat = !(paste0("svydat_", Sys.Date(), ".RData") %in% list.files("survei
 # ~ "deduplication_cdcncbigisaid_auto": this data table is updated regularly but may be subject to cleaning issues
 # ~  "analytics_metadata_frozen": this data table is updated less frequently, but is the cleanest version of the sequence data
 # NOTE - if running the official Friday analysis use the "analytics_metadata_frozen" table
-seq_table= "analytics_metadata_frozen"
-node=6 #you can use any node from 4 -8. Sometimes nodes fail so if you get an error you can try another node
+seq_table = "sc2_archive.analytics_metadata_frozen"
+node="11" #you can use any node from 08 - 13. Sometimes nodes fail so if you get an error you can try another node
 #-------------- Import Data ---------------
 
 ## Get the sequence data
-impala = dbConnect(odbc::odbc(), Driver = "Cloudera ODBC Driver for Impala", 
-                   Host = paste0("flu-hadoop-0",node,".biotech.cdc.gov"), Port = 21050, Schema = "sars_cov2")
+
+impala_classpath <- list.files(path = jdbc_driver,
+                               pattern = "\\.jar$", full.names = TRUE)
+.jinit(classpath = impala_classpath)
+
+drv <- JDBC(
+  driverClass = "com.cloudera.impala.jdbc41.Driver",
+  classPath = impala_classpath,
+  identifier.quote = "`"
+)
+
+impala <- dbConnect(drv, paste0("jdbc:impala://cdp-", node, ".biotech.cdc.gov:21050/sc2_air;AuthMech=3;useSasl=1;SSL=1;AllowSelfSignedCerts=1;CAIssuedCertNamesMismatch=1"),
+                     opts$user, opts$password)
+
 # Get names if needed: tbls = dbListTables(impala)
-all.vars = dbListFields(impala, seq_table)
-if(seq_table=="analytics_metadata_frozen"){
+all.vars = dbGetQuery(impala, 'DESCRIBE sc2_archive.analytics_metadata_frozen')[,1]
+if(seq_table=="sc2_archive.analytics_metadata_frozen"){
 get.vars = grep("(^csid)|(^primary)|(^covv)|(^ct)|(zip$)|(targeted)|(vendor)", all.vars, value=TRUE)
 #drop the contractor_vendor_id
 get.vars = c(get.vars, "age") } else {
@@ -85,24 +127,35 @@ get.vars= c( "primary_virus_name","primary_nt_id","primary_country" ,
 }
 
 # Subset to US sequences for faster download
-query = paste("SELECT", paste(get.vars, collapse=", "),
-              paste0("FROM ",seq_table),"WHERE primary_country in (\'United States\', \'USA\')") # if unavailable, use test_deduplication_cdcncbigisaid_auto for testing
+query = paste('SELECT', paste0('A.', get.vars, collapse=', '),
+              paste0(' FROM sc2_archive.analytics_metadata_frozen as A
+INNER JOIN
+(SELECT max(date_frozen) as max_frozen
+  FROM sc2_archive.analytics_metadata_frozen) as M
+ON A.date_frozen = M.max_frozen'),'WHERE A.primary_country in ("United States", "USA")') # if unavailable, use test_deduplication_cdcncbigisaid_auto for testing
 dat = dbGetQuery(impala, query) #saves sequencing data as data frame in R- includes GISAID data
 
 # Current Pangolin lineages:
-pangolin = dbReadTable(impala, "pangolin") # Lineage master list
+#pangolin = dbReadTable(impala, "sc2_src.pangolin") # Lineage master list
+pangolin = dbGetQuery(impala, 'SELECT distinct * FROM sc2_src.pangolin') # 
 # S gene mutation lists, and source (for NS3 and labs)
-baseline = dbGetQuery(impala, "SELECT nt_id, source, primary_virus_name, s_mut, collection_date FROM baselineseq_S2") # state, zip available, also in dedup; S1 slower, built at query
-#baseline = dbGetQuery(impala, "SELECT nt_id, source, primary_virus_name, collection_date FROM baselineseq") # state, zip available, also in dedup; S1 slower, built at query
+baseline = dbGetQuery(impala, 'SELECT nt_id, source, primary_virus_name, s_mut, collection_date FROM sc2_dev.baselineseq') # state, zip available, also in dedup; S1 slower, built at query
+#baseline = dbGetQuery(impala, "SELECT nt_id, source, primary_virus_name, collection_date FROM sc2_dev.baselineseq") # state, zip available, also in dedup; S1 slower, built at query
+tests = dbGetQuery(impala, 'SELECT to_date(collection_date) as collection_date,
+                   reporting_state,
+                   INDETERMINATE,
+                   INVALID,
+                   NEGATIVE,
+                   POSITIVE
+                   FROM sc2_src.hhs_protect_testing
+                   WHERE collection_date is NOT NULL')
+colnames(tests) = c("collection_date", "reporting_state", "INDETERMINATE", "INVALID" , "NEGATIVE" , "POSITIVE")
 
 dbDisconnect(impala)
 
-tests = read.csv("//cdc.gov/locker/NCIRD_nCoV_EpiTaskForce/EPI TF Surveillance and Analytics/Genomics_Data/Tests_ByCol_Date_Weekly.csv") #test denominator data stream (these data are updated in the evenings)
+pops = read.delim(paste0(script.basename,"/resources/ACStable_B01001_40_2018_5.txt"))[, c("STUSAB", "Total.")] #population data may need to be updated
 
-pops = read.delim("//cdc.gov/locker/NCIRD_nCoV_EpiTaskForce/EPI TF Surveillance and Analytics/Variant_share/ACStable_B01001_40_2018_5.txt")[, c("STUSAB", "Total.")] #population data may need to be updated
-
-setwd("//cdc.gov/locker/NCIRD_nCoV_EpiTaskForce/EPI TF Surveillance and Analytics/Variant_share/")
-save(dat, pangolin, baseline, tests, pops, file=paste0("variant_survey_dat",Sys.Date(),".RData"))#"surveillance/variant_survey_dat.RData")
+save(dat, pangolin, baseline, tests, pops, file=paste0(script.basename, "/data/", "variant_survey_dat",Sys.Date(),".RData"))#"surveillance/variant_survey_dat.RData")
 
 #get capture of just analytics_metadata_frozen
 #write.csv(dat, paste0("Analytics_data_",Sys.Date(),"_MS.csv"),row.names=FALSE)
@@ -137,9 +190,9 @@ hhs$HHS = sapply(hhs$STUSAB, grep, HHS_reg)
 us.dat = subset(dat, primary_country %in% c("United States", "USA") & primary_host=="Human") 
 us.dat = subset(us.dat, nchar(primary_state_abv)==2) 
 ## Get unique records in Hadoop table (2021-04-26)
-us.dat = unique(us.dat)
-pangolin = unique(pangolin)
-baseline = unique(baseline)
+us.dat = distinct(us.dat)
+pangolin = distinct(pangolin)
+baseline = distinct(baseline)
 # Disambiguate and remove unreasonable dates
 us.dat$collection_date = as.Date(us.dat$primary_collection_date)
 us.dat$collection_date = with(us.dat, as.Date(ifelse(is.na(collection_date), as.Date(primary_collection_date_dt), collection_date), origin="1970-01-01"))
@@ -313,7 +366,7 @@ svy.dat$sgtf_weights[is.na(svy.dat$sgtf_weights) | !svy.dat$SGTF_UPSAMPLING] = 1
 svy.dat = merge(svy.dat, incidence_by_region[, c("HHS", "yr_wk", "HHS_INCIDENCE")], all.x=TRUE)#for states missing testing data (OH), using the region level incidence
 
 #
-save(svy.dat, file=paste0("svydat_", Sys.Date(), ".RData"))
+save(svy.dat, file=paste0(script.basename, "/data/", "svydat_", Sys.Date(), ".RData"))
 
 
 
