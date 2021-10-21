@@ -141,14 +141,20 @@ pangolin = dbGetQuery(impala, 'SELECT distinct * FROM sc2_src.pangolin') #
 # S gene mutation lists, and source (for NS3 and labs)
 baseline = dbGetQuery(impala, 'SELECT nt_id, source, primary_virus_name, s_mut, collection_date FROM sc2_dev.baselineseq') # state, zip available, also in dedup; S1 slower, built at query
 #baseline = dbGetQuery(impala, "SELECT nt_id, source, primary_virus_name, collection_date FROM sc2_dev.baselineseq") # state, zip available, also in dedup; S1 slower, built at query
-tests = dbGetQuery(impala, 'SELECT to_date(collection_date) as collection_date,
-                   reporting_state,
-                   INDETERMINATE,
-                   INVALID,
-                   NEGATIVE,
-                   POSITIVE
-                   FROM sc2_src.hhs_protect_testing
-                   WHERE collection_date is NOT NULL')
+tests = dbGetQuery(impala, 'SELECT to_date(H.collection_date) as collection_date,
+  H.reporting_state,
+  H.INDETERMINATE,
+  H.INVALID,
+  H.NEGATIVE,
+  H.POSITIVE
+  FROM sc2_archive.hhs_protect_testing_frozen as H
+  INNER JOIN
+  (SELECT max(date_frozen) as max_date_frozen
+    FROM sc2_archive.hhs_protect_testing_frozen
+  ) as F
+  ON H.date_frozen = F.max_date_frozen
+  WHERE H.collection_date is NOT NULL')
+
 colnames(tests) = c("collection_date", "reporting_state", "INDETERMINATE", "INVALID" , "NEGATIVE" , "POSITIVE")
 
 dbDisconnect(impala)
