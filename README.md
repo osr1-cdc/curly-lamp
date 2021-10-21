@@ -19,7 +19,8 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
 
 ## How to run from a scicomp location
 
-Before running the scripts, variables for running must be updated in the `config/config.R` file.
+Before running the scripts, variables for running must be updated in the `config/config.R` file. This repo and branch has been copied
+to the SARS2Seq project folder located at the following path: `/scicomp/groups/Projects/SARS2Seq/repos/sc2_proportion_modeling`.
 
 1. Activate the conda environment (requires conda to be installed for your user):
    ```bash
