@@ -129,12 +129,13 @@ B429=B429[which(B429 %notin% voc)] #vector of the B621s to aggregate
 
 #Added per specifc 6/11/2021 request to aggregate sublineages of P1 and B1.351 to 
 # the parent lineage (for now taking the easy route of just recoding those lineages)
-if(P.1_agg==TRUE) {src.dat[src.dat$VARIANT %in% c("P.1.1","P.1.2","P.1.3","P.1.4","P.1.5","P.1.6","P.1.7","P.1.8","P.1.9","P.1.10","P.1.10.2","P.1.11"),"VARIANT"] <- "P.1"}
-if(B.1.351_agg==TRUE) {src.dat[src.dat$VARIANT %in% c("B.1.351.1","B.1.351.2","B.1.351.3"),"VARIANT"] <- "B.1.351"}
-if(B.1.621_agg==TRUE) {src.dat[src.dat$VARIANT %in% c("B.1.621.1"),"VARIANT"] <- 'B.1.621' }
-if(Q.1_3_agg==TRUE) {src.dat[src.dat$VARIANT %in% c("Q.1","Q.2","Q.3","Q.4","Q.5","Q.6","Q.7","Q.8"),"VARIANT"] <- "B.1.1.7"}#Saturday 6/12 request
-if(AY_agg==TRUE) {src.dat[src.dat$VARIANT %in% AY ,"VARIANT"] <- "B.1.617.2"}#Saturday 6/12 request
-if(B429_7_agg==TRUE) {src.dat[src.dat$VARIANT %in% c("B.1.429","B.1.429.1") ,"VARIANT"] <- "B.1.427"}#Saturday 6/12 request
+# [updated by Molly 10/21/21: updated to automatically define list of sublineages to aggregate]
+if(P.1_agg==TRUE) {src.dat[src.dat$VARIANT %in% P1,"VARIANT"] <- "P.1"}
+if(B.1.351_agg==TRUE) {src.dat[src.dat$VARIANT %in% B351,"VARIANT"] <- "B.1.351"}
+if(B.1.621_agg==TRUE) {src.dat[src.dat$VARIANT %in% B621,"VARIANT"] <- 'B.1.621' }
+if(Q.1_3_agg==TRUE) {src.dat[src.dat$VARIANT %in% Q,"VARIANT"] <- "B.1.1.7"}
+if(AY_agg==TRUE) {src.dat[src.dat$VARIANT %in% AY ,"VARIANT"] <- "B.1.617.2"}
+if(B429_7_agg==TRUE) {src.dat[src.dat$VARIANT %in% B429 ,"VARIANT"] <- "B.1.427"}
 # write.csv(src.dat, paste0("srcdat_",data_date,".csv"),row.names = FALSE)
 
 svyNOGIS_ADJ = svydesign(ids=~SOURCE, strata=~STUSAB, weights= ~ SIMPLE_ADJ_WT, nest=TRUE, data=src.dat) # 2021-03-28: cluster corrected to SOURCE
@@ -564,22 +565,27 @@ all.ftnt = rbind(all.ftnt, others)
 
 dat2 <- src.dat[src.dat$FORTNIGHT_END>=as.Date("2021-05-08","%Y-%m-%d"),]
 dat2 <- subset(dat2, as.Date(dat2$FORTNIGHT_END) <= as.Date(tail(unique(all.ftnt$Fortnight_ending),1)))
-raw_counts_REG <- aggregate(count~VARIANT2+FORTNIGHT_END+HHS, data=dat2, FUN=sum)
+raw_counts_REG <- aggregate(count~VARIANT2+FORTNIGHT_END+HHS, data=dat2, FUN=sum, drop=FALSE)
 raw_counts_REG$HHS <- as.character(raw_counts_REG$HHS)# <- aggregate(count~VARIANT2+FORTNIGHT_END+HHS, data=dat2, FUN=sum)
 
-raw_counts_US <- aggregate(count~VARIANT2+FORTNIGHT_END, data=dat2, FUN=sum)
+raw_counts_US <- aggregate(count~VARIANT2+FORTNIGHT_END, data=dat2, FUN=sum, drop=FALSE)
 raw_counts_US <- cbind(raw_counts_US[,1:2],HHS="USA",count=raw_counts_US[,3])
 raw_counts <- rbind.data.frame(raw_counts_US,raw_counts_REG)
 
 #merge sequence counts with weighted proportions estimates
 all.ftnt2 <- merge(all.ftnt, raw_counts,by.x=c("USA_or_HHSRegion","Fortnight_ending","Variant"),by.y=c("HHS","FORTNIGHT_END","VARIANT2"),all=T) 
 
-all.ftnt2[is.na(all.ftnt2$count)==T & all.ftnt2$Variant!="Other","count"] <- 0
+all.ftnt2[is.na(all.ftnt2$count)==T,"count"] <- 0
 
 #calculate denominator counts
 dss <- aggregate(count~USA_or_HHSRegion+Fortnight_ending, data=all.ftnt2,FUN=sum)
 names(dss)[grep("count",names(dss))] <- "denom_count"
 all.ftnt2 <- merge(all.ftnt2, dss)
+
+#set the Share 0 and CI limits to NA when the count for a lineage is 0
+all.ftnt2$Share=ifelse(all.ftnt2$Share!=0 & all.ftnt2$count==0,0,all.ftnt2$Share)
+all.ftnt2$Share_lo=ifelse(is.na(all.ftnt2$Share_lo)==F & all.ftnt2$count==0,NA,all.ftnt2$Share_lo)
+all.ftnt2$Share_hi=ifelse(is.na(all.ftnt2$Share_hi)==F & all.ftnt2$count==0,NA,all.ftnt2$Share_hi)
 
 #calculate absolute CI width
 all.ftnt2$CI_width=all.ftnt2$Share_hi-all.ftnt2$Share_lo
@@ -608,7 +614,7 @@ write.csv(all.ftnt2, paste0(script.basename, "/results/variant_share_weighted_",
 #if (update_wk == 2) {wks = head(sort(unique(subset(src.dat, DAY >= as.numeric(as.Date("2021-01-25") - week0day1))$yr_wk)), -1)} else { 
 #  wks = sort(unique(subset(src.dat, DAY >= as.numeric(as.Date("2021-01-25") - week0day1))$yr_wk))-2}
 
-wks = sort(unique(subset(src.dat, as.Date(yr_wk) >= as.Date("2021-05-08") & as.Date(yr_wk) <= time_end-6)$yr_wk)) # all in 2021
+wks = sort(unique(subset(src.dat, as.Date(yr_wk) >= as.Date("2021-05-02") & as.Date(yr_wk) <= time_end-6)$yr_wk)) # all in 2021
 
 all.wkly = expand.grid(Variant=reported_variants, Week_of=wks, USA_or_HHSRegion=c("USA", 1:10))[, 3:1]
 ests = apply(all.wkly, 1, function(rr) myciprop(rr[3], rr[1], subset(svyDES, yr_wk == rr[2]), FALSE))
@@ -622,23 +628,23 @@ all.wkly = rbind(all.wkly, others)
 all.wkly$WEEK_END = as.Date(all.wkly$Week_of) + 6
 
 #generate sequence counts by lineage, location and date
-dat2 <- subset(src.dat, DAY >= as.numeric(as.Date("2021-05-08") - week0day1))
+dat2 <- subset(src.dat, as.Date(yr_wk) >= as.Date("2021-05-02"))
 dat2$WEEK_END = as.Date(dat2$yr_wk) + 6
 
 #make sure dates match dates in proportions dataframe 
 dat2 <- subset(dat2, WEEK_END <= tail(unique(all.wkly$WEEK_END),1))
 
-raw_counts_REG <- aggregate(count~VARIANT2+WEEK_END+HHS, data=dat2, FUN=sum)
+raw_counts_REG <- aggregate(count~VARIANT2+WEEK_END+HHS, data=dat2, FUN=sum,drop=FALSE)
 raw_counts_REG$HHS <- as.character(raw_counts_REG$HHS)
 
-raw_counts_US <- aggregate(count~VARIANT2+WEEK_END, data=dat2, FUN=sum)
+raw_counts_US <- aggregate(count~VARIANT2+WEEK_END, data=dat2, FUN=sum,drop=FALSE)
 raw_counts_US <- cbind(raw_counts_US[,1:2],HHS="USA",count=raw_counts_US$count)
 raw_counts <- rbind.data.frame(raw_counts_US,raw_counts_REG)
 
 #merge sequence counts with weighted proportions estimates
 all.wkly2 <- merge(all.wkly, raw_counts,by.x=c("USA_or_HHSRegion","WEEK_END","Variant"),by.y=c("HHS","WEEK_END","VARIANT2"),all=T) 
 
-all.wkly2[is.na(all.wkly2$count)==T & all.wkly2$Variant!="Other","count"] <- 0
+all.wkly2[is.na(all.wkly2$count)==T ,"count"] <- 0
 
 
 #calculate denominator counts
@@ -648,6 +654,11 @@ all.wkly2 <- merge(all.wkly2, dss)
 
 #calculate absolute CI width
 all.wkly2$CI_width=all.wkly2$Share_hi-all.wkly2$Share_lo
+
+#set the Share 0 and CI limits to NA when the count for a lineage is 0
+all.wkly2$Share=ifelse(all.wkly2$Share!=0 & all.wkly2$count==0,0,all.wkly2$Share)
+all.wkly2$Share_lo=ifelse(is.na(all.wkly2$Share_lo)==F & all.wkly2$count==0,NA,all.wkly2$Share_lo)
+all.wkly2$Share_hi=ifelse(is.na(all.wkly2$Share_hi)==F & all.wkly2$count==0,NA,all.wkly2$Share_hi)
 
 #generate NCHS flags
 all.wkly2$flag_df=ifelse(all.wkly2$DF<8,1,0)
@@ -682,9 +693,10 @@ write.csv(all.wkly2, paste0(script.basename, "/results/variant_share_weekly_weig
 if (length(grep("Run3",tag))!=0){ #Only Run the state-level estimates when running the state list of lineages (i.e. Run 3) 
   
   #get the week number that corresponds to date defined in state_time_end
-  data_week <-unique(c(src.dat$week[src.dat$yr_wk==state_time_end[1]-6],
-                       src.dat$week[src.dat$yr_wk==state_time_end[2]-6],
-                       src.dat$week[src.dat$yr_wk==state_time_end[3]-6])) #have to subtract 6 days because the yr_wk variable defines week starting on Sunday whereas the state_time_end is defined as week ending Saturday
+  data_week=c()
+  for(i in 1:length(state_time_end)){
+    data_week[i] <-unique(src.dat$week[src.dat$yr_wk==state_time_end[i]-6]) #have to subtract 6 days because the yr_wk variable defines week starting on Sunday whereas the state_time_end is defined as week ending Saturday
+  }
   
   svyDES = svydesign(ids=~SOURCE, strata=~STUSAB+yr_wk, weights= ~ SIMPLE_ADJ_WT, nest=TRUE, data=src.dat) #redefine survey design to the new design for state-level estimates
   
@@ -709,7 +721,7 @@ if (length(grep("Run3",tag))!=0){ #Only Run the state-level estimates when runni
     #merge sequence counts with weighted proportions estimates
     all.state2 <- merge(all.state[all.state$Roll_4wk_end==data_week[i],], raw_counts_state,by.x=c("State","Variant"),by.y=c("STUSAB","VARIANT2"),all=T) 
     
-    all.state2[is.na(all.state2$count)==T & all.state2$Variant!="Other","count"] <- 0
+    all.state2[is.na(all.state2$count)==T,"count"] <- 0
     
     
     #calculate denominator counts
@@ -721,6 +733,11 @@ if (length(grep("Run3",tag))!=0){ #Only Run the state-level estimates when runni
     
     all.state.out <- rbind.data.frame(all.state.out,all.state2)
   }
+  
+  #set the Share 0 and CI limits to NA when the count for a lineage is 0
+  all.state.out$Share=ifelse(all.state.out$Share!=0 & all.state.out$count==0,0,all.state.out$Share)
+  all.state.out$Share_lo=ifelse(is.na(all.state.out$Share_lo)==F & all.state.out$count==0,NA,all.state.out$Share_lo)
+  all.state.out$Share_hi=ifelse(is.na(all.state.out$Share_hi)==F & all.state.out$count==0,NA,all.state.out$Share_hi)
   
   #calculate absolute CI width
   all.state.out$CI_width=all.state.out$Share_hi-all.state.out$Share_lo
@@ -755,22 +772,19 @@ if (length(grep("Run2",tag))!=0){ #Run the nowcast output only when doing the ru
   AY_agg=names(model_vars)[grep("AY",names(model_vars))]
   
   AY_agg=AY_agg[AY_agg %notin% c("AY.1","AY.2")]
+  Other_agg=names(model_vars)[names(model_vars) %notin% voc]
   
-  #code below will throw error if code above didn't grab proportions for all the lineages you need to add to the model_vars vector
-  #if(length(AY_add)!= length(AY2)) stop ("length of lineage proportion vector is not the same length as the lineage names vector")
-  
-  #concatenate the lineages to aggregate to the model_vars vector
-  #model_vars <- c(model_vars,AY_add)
   
   #generate a matrix that indicates which lineages to aggregate for the nowcast
   #Columns are the lineages in the nowcast model, so all the defined lineages plus the other lineage
   #Rows are the aggregated lineages wanted
-  agg_var_mat <- matrix(data=0,nrow=1,ncol=(length(model_vars)+1))
+  agg_var_mat <- matrix(data=0,nrow=2,ncol=(length(model_vars)+1))
   colnames(agg_var_mat) <- c(names(model_vars),"Other")
   
   #Fill in matrix values: if lineage needs to be aggregated for parent lineage in given row, then value = 1, else value = 0
   agg_var_mat[1,] <- ifelse(colnames(agg_var_mat) %in% c("B.1.617.2",AY_agg),1,0)
-  row.names(agg_var_mat) <-"Delta Aggregated" 
+  agg_var_mat[2,] <- ifelse(colnames(agg_var_mat) %in% c(Other_agg,"Other"),1,0)
+  row.names(agg_var_mat) <-c("Delta Aggregated","Other Aggregated") 
   
   
   
@@ -811,7 +825,19 @@ if (length(grep("Run2",tag))!=0){ #Run the nowcast output only when doing the ru
   
   proj.res = proj.res[, c("USA_or_HHSRegion", "Fortnight_ending", "Variant", "Share", "Share_lo", "Share_hi")]
   
-  write.csv(proj.res, paste0(script.basename, "/results/updated_nowcast_fortnightly_", data_date,tag, ".csv"), row.names=FALSE)
+  #Format output for the run 1 lineage list
+  run_1=proj.res[proj.res$Variant %notin% c(AY_agg,"B.1.617.2", Other_agg,"Other"),]
+  run_1[run_1$Variant=="Other Aggregated","Variant"] <- "Other"
+  
+  write.csv(run_1, paste0(script.basename, "/results/updated_nowcast_fortnightly_", data_date,"_state_tag_included_Run1.csv"), row.names=FALSE)
+  
+  #Format output for the run2 lineage list
+  drop_lin <- row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"]
+  run_2=proj.res[proj.res$Variant %notin% c(drop_lin, Other_agg,"Other"),]
+  run_2[run_2$Variant=="Other Aggregated","Variant"] <- "Other"
+  
+  write.csv(run_2, paste0(script.basename, "/results/updated_nowcast_fortnightly_", data_date,"_state_tag_included_Run2.csv"), row.names=FALSE)
+  
   
   ## Weekly
   
@@ -847,7 +873,19 @@ if (length(grep("Run2",tag))!=0){ #Run the nowcast output only when doing the ru
   
   proj.res = proj.res[, c("USA_or_HHSRegion", "Week_ending", "Variant", "Share", "Share_lo", "Share_hi")]
   
-  write.csv(proj.res, paste0(script.basename, "/results/updated_nowcast_weekly_", data_date,tag, ".csv"), row.names=FALSE)
+  #Format output for the run 1 lineage list
+  run_1=proj.res[proj.res$Variant %notin% c(AY_agg,"B.1.617.2", Other_agg,"Other"),]
+  run_1[run_1$Variant=="Other Aggregated","Variant"] <- "Other"
+  
+  write.csv(run_1, paste0(script.basename, "/results/updated_nowcast_weekly_", data_date,"_state_tag_included_Run1.csv"), row.names=FALSE)
+  
+  #Format output for the run2 lineage list
+  drop_lin <- row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"]
+  run_2=proj.res[proj.res$Variant %notin% c(drop_lin, Other_agg,"Other"),]
+  run_2[run_2$Variant=="Other Aggregated","Variant"] <- "Other"
+  
+  write.csv(run_2, paste0(script.basename, "/results/updated_nowcast_weekly_", data_date,"_state_tag_included_Run2.csv"), row.names=FALSE)
+  
 }
 
 #capture system time
