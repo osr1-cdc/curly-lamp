@@ -19,7 +19,7 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
 
 ## How to run from a scicomp location
 
-Before running the scripts, variables for running must be update in the `config/config.R` file.
+Before running the scripts, variables for running must be updated in the `config/config.R` file.
 
 1. Activate the conda environment (requires conda to be installed for your user):
    ```bash
