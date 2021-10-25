@@ -4,8 +4,8 @@ ci.type <- "KG" #variable specifying which CI estimator to use for weighted prop
 
 #variable for whether or not to include the state tagged sequences
 # Update the following each run ----------------------------------------
-time_end <- as.Date("2021-10-02") #set end date for national and regional survey estimates  
-state_time_end=c(as.Date("2021-09-11"),as.Date("2021-09-18"),as.Date("2021-09-25")) # set end dates for state-level estimates
+time_end <- as.Date("2021-10-16") #set end date for national and regional survey estimates  
+state_time_end=c(as.Date("2021-09-11"),as.Date("2021-09-18"),as.Date("2021-09-25"), as.Date("2021-10-02"), as.Date("2021-10-09")) # set end dates for state-level estimates
 data_date <- Sys.Date()  # set date for data creation, set to current date to allow more portability
 
 
@@ -29,9 +29,7 @@ if(length(grep("Run1",tag))>0){
   voc=c("AY.1",
         "AY.2",
         "B.1.1.7",#*
-        "B.1.617.2",#*
-        "B.1.621",#*
-        "P.1"#*
+        "B.1.617.2"#*
   )
   
 } else if(length(grep("Run2",tag))>0) {
@@ -39,25 +37,16 @@ if(length(grep("Run1",tag))>0){
         "AY.2",
         "AY.3",
         "AY.3.1",
-        "AY.10",
-        "AY.12",
-        "AY.13",
         "AY.14",
-        "AY.15",
         "AY.16",
         "AY.20",
-        "AY.23",
         "AY.24",
         "AY.25",
         "AY.26",
-        "AY.32",
         "AY.35",
         "AY.4",
-        "AY.5",
         "B.1.1.7",#*
-        "B.1.617.2",#* (non-enumerated AYs aggregated)
-        "B.1.621",#*
-        "P.1"#*
+        "B.1.617.2"#* (non-enumerated AYs aggregated)
   )
   
   #State-level run
