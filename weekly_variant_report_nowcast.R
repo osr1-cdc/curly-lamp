@@ -216,7 +216,7 @@ svymultinom = function(src.dat, mysvy, fmla=formula("as.numeric(as.factor(K_US))
   # Format results to fit into svymle-like workflow
   num_var = length(unique(with(src.dat, eval(terms(fmla)[[2]])))) #gets the number of variants being modeled (should be length of model_vars plus 1 for others)
   fmla.no.response = formula(delete.response(terms(fmla))) #generates the model formula without the response term
-  formulas = rep(list(fmla.no.response), num_var - 1) #repeats the model formula w/o response term for the number variants listed in model_vars
+   formulas = rep(list(fmla.no.response), num_var - 1) #repeats the model formula w/o response term for the number variants listed in model_vars
   # Response on first formula ensures inclusion as response later on
   formulas[[1]] = fmla #sets the first formula listed in formulas to the formula that includes a response term
   names(formulas) = paste0("b", 1:length(formulas) + 1) #sets the names of the formulas to correspond to beta coefficients for each variant
@@ -224,75 +224,110 @@ svymultinom = function(src.dat, mysvy, fmla=formula("as.numeric(as.factor(K_US))
   rval$estimates = as.list(data.frame(t(rval$estimates))) #transforms the estimates object to be a list where each element is a vector of the coefficients for a given variant (hhs model: Intercept,week, HHS 2:10; us model: Intercept, week)
   ## End multinomial regression
   
-  ## Define likelihood 
-  # Loglikelihood:
-  lmultinom = function(v, ...) {
-    # vectorized loglikelihood function
-    # v (positive integer vector) is position of response variable in ordered list of possible values (1=reference)
-    # ... vectors of  linear predictors
-    b = cbind(0, ...)
-    b = matrix(b, nrow=length(v))
-    sapply(seq_along(v), function(rr) b[rr, v[rr]])  - log(rowSums(exp(b)))
+  
+  # if the Hessian is not invertible, avoid errors by not running the rest of the function
+  # (note: the se.multinom function will still run, but will assume the SE is 0)
+  # if(det(multinom_geoid$Hessian) == -Inf) {
+  if(det(multinom_geoid$Hessian) < -9e100) {
+    # might want to replace -Inf with a very large negative number: e.g. -9e100
+    
+    # add empty items to the results (setting to NULL in list() does create the item)
+    rval <- append(rval,
+                   list(
+                     'scores' = NULL,
+                     'invinf' = NULL,
+                     'sandwich' = NULL,
+                     'SE' = NULL
+                   ))
+    
+    # remove the Hessian
+    rval$mlm$Hessian = NULL
+    
+    # make the estimates a vector instead of a list
+    rval$estimates = unlist(rval$estimates)
+    # add prettier names to the estimates (to match names that are produced below)
+    names(rval$estimates) <- paste0('b', 
+                                    sub(pattern = ':', 
+                                        replacement = '\\.', 
+                                        x = colnames(multinom_geoid$Hessian)))
+    
+    # add a warning 
+    warning_message = 'Hessian is non-invertible. Nowcast estimates will not have confidence intervals. Check for geographic regions with very few samples of a variant.'
+    warning(warning_message)
+    # also print out an alert b/c warnings can sometimes get swamped by other minor warnings
+    print(warning_message)
+  } else {
+    
+    ## Define likelihood
+    # Loglikelihood:
+    lmultinom = function(v, ...) {
+      # vectorized loglikelihood function
+      # v (positive integer vector) is position of response variable in ordered list of possible values (1=reference)
+      # ... vectors of  linear predictors
+      b = cbind(0, ...)
+      b = matrix(b, nrow=length(v))
+      sapply(seq_along(v), function(rr) b[rr, v[rr]])  - log(rowSums(exp(b)))
+    }
+    # Gradient of loglikelihood:
+    gmultinom = function(v, ...) {
+      # vectorized partial derivatives of lmultinom(v, ...) with respect to linear predictors at ...
+      # vectorized loglikelihood function
+      # v (positive integer vector) is position of response variable in ordered list of possible values (1=reference)
+      b = cbind(0, ...)
+      b = matrix(b, nrow=length(v))
+      p = exp(b)/rowSums(exp(b))
+      delta_ij = p * 0
+      delta_ij[1:length(v) + (v-1) * length(v)] = 1
+      # Column n is partial derivative with respect to ...[n]:
+      (delta_ij - p)[, -1]
+    }
+    ## End likelihood definitions
+    
+    ## Build dataframe to pass to svyrecvar
+    # Adapted from code in svymle
+    nms = c("", names(formulas)) #modifies formula names
+    has.response = sapply(formulas, length) == 3 #logical that identifies which formula has a response variable
+    ff = formulas[[which(has.response)]] #creates variable equal to regression formula that has response variable
+    ff[[3]] = 1 #sets predictor terms to 1 so: as.numeric(as.factor(K_US)) ~ 1
+    y = eval.parent(model.frame(ff, data = src.dat, na.action = na.pass)) #I think this just gets you what the rankings are for the variants from src.dat (i.e. the response data for the regression model)
+    formulas[[which(has.response)]] = formula(delete.response(terms(formulas[[which(has.response)]]))) #sets the first formula to a formula without the response term
+    mf = vector("list", length(formulas)) #creates empty list the same length of the formulas object
+    vnms = unique(do.call(c, lapply(formulas, all.vars))) #vector with the names of the regression predictors
+    uformula = make.formula(vnms) #converts the vnms to a formula object w/o the response term
+    mf = model.frame(uformula, data = src.dat, na.action = na.pass)#gets the values for the model predictors from src.dat
+    mf = cbind(`(Response)` = y, mf) #adds a column for the variant rankings to mf with the column header as as.numeric(as.factor(K_US))
+    mf = mf[, !duplicated(colnames(mf)), drop = FALSE]#I think this just ensures that there aren't any duplicated columns
+    weights = weights(mysvy) #gets the svy weights from the survey design object
+    wtotal = sum(weights) #gets the sum of the weights
+    Y = mf[, 1] #defines Y as the variant
+    mmFrame = lapply(formulas, model.frame, data = mf) #for each formula listed in formula, generates the underlying data for those parameters
+    mm = mapply(model.matrix, object = formulas, data = mmFrame, SIMPLIFY = FALSE) #creates model design objects for each variant
+    np = c(0, cumsum(sapply(mm, NCOL))) #gets the cumulative number of columns across all dataframes listed in mm
+    parnms = lapply(mm, colnames) #gets the column names from all the dataframes in mm
+    for (i in 1:length(parnms)) parnms[[i]] = paste(nms[i + 1], parnms[[i]], sep = ".") #formats column names in each list element to correspond to the coefficient
+    parnms = unlist(parnms) #converts the parameter names from a list to a vector
+    
+    theta = unlist(rval$estimates) # gets the estimated coefficients from multinom as a vector
+    args = vector("list", length(nms)) #creates empty list the same length as the number of variants plus other
+    args[[1]] = Y #sets first list element to the variant rank data (i.e. response variable)
+    names(args) = nms #assigns the names of the args list to nms
+    for (i in 2:length(nms)) args[[i]] = drop(mm[[i - 1]] %*% theta[(np[i - 1] + 1):np[i]]) #gets the coefficient estimates for each of the regression coefficients for each modeled variant, and places in the appropriate model design object
+    
+    deta = matrix(do.call("gmultinom", args), ncol=length(args)-1) #this takes the args list and uses the gmultinom function above to estimate the gradient of the log likelihood
+    rval$scores = NULL # creates an empty list element called scores in the rval list
+    reorder = na.omit(match(names(formulas), nms[-1])) # creates numerical vector the same length as the names of formulas
+    for (i in reorder) rval$scores = cbind(rval$scores, deta[, i] * weights * mm[[i]]) #for each variant this multiplies the gradient the loglikelihood by the survey weights
+    rval$invinf = solve(-multinom_geoid$Hessian) #not 100% sure what this step does it looks like it's solving the inverse (negative?) multinomial regression object and adds as a list element to rval
+    dimnames(rval$invinf) = list(parnms, parnms) #assigns names to the rval$invinf
+    db = rval$scores %*% rval$invinf # this uses matrix multiplication to multiply the "scores" (i.e., the gradient loglikelihood * survey weights) by the inverse(?) multinomial regression object
+    
+    #Everything up until now has been formatting steps to get the estimates/data formatted in way that's compatible with the svyrecvar function
+    rval$sandwich = svyrecvar(db, mysvy$cluster, mysvy$strata, mysvy$fpc, postStrata = mysvy$postStrata) #Computes the variance of a total under multistage sampling, using a recursive descent algorithm.The object that's returned ("sandwich") is the covariance matrix
+    rval$SE = sqrt(diag(rval$sandwich)) #estimating the "SE" (although isn't this sd?) as the square root of the diagonal elements of the variance-covariance matrix (i.e. the variance)
+    rval$estimates = unlist(rval$estimates) #converts the "estimates" object from a list to a vector
+    names(rval$estimates) = names(rval$SE) #assigns the names of "estimates" in rval to be the same as the names of "SE"
+    rval$mlm$svyvcov = rval$sandwich #adds the variance-covariance matrix to the mlm object (mlm being the results object you get from solving the multinomial model)
   }
-  # Gradient of loglikelihood:
-  gmultinom = function(v, ...) {
-    # vectorized partial derivatives of lmultinom(v, ...) with respect to linear predictors at ...
-    # vectorized loglikelihood function
-    # v (positive integer vector) is position of response variable in ordered list of possible values (1=reference)
-    b = cbind(0, ...)
-    b = matrix(b, nrow=length(v))
-    p = exp(b)/rowSums(exp(b))
-    delta_ij = p * 0
-    delta_ij[1:length(v) + (v-1) * length(v)] = 1
-    # Column n is partial derivative with respect to ...[n]:
-    (delta_ij - p)[, -1]
-  }
-  ## End likelihood definitions
-  
-  ## Build dataframe to pass to svyrecvar
-  # Adapted from code in svymle
-  nms = c("", names(formulas)) #modifies formula names
-  has.response = sapply(formulas, length) == 3 #logical that identifies which formula has a response variable
-  ff = formulas[[which(has.response)]] #creates variable equal to regression formula that has response variable
-  ff[[3]] = 1 #sets predictor terms to 1 so: as.numeric(as.factor(K_US)) ~ 1
-  y = eval.parent(model.frame(ff, data = src.dat, na.action = na.pass)) #I think this just gets you what the rankings are for the variants from src.dat (i.e. the response data for the regression model)
-  formulas[[which(has.response)]] = formula(delete.response(terms(formulas[[which(has.response)]]))) #sets the first formula to a formula without the response term
-  mf = vector("list", length(formulas)) #creates empty list the same length of the formulas object
-  vnms = unique(do.call(c, lapply(formulas, all.vars))) #vector with the names of the regression predictors
-  uformula = make.formula(vnms) #converts the vnms to a formula object w/o the response term
-  mf = model.frame(uformula, data = src.dat, na.action = na.pass)#gets the values for the model predictors from src.dat
-  mf = cbind(`(Response)` = y, mf) #adds a column for the variant rankings to mf with the column header as as.numeric(as.factor(K_US))
-  mf = mf[, !duplicated(colnames(mf)), drop = FALSE]#I think this just ensures that there aren't any duplicated columns
-  weights = weights(mysvy) #gets the svy weights from the survey design object
-  wtotal = sum(weights) #gets the sum of the weights
-  Y = mf[, 1] #defines Y as the variant
-  mmFrame = lapply(formulas, model.frame, data = mf) #for each formula listed in formula, generates the underlying data for those parameters
-  mm = mapply(model.matrix, object = formulas, data = mmFrame, SIMPLIFY = FALSE) #creates model design objects for each variant
-  np = c(0, cumsum(sapply(mm, NCOL))) #gets the cumulative number of columns across all dataframes listed in mm
-  parnms = lapply(mm, colnames) #gets the column names from all the dataframes in mm
-  for (i in 1:length(parnms)) parnms[[i]] = paste(nms[i + 1], parnms[[i]], sep = ".") #formats column names in each list element to correspond to the coefficient 
-  parnms = unlist(parnms) #converts the parameter names from a list to a vector
-  
-  theta = unlist(rval$estimates) # gets the estimated coefficients from multinom as a vector
-  args = vector("list", length(nms)) #creates empty list the same length as the number of variants plus other
-  args[[1]] = Y #sets first list element to the variant rank data (i.e. response variable)
-  names(args) = nms #assigns the names of the args list to nms
-  for (i in 2:length(nms)) args[[i]] = drop(mm[[i - 1]] %*% theta[(np[i - 1] + 1):np[i]]) #gets the coefficient estimates for each of the regression coefficients for each modeled variant, and places in the appropriate model design object 
-  
-  deta = matrix(do.call("gmultinom", args), ncol=length(args)-1) #this takes the args list and uses the gmultinom function above to estimate the gradient of the log likelihood  
-  rval$scores = NULL # creates an empty list element called scores in the rval list 
-  reorder = na.omit(match(names(formulas), nms[-1])) # creates numerical vector the same length as the names of formulas
-  for (i in reorder) rval$scores = cbind(rval$scores, deta[, i] * weights * mm[[i]]) #for each variant this multiplies the gradient the loglikelihood by the survey weights 
-  rval$invinf = solve(-multinom_geoid$Hessian) #not 100% sure what this step does it looks like it's solving the inverse (negative?) multinomial regression object and adds as a list element to rval
-  dimnames(rval$invinf) = list(parnms, parnms) #assigns names to the rval$invinf
-  db = rval$scores %*% rval$invinf # this uses matrix multiplication to multiply the "scores" (i.e., the gradient loglikelihood * survey weights) by the inverse(?) multinomial regression object
-  
-  #Everything up until now has been formatting steps to get the estimates/data formatted in way that's compatible with the svyrecvar function
-  rval$sandwich = svyrecvar(db, mysvy$cluster, mysvy$strata, mysvy$fpc, postStrata = mysvy$postStrata) #Computes the variance of a total under multistage sampling, using a recursive descent algorithm.The object that's returned ("sandwich") is the covariance matrix
-  rval$SE = sqrt(diag(rval$sandwich)) #estimating the "SE" (although isn't this sd?) as the square root of the diagonal elements of the variance-covariance matrix (i.e. the variance)
-  rval$estimates = unlist(rval$estimates) #converts the "estimates" object from a list to a vector
-  names(rval$estimates) = names(rval$SE) #assigns the names of "estimates" in rval to be the same as the names of "SE"
-  rval$mlm$svyvcov = rval$sandwich #adds the variance-covariance matrix to the mlm object (mlm being the results object you get from solving the multinomial model)
   
   rval #makes sure the rval object is the output from this function
 }
@@ -349,8 +384,12 @@ se.multinom = function(mlm, week, geoid="USA", composite_variant=NULL) {
 
 #Function to get binomial confidence interval based on the point estimated proportion and associated SE
 svyCI = function(p, s) {
-  n=p*(1-p)/s^2
-  out=prop.test(n * p, n)$conf.int
+  if(s == 0){
+    out = c(NA,NA)
+  } else {
+    n=p*(1-p)/s^2
+    out=prop.test(n * p, n)$conf.int
+  }
   c(out[1],out[2])
 }
 
@@ -470,6 +509,14 @@ if (fig_gen_run) png(paste0(stub, "growthrate_US",tag,".png"), width=8, height=8
 plot(100 * us.summary$p_i, gr, log="x", type="n", ylim=range(gr + 1.96 * se.gr, gr - 1.96 * se.gr),
      xaxt="n", xlim=c(0.0005,110),
      xlab = "Nowcast Estimated Proportion (%)", ylab="Week over week growth rate (%)", main="Nationwide")
+if(is.null(svymlm_us$SE)){
+  mtext(text = "*No SE estimates b/c of non-invertible Hessian in multinomial model fit.", 
+        side = 3,
+        line = 0, 
+        cex = 0.75, 
+        font = 4, 
+        col = 'red' )
+}
 axis(1, at=c(0.001,0.01, 0.1, 1, 10,100), labels=c(0.001,0.01, 0.1, 1, 10,100))
 abline(h=0, col="grey65")
 for (vv in seq(model_vars)) {
@@ -521,6 +568,14 @@ for (hhs in sort(unique(src.dat$HHS))) {
                                                             max(range(gr + 1.96 * se.gr, gr - 1.96 * se.gr)[2],100)),
        xaxt="n", xlim=c(0.0005,110),
        xlab = "Weighted share (%)", ylab="Week over week growth rate (%)", main=paste("HHS Region", hhs))
+  if(is.null(svymlm_hhs$SE)){
+    mtext(text = "*No SE estimates b/c of non-invertible Hessian in multinomial model fit.", 
+          side = 3,
+          line = 0, 
+          cex = 0.75, 
+          font = 4, 
+          col = 'red' )
+  }
   axis(1, at=c(0.001,0.01, 0.1, 1, 10,100), labels=c(0.001,0.01, 0.1, 1, 10,100))
   abline(h=0, col="grey65")
   for (vv in seq(model_vars)) {
