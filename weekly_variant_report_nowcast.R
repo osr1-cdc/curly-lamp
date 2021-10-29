@@ -46,6 +46,7 @@ source(paste0(script.basename, "/config/config.R"))
 # ----------------------------------------------------------------------
 library(survey) #package with survey desgin functions
 library(nnet) #package with multinomial regression for nowcast
+library(data.table) # package for speeding up calculation of simple adjusted weights
 options(survey.adjust.domain.lonely=T, survey.lonely.psu="average") #defines what to do when you have a lonely PSU 
 options(stringsAsFactors=FALSE)
 
@@ -90,15 +91,24 @@ if(state_source=="state_tag_included"){
 src.dat$sgtf_weights[is.na(src.dat$sgtf_weights) | !src.dat$SGTF_UPSAMPLING] = 1 # svy.dat variable redefinition resolves this
 # (Weighted) count of sequences
 seq.tbl = with(src.dat, xtabs((1/sgtf_weights) ~ STUSAB + yr_wk))
-for (rr in 1:nrow(src.dat)) {
-  src.dat$SIMPLE_ADJ_WT[rr] = sqrt(src.dat$state_population[rr]/src.dat$TOTAL[rr]) * 
-    src.dat$POSITIVE[rr]/seq.tbl[src.dat$STUSAB[rr], src.dat$yr_wk[rr]] / src.dat$sgtf_weights[rr]
-  # Impute by HHS region for states with missing testing data
-  if (is.na(src.dat$SIMPLE_ADJ_WT[rr])) {
-    src.dat$SIMPLE_ADJ_WT[rr] = 
-      src.dat$state_population[rr] * src.dat$HHS_INCIDENCE[rr] / seq.tbl[src.dat$STUSAB[rr], src.dat$yr_wk[rr]] / src.dat$sgtf_weights[rr]
-  }
-}
+# for (rr in 1:nrow(src.dat)) {
+#   src.dat$SIMPLE_ADJ_WT[rr] = sqrt(src.dat$state_population[rr]/src.dat$TOTAL[rr]) *
+#     src.dat$POSITIVE[rr]/seq.tbl[src.dat$STUSAB[rr], src.dat$yr_wk[rr]] / src.dat$sgtf_weights[rr]
+#   # Impute by HHS region for states with missing testing data
+#   if (is.na(src.dat$SIMPLE_ADJ_WT[rr])) {
+#     src.dat$SIMPLE_ADJ_WT[rr] =
+#       src.dat$state_population[rr] * src.dat$HHS_INCIDENCE[rr] / seq.tbl[src.dat$STUSAB[rr], src.dat$yr_wk[rr]] / src.dat$sgtf_weights[rr]
+#   }
+# }
+
+
+# Replacing for loop with faster data.table code
+# see: https://git.biotech.cdc.gov/sars2seq/sc2_proportion_modeling/-/issues/6#note_86543
+src.dat = data.table::data.table(src.dat)
+src.dat[, "SAW" := sqrt(state_population/TOTAL) * POSITIVE/sum(1/sgtf_weights)/sgtf_weights, .(STUSAB, yr_wk)]
+src.dat[, "SAW_ALT" := state_population*HHS_INCIDENCE / sum(1/sgtf_weights)/sgtf_weights, .(STUSAB, yr_wk)]
+src.dat[, "SIMPLE_ADJ_WT" := ifelse(is.na(SAW), SAW_ALT, SAW)]
+src.dat[, c("SAW", "SAW_ALT") := .(NULL, NULL)]
 
 
 # Just to be sure:
@@ -195,7 +205,14 @@ svymultinom = function(src.dat, mysvy, fmla=formula("as.numeric(as.factor(K_US))
   #src.dat=src.moddat; mysvy=mysvy; fmla=formula("as.numeric(as.factor(K_US))  ~ week")
   ## Get multinomial logistic regression coefficients (and Hessian unadapted to survey design)
   # Multinomial logistic regression (without survey design, but with survey weights) using nnet::multinom:
-  multinom_geoid = nnet::multinom(fmla, data=src.dat, weights=weights(mysvy), Hess=TRUE, maxit=1000, trace=FALSE)
+  # multinom_geoid = nnet::multinom(fmla, data=src.dat, weights=weights(mysvy), Hess=TRUE, maxit=1000, trace=FALSE)
+  
+  # aggregate data before fitting the multinomial model to vastly improve run time
+  # see: https://git.biotech.cdc.gov/sars2seq/sc2_proportion_modeling/-/issues/6#note_86544
+  fmla.vars = all.vars(fmla)
+  mlm.dat = data.table::data.table(cbind(data.frame(src.dat)[, fmla.vars], weight=weights(mysvy)))[, .(weight=sum(weight)), by=fmla.vars]
+  multinom_geoid = nnet::multinom(fmla, data=mlm.dat, weights=weight, Hess=TRUE, maxit=1000, trace=FALSE)
+  
   # Format results to fit into svymle-like workflow
   num_var = length(unique(with(src.dat, eval(terms(fmla)[[2]])))) #gets the number of variants being modeled (should be length of model_vars plus 1 for others)
   fmla.no.response = formula(delete.response(terms(fmla))) #generates the model formula without the response term
