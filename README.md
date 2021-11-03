@@ -17,6 +17,14 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
 - HHS protect RT-PCR data - Testing dataset downloaded from HHS Protect. Example provided in Resources : *Tests_ByCol_Date_Weekly.csv*.
 - Population Data - State population data. 2018 data in Resources: *ACStable_B01001_40_2012_5.txt*
 
+## Important Note
+
+The current branch has the following custom defined lineages:
+- AY.4.2+ - AY.4.2 with Y145H and A222V
+- AY.35+ - AY.35 with E484Q
+
+All other lineages (including AY.4.2 and AY.35) are from default pangolin calls.
+
 ## How to run from a scicomp location
 
 Before running the scripts, variables for running must be updated in the `config/config.R` file. This repo and branch has been copied

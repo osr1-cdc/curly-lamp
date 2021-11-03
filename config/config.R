@@ -24,6 +24,11 @@ B429_7_agg=TRUE
 
 # List of variants to track (not just VOC or VOI):
 # VOCs
+# The current branch has the following custom defined lineages:
+# - AY.4.2+ - AY.4.2 with Y145H and A222V
+# - AY.35+ - AY.35 with E484Q
+#
+# All other lineages (including AY.4.2 and AY.35) are from default pangolin calls.
 if(length(grep("Run1",tag))>0){
   
   voc=c("AY.1",

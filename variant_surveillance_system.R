@@ -137,7 +137,37 @@ dat = dbGetQuery(impala, query) #saves sequencing data as data frame in R- inclu
 
 # Current Pangolin lineages:
 #pangolin = dbReadTable(impala, "sc2_src.pangolin") # Lineage master list
-pangolin = dbGetQuery(impala, 'SELECT distinct * FROM sc2_src.pangolin') # 
+# defining AY.35+ and AY.4.2+ that have verified amino acid positions of interest
+pangolin = dbGetQuery(impala,
+'
+SELECT DISTINCT
+P.nt_id,
+CASE
+    WHEN P.lineage = "AY.4.2" AND udx.substr_range(A.aa_aln, "145;222") = "HV"
+    THEN "AY.4.2+"
+    WHEN P.lineage = "AY.35" AND udx.substr_range(A.aa_aln, "484") = "Q"
+    THEN "AY.35+"
+    ELSE P.lineage
+END as lineage,
+P.conflict,
+P.ambiguity_score,
+P.scorpio_call,
+P.scorpio_support,
+P.scorpio_conflict,
+P.version,
+P.pangolin_version,
+P.class_date,
+P.pango_version,
+P.class_date,
+P.pango_version,
+P.class_qc,
+P.note,
+P.scorpio_version
+FROM sc2_src.pangolin as P
+LEFT JOIN sc2_src.alignments as A
+ON P.nt_id = A.nt_id
+AND A.protein = "S"
+') # 
 # S gene mutation lists, and source (for NS3 and labs)
 baseline = dbGetQuery(impala, 'SELECT nt_id, source, primary_virus_name, s_mut, collection_date FROM sc2_dev.baselineseq') # state, zip available, also in dedup; S1 slower, built at query
 #baseline = dbGetQuery(impala, "SELECT nt_id, source, primary_virus_name, collection_date FROM sc2_dev.baselineseq") # state, zip available, also in dedup; S1 slower, built at query
