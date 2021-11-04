@@ -77,6 +77,8 @@ if(length(script.basename) == 0) {
 # create data dir
 dir.create(paste0(script.basename,"/data"))
 
+source(paste0(script.basename, "/config/config.R"))
+
 jdbc_driver = paste0(script.basename, "/jdbc/ClouderaImpalaJDBC-2.6.20.1024/ClouderaImpalaJDBC41-2.6.20.1024/")
 
 options(survey.adjust.domain.lonely=T,survey.lonely.psu="average")
@@ -138,33 +140,43 @@ dat = dbGetQuery(impala, query) #saves sequencing data as data frame in R- inclu
 # Current Pangolin lineages:
 #pangolin = dbReadTable(impala, "sc2_src.pangolin") # Lineage master list
 # defining AY.35+ and AY.4.2+ that have verified amino acid positions of interest
-pangolin = dbGetQuery(impala,
-'
-SELECT DISTINCT
-P.nt_id,
-CASE
-    WHEN P.lineage = "AY.4.2" AND udx.substr_range(A.aa_aln, "145;222") = "HV"
-    THEN "AY.4.2+"
-    WHEN P.lineage = "AY.35" AND udx.substr_range(A.aa_aln, "484") = "Q"
-    THEN "AY.35+"
-    ELSE P.lineage
-END as lineage,
-P.conflict,
-P.ambiguity_score,
-P.scorpio_call,
-P.scorpio_support,
-P.scorpio_conflict,
-P.version,
-P.pangolin_version,
-P.class_date,
-P.class_qc,
-P.note,
-P.scorpio_version
-FROM sc2_src.pangolin as P
-LEFT JOIN sc2_src.alignments as A
-ON P.nt_id = A.nt_id
-AND A.protein = "S"
-') # 
+if(custom_lineages == TRUE) {
+  pangolin = dbGetQuery(impala,
+  '
+  SELECT DISTINCT
+  P.nt_id,
+  CASE
+      WHEN P.lineage = "AY.4.2" AND udx.substr_range(A.aa_aln, "145;222") = "HV"
+      THEN "AY.4.2+"
+      WHEN P.lineage = "AY.35" AND udx.substr_range(A.aa_aln, "484") = "Q"
+      THEN "AY.35+"
+      ELSE P.lineage
+  END as lineage,
+  P.conflict,
+  P.ambiguity_score,
+  P.scorpio_call,
+  P.scorpio_support,
+  P.scorpio_conflict,
+  P.version,
+  P.pangolin_version,
+  P.class_date,
+  P.class_qc,
+  P.note,
+  P.scorpio_version
+  FROM sc2_src.pangolin as P
+  LEFT JOIN sc2_src.alignments as A
+  ON P.nt_id = A.nt_id
+  AND A.protein = "S"
+  ')
+} else {
+  pangolin = dbGetQuery(impala,
+  '
+  SELECT DISTINCT *
+  FROM sc2_src.pangolin
+  ')
+}
+
+
 # S gene mutation lists, and source (for NS3 and labs)
 baseline = dbGetQuery(impala, 'SELECT nt_id, source, primary_virus_name, s_mut, collection_date FROM sc2_dev.baselineseq') # state, zip available, also in dedup; S1 slower, built at query
 #baseline = dbGetQuery(impala, "SELECT nt_id, source, primary_virus_name, collection_date FROM sc2_dev.baselineseq") # state, zip available, also in dedup; S1 slower, built at query
@@ -188,7 +200,7 @@ dbDisconnect(impala)
 
 pops = read.delim(paste0(script.basename,"/resources/ACStable_B01001_40_2018_5.txt"))[, c("STUSAB", "Total.")] #population data may need to be updated
 
-save(dat, pangolin, baseline, tests, pops, file=paste0(script.basename, "/data/", "variant_survey_dat",Sys.Date(),".RData"))#"surveillance/variant_survey_dat.RData")
+save(dat, pangolin, baseline, tests, pops, file=paste0(script.basename, "/data/", "variant_survey_dat",Sys.Date(), custom_tag, ".RData"))#"surveillance/variant_survey_dat.RData")
 
 #get capture of just analytics_metadata_frozen
 #write.csv(dat, paste0("Analytics_data_",Sys.Date(),"_MS.csv"),row.names=FALSE)
@@ -399,7 +411,7 @@ svy.dat$sgtf_weights[is.na(svy.dat$sgtf_weights) | !svy.dat$SGTF_UPSAMPLING] = 1
 svy.dat = merge(svy.dat, incidence_by_region[, c("HHS", "yr_wk", "HHS_INCIDENCE")], all.x=TRUE)#for states missing testing data (OH), using the region level incidence
 
 #
-save(svy.dat, file=paste0(script.basename, "/data/", "svydat_", Sys.Date(), ".RData"))
+save(svy.dat, file=paste0(script.basename, "/data/", "svydat_", Sys.Date(), custom_tag, ".RData"))
 
 
 

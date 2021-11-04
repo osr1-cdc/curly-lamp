@@ -64,7 +64,7 @@ source(paste0(script.basename, "/svycipropkg.R"))
 #load the genomic surveillance data plus survey weights
 #load(paste0("svydat_", Sys.Date(), ".RData")) # Works only if svy.dat has been updated on day of report
 #load(paste0("svydat_", data_date, ".RData"))
-load(paste0(script.basename, "/data/svydat_", data_date, ".RData"))
+load(paste0(script.basename, "/data/svydat_", data_date, custom_tag, ".RData"))
 
 # Convert any factor to string
 fac2str = sapply(svy.dat, class)
@@ -440,135 +440,77 @@ src.moddat = subset(src.dat, week >= max(week) - model_weeks) # Modeling window
 #create survey design object based on subsetted src.dat
 mysvy = svydesign(ids=~SOURCE, strata=~STUSAB+yr_wk, weights= ~ SIMPLE_ADJ_WT, nest=TRUE, data=src.moddat)
 
-if (length(grep("Run2",tag))!=0){ #Only run the nowcast when you're looking at Run2 i.e. expanded list of lineages
-#runs the svymultinom function and saves the output
-svymlm_hhs = svymultinom(src.moddat, mysvy,fmla=formula("as.numeric(as.factor(K_US)) ~ week + as.factor(HHS)"))
-pred_hhs.df = expand.grid(week = seq(-display_lookback, 2, 0.02) + current_week, HHS=sort(unique(src.moddat$HHS)))
-pred_hhs.df = cbind(pred_hhs.df, predict(svymlm_hhs$mlm, pred_hhs.df, type="probs"))
-bp_hhs = xtabs(NORM_WTS ~ HHS + week + VARIANT, subset(src.moddat, week < current_week & week >= current_week - display_lookback))
-bp_hhs = prop.table(bp_hhs, 1:2)[,, display_vars]
-dimnames(bp_hhs)[[2]] = week_label(as.numeric(dimnames(bp_hhs)[[2]]) - current_week)
-
-svymlm_us = svymultinom(src.moddat, mysvy,fmla=formula("as.numeric(as.factor(K_US))  ~ week"))
-pred_us.df = expand.grid(week = seq(-display_lookback, 2, 0.02) + current_week) #creates smoothed vector of week values to predict over (for the model smoothed figure)
-pred_us.df = cbind(pred_us.df, predict(svymlm_us$mlm, pred_us.df, type="probs")) #generates predicted probabilities over timeframe defined above
-bp_us = xtabs(NORM_WTS ~ week + VARIANT, subset(src.moddat, week < current_week & week >= current_week - display_lookback))
-bp_us = prop.table(bp_us, 1)
-bp_us = bp_us[, display_vars]
-rownames(bp_us) = week_label(as.numeric(rownames(bp_us)) - current_week)
-
-
-# Weighted variant shares of the top variants in the past `r display_lookback` weeks (number of sequences collected weekly above each bar), and model-based smoothed estimates, nationwide:
-# 
-# 
-# ```{r graphics us, warning=FALSE, message=FALSE, fig.width = 6, fig.height=6, dpi=300}
-
-#knitr::kable(round(100*bp_us, 1), row.names=TRUE)
-
-# Set up colors
-col.dk = hcl.colors(length(display_vars), palette="TealRose", alpha=0.8)
-names(col.dk) = display_vars
-
-stub = paste0(script.basename, "/results/wtd_shares_", format(Sys.Date(), "%Y%m%d"), "_") 
-
-
-if (fig_gen_run) jpeg(paste0(stub, "barplot_US",tag,".jpg"), width=1500, height=1500, pointsize=40)
-bp = barplot(100*t(bp_us), xlab="Week beginning", ylab="Weighted variant share (%)", main="Nationwide",
-             border=NA, ylim=110*0:1,  col=col.dk, 
-             names.arg=rownames(bp_us), 
-             legend.text=display_vars, args.legend=list(x="topleft", bty="n", border=NA))
-text(bp, 3 + colSums(100*t(tail(bp_us, 12))), with(subset(src.dat, week < current_week & week >= current_week - display_lookback), table(week)), cex=0.7)
-if (fig_gen_run) dev.off()
-if (fig_gen_run) jpeg(paste0(stub, "projection_US",tag,".jpg"), width=1500, height=1500, pointsize=40)
-bp = barplot(100*t(pred_us.df[, 1 + display_indices]), xlab="Week beginning", ylab="Weighted variant share (%)", main="Nationwide",
-             space=0, border=NA, ylim=110*0:1,  col=col.dk,
-             names.arg=ifelse(pred_us.df$week %% 1 == 0, week_label(pred_us.df$week - current_week), NA),
-             legend.text=display_vars, args.legend=list(x="topleft", bty="n", border=NA))
-pc = unlist(100 * subset(pred_us.df, week==current_week)[, 1+display_indices])
-y = cumsum(pc) - pc/2
-text(1.02 * tail(bp, 1), y, round(pc, 1), cex=0.7, xpd=TRUE, adj=c(0, 0.5))
-x = bp[which(pred_us.df$week %in% (current_week + c(-2, 0, 2)))] 
-rect(x[1], 0, x[2], 100, border=NA, col="#00000020")
-rect(x[2], 0, x[3], 100, border=NA, col="#00000040")
-if (fig_gen_run) dev.off()
-
-
-# 
-# The following is a "nowcast"; the vertical axis depicts the variant share growth rate (derivative of log of variant proportion with respect to time). The axis on the right shows an estimate of variant transmissibility with respect to the overall mean transmissibility.
-# 
-
-
-us.summary = se.multinom(svymlm_us$mlm, current_week,geoid="USA")
-se.gr = with(us.summary, 100 * exp(sqrt(se.b_i^2 + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2))) - 100) 
-
-# WIP: getting better CIs (2021-04-26):
-# svyDF = with(svyNOGIS_ADJ$variables, length(unique(paste(STUSAB, SOURCE))) - length(unique(STUSAB)))
-# us.summary$se.p_i = with(us.summary, sqrt(se.p_i^2 + p_i * (1 - p_i)/svyDF))
-gr = with(us.summary,  100 * exp(b_i - sum(p_i * b_i)) - 100)
-if (fig_gen_run) png(paste0(stub, "growthrate_US",tag,".png"), width=8, height=8,units="in", pointsize=16,res=1000)
-plot(100 * us.summary$p_i, gr, log="x", type="n", ylim=range(gr + 1.96 * se.gr, gr - 1.96 * se.gr),
-     xaxt="n", xlim=c(0.0005,110),
-     xlab = "Nowcast Estimated Proportion (%)", ylab="Week over week growth rate (%)", main="Nationwide")
-if(is.null(svymlm_us$SE)){
-  mtext(text = "*No SE estimates b/c of non-invertible Hessian in multinomial model fit.", 
-        side = 3,
-        line = 0, 
-        cex = 0.75, 
-        font = 4, 
-        col = 'red' )
-}
-axis(1, at=c(0.001,0.01, 0.1, 1, 10,100), labels=c(0.001,0.01, 0.1, 1, 10,100))
-abline(h=0, col="grey65")
-for (vv in seq(model_vars)) {
-  lines(100 * rep(us.summary$p_i[vv], 2), gr[vv] + 1.96 * c(1,-1) * se.gr[vv], col="blue",lwd=2)
-  lines(pmax(#1e-2, 
-    100 * us.summary$p_i[vv] + 196 * c(1,-1) * us.summary$se.p_i[vv]), rep(gr[vv], 2), col="blue",lwd=2)
-}
-text(100 * us.summary$p_i, gr, c(names(model_vars),""), cex=0.85, col="grey25", adj=1.15)
-
-if (fig_gen_run)  dev.off()
-
-gr_tab = cbind(variant=c(names(model_vars), "OTHER"), 
-               variant_share=(100 * us.summary$p_i), 
-               growth_rate=gr)
-
-write.csv(gr_tab, paste0(script.basename, "/results/wow_growth_variant_share", Sys.Date(), tag,".csv"), row.names=FALSE)
-
-# 
-# Weighted variant shares of the top variants in the past `r display_lookback` weeks (number of sequences collected weekly above each bar), and model-based smoothed estimates, for each HHS region:
-# 
-
-for (hhs in sort(unique(src.dat$HHS))) {
-  if (fig_gen_run) jpeg(paste0(stub, "barplot_HHS", hhs,tag,".jpg"), width=1500, height=1500, pointsize=40)
-  bp = barplot(100*t(bp_hhs[hhs,,]), xlab="Week beginning", ylab="Weighted variant share (%)", main=paste("HHS Region", hhs),
+# RUN2
+if (length(grep("Run2",tag))!=0) { #Only run the nowcast when you're looking at Run2 i.e. expanded list of lineages
+  #runs the svymultinom function and saves the output
+  svymlm_hhs = svymultinom(src.moddat, mysvy,fmla=formula("as.numeric(as.factor(K_US)) ~ week + as.factor(HHS)"))
+  pred_hhs.df = expand.grid(week = seq(-display_lookback, 2, 0.02) + current_week, HHS=sort(unique(src.moddat$HHS)))
+  pred_hhs.df = cbind(pred_hhs.df, predict(svymlm_hhs$mlm, pred_hhs.df, type="probs"))
+  bp_hhs = xtabs(NORM_WTS ~ HHS + week + VARIANT, subset(src.moddat, week < current_week & week >= current_week - display_lookback))
+  bp_hhs = prop.table(bp_hhs, 1:2)[,, display_vars]
+  dimnames(bp_hhs)[[2]] = week_label(as.numeric(dimnames(bp_hhs)[[2]]) - current_week)
+  
+  svymlm_us = svymultinom(src.moddat, mysvy,fmla=formula("as.numeric(as.factor(K_US))  ~ week"))
+  pred_us.df = expand.grid(week = seq(-display_lookback, 2, 0.02) + current_week) #creates smoothed vector of week values to predict over (for the model smoothed figure)
+  pred_us.df = cbind(pred_us.df, predict(svymlm_us$mlm, pred_us.df, type="probs")) #generates predicted probabilities over timeframe defined above
+  bp_us = xtabs(NORM_WTS ~ week + VARIANT, subset(src.moddat, week < current_week & week >= current_week - display_lookback))
+  bp_us = prop.table(bp_us, 1)
+  bp_us = bp_us[, display_vars]
+  rownames(bp_us) = week_label(as.numeric(rownames(bp_us)) - current_week)
+  
+  
+  # Weighted variant shares of the top variants in the past `r display_lookback` weeks (number of sequences collected weekly above each bar), and model-based smoothed estimates, nationwide:
+  # 
+  # 
+  # ```{r graphics us, warning=FALSE, message=FALSE, fig.width = 6, fig.height=6, dpi=300}
+  
+  #knitr::kable(round(100*bp_us, 1), row.names=TRUE)
+  
+  # Set up colors
+  col.dk = hcl.colors(length(display_vars), palette="TealRose", alpha=0.8)
+  names(col.dk) = display_vars
+  
+  stub = paste0(script.basename, "/results/wtd_shares_", format(Sys.Date(), "%Y%m%d"), "_")
+  
+  
+  if (fig_gen_run) jpeg(paste0(stub, "barplot_US", tag, custom_tag, ".jpg"), width=1500, height=1500, pointsize=40)
+  bp = barplot(100*t(bp_us), xlab="Week beginning", ylab="Weighted variant share (%)", main="Nationwide",
                border=NA, ylim=110*0:1,  col=col.dk, 
-               names.arg=rownames(bp_hhs[hhs,,] - current_week), 
+               names.arg=rownames(bp_us), 
                legend.text=display_vars, args.legend=list(x="topleft", bty="n", border=NA))
-  text(bp, 3 + colSums(100*t(tail(bp_hhs[hhs,,], 12))), with(subset(src.dat, HHS==hhs & week < current_week & week >= current_week - display_lookback), table(week)), cex=0.7)
+  text(bp, 3 + colSums(100*t(tail(bp_us, 12))), with(subset(src.dat, week < current_week & week >= current_week - display_lookback), table(week)), cex=0.7)
   if (fig_gen_run) dev.off()
-  if (fig_gen_run) jpeg(paste0(stub, "projection_HHS", hhs,tag, ".jpg"), width=1500, height=1500, pointsize=40)
-  pred.df = subset(pred_hhs.df, HHS==hhs)[, -2]
-  bp = barplot(100*t(pred.df[, 1 + display_indices]), xlab="Week beginning", ylab="Weighted variant share (%)", main=paste("HHS Region", hhs),
-               space=0, border=NA, ylim=110*0:1, col=col.dk,
-               names.arg=ifelse(pred.df$week %% 1 == 0, week_label(pred.df$week - current_week), NA) ,
+  if (fig_gen_run) jpeg(paste0(stub, "projection_US", tag, custom_tag, ".jpg"), width=1500, height=1500, pointsize=40)
+  bp = barplot(100*t(pred_us.df[, 1 + display_indices]), xlab="Week beginning", ylab="Weighted variant share (%)", main="Nationwide",
+               space=0, border=NA, ylim=110*0:1,  col=col.dk,
+               names.arg=ifelse(pred_us.df$week %% 1 == 0, week_label(pred_us.df$week - current_week), NA),
                legend.text=display_vars, args.legend=list(x="topleft", bty="n", border=NA))
-  pc = unlist(100 * subset(pred.df, week==current_week)[, 1+display_indices])
+  pc = unlist(100 * subset(pred_us.df, week==current_week)[, 1+display_indices])
   y = cumsum(pc) - pc/2
   text(1.02 * tail(bp, 1), y, round(pc, 1), cex=0.7, xpd=TRUE, adj=c(0, 0.5))
-  x = bp[which(pred.df$week %in% (current_week + c(-2, 0, 2)))] 
+  x = bp[which(pred_us.df$week %in% (current_week + c(-2, 0, 2)))] 
   rect(x[1], 0, x[2], 100, border=NA, col="#00000020")
   rect(x[2], 0, x[3], 100, border=NA, col="#00000040")
   if (fig_gen_run) dev.off()
   
-  if (fig_gen_run) jpeg(paste0(stub, "growthrate_HHS", hhs, tag,".jpg"), width=1500, height=1500, pointsize=40)
-  hhs.summary = se.multinom(svymlm_hhs$mlm, current_week, hhs)
-  se.gr = with(hhs.summary, 100 * exp(sqrt(se.b_i^2 + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2))) - 100) 
-  gr = with(hhs.summary, 100 * exp(b_i - sum(p_i * b_i)) - 100)
-  plot(100 * hhs.summary$p_i, gr, log="x", type="n", ylim=c(min(range(gr + 1.96 * se.gr, gr - 1.96 * se.gr)[1], -75),
-                                                            max(range(gr + 1.96 * se.gr, gr - 1.96 * se.gr)[2],100)),
+  
+  # 
+  # The following is a "nowcast"; the vertical axis depicts the variant share growth rate (derivative of log of variant proportion with respect to time). The axis on the right shows an estimate of variant transmissibility with respect to the overall mean transmissibility.
+  # 
+  
+  
+  us.summary = se.multinom(svymlm_us$mlm, current_week,geoid="USA")
+  se.gr = with(us.summary, 100 * exp(sqrt(se.b_i^2 + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2))) - 100) 
+  
+  # WIP: getting better CIs (2021-04-26):
+  # svyDF = with(svyNOGIS_ADJ$variables, length(unique(paste(STUSAB, SOURCE))) - length(unique(STUSAB)))
+  # us.summary$se.p_i = with(us.summary, sqrt(se.p_i^2 + p_i * (1 - p_i)/svyDF))
+  gr = with(us.summary,  100 * exp(b_i - sum(p_i * b_i)) - 100)
+  if (fig_gen_run) png(paste0(stub, "growthrate_US",tag,".png"), width=8, height=8,units="in", pointsize=16,res=1000)
+  plot(100 * us.summary$p_i, gr, log="x", type="n", ylim=range(gr + 1.96 * se.gr, gr - 1.96 * se.gr),
        xaxt="n", xlim=c(0.0005,110),
-       xlab = "Weighted share (%)", ylab="Week over week growth rate (%)", main=paste("HHS Region", hhs))
-  if(is.null(svymlm_hhs$SE)){
+       xlab = "Nowcast Estimated Proportion (%)", ylab="Week over week growth rate (%)", main="Nationwide")
+  if(is.null(svymlm_us$SE)){
     mtext(text = "*No SE estimates b/c of non-invertible Hessian in multinomial model fit.", 
           side = 3,
           line = 0, 
@@ -579,16 +521,75 @@ for (hhs in sort(unique(src.dat$HHS))) {
   axis(1, at=c(0.001,0.01, 0.1, 1, 10,100), labels=c(0.001,0.01, 0.1, 1, 10,100))
   abline(h=0, col="grey65")
   for (vv in seq(model_vars)) {
-    lines(100 * rep(hhs.summary$p_i[vv], 2), gr[vv] + 1.96 * c(1,-1) * se.gr[vv], col="blue",lwd=2)
+    lines(100 * rep(us.summary$p_i[vv], 2), gr[vv] + 1.96 * c(1,-1) * se.gr[vv], col="blue",lwd=2)
     lines(pmax(#1e-2, 
-      100 * hhs.summary$p_i[vv] + 1.96 * c(1,-1) * hhs.summary$se.p_i[vv]), rep(gr[vv], 2), col="blue",lwd=2)
-    }
-  #identify which variants have share>1% or growth rate>0%
-  labels=unique(c(which(100 * hhs.summary$p_i>1), which(gr>1)))
-  text(100 * hhs.summary$p_i, gr, c(names(model_vars),""), cex=0.85, col="grey25", adj=1.15)
-  
-  if (fig_gen_run) dev.off()
+      100 * us.summary$p_i[vv] + 196 * c(1,-1) * us.summary$se.p_i[vv]), rep(gr[vv], 2), col="blue",lwd=2)
   }
+  text(100 * us.summary$p_i, gr, c(names(model_vars),""), cex=0.85, col="grey25", adj=1.15)
+  
+  if (fig_gen_run)  dev.off()
+  
+  gr_tab = cbind(variant=c(names(model_vars), "OTHER"), 
+                 variant_share=(100 * us.summary$p_i), 
+                 growth_rate=gr)
+  
+  write.csv(gr_tab, paste0(script.basename, "/results/wow_growth_variant_share", Sys.Date(), tag, custom_tag, ".csv"), row.names=FALSE)
+  
+  # 
+  # Weighted variant shares of the top variants in the past `r display_lookback` weeks (number of sequences collected weekly above each bar), and model-based smoothed estimates, for each HHS region:
+  # 
+  
+  for (hhs in sort(unique(src.dat$HHS))) {
+    if (fig_gen_run) jpeg(paste0(stub, "barplot_HHS", hhs,tag, custom_tag, ".jpg"), width=1500, height=1500, pointsize=40)
+    bp = barplot(100*t(bp_hhs[hhs,,]), xlab="Week beginning", ylab="Weighted variant share (%)", main=paste("HHS Region", hhs),
+                 border=NA, ylim=110*0:1,  col=col.dk, 
+                 names.arg=rownames(bp_hhs[hhs,,] - current_week), 
+                 legend.text=display_vars, args.legend=list(x="topleft", bty="n", border=NA))
+    text(bp, 3 + colSums(100*t(tail(bp_hhs[hhs,,], 12))), with(subset(src.dat, HHS==hhs & week < current_week & week >= current_week - display_lookback), table(week)), cex=0.7)
+    if (fig_gen_run) dev.off()
+    if (fig_gen_run) jpeg(paste0(stub, "projection_HHS", hhs,tag, custom_tag, ".jpg"), width=1500, height=1500, pointsize=40)
+    pred.df = subset(pred_hhs.df, HHS==hhs)[, -2]
+    bp = barplot(100*t(pred.df[, 1 + display_indices]), xlab="Week beginning", ylab="Weighted variant share (%)", main=paste("HHS Region", hhs),
+                 space=0, border=NA, ylim=110*0:1, col=col.dk,
+                 names.arg=ifelse(pred.df$week %% 1 == 0, week_label(pred.df$week - current_week), NA) ,
+                 legend.text=display_vars, args.legend=list(x="topleft", bty="n", border=NA))
+    pc = unlist(100 * subset(pred.df, week==current_week)[, 1+display_indices])
+    y = cumsum(pc) - pc/2
+    text(1.02 * tail(bp, 1), y, round(pc, 1), cex=0.7, xpd=TRUE, adj=c(0, 0.5))
+    x = bp[which(pred.df$week %in% (current_week + c(-2, 0, 2)))] 
+    rect(x[1], 0, x[2], 100, border=NA, col="#00000020")
+    rect(x[2], 0, x[3], 100, border=NA, col="#00000040")
+    if (fig_gen_run) dev.off()
+    
+    if (fig_gen_run) jpeg(paste0(stub, "growthrate_HHS", hhs, tag, custom_tag, ".jpg"), width=1500, height=1500, pointsize=40)
+    hhs.summary = se.multinom(svymlm_hhs$mlm, current_week, hhs)
+    se.gr = with(hhs.summary, 100 * exp(sqrt(se.b_i^2 + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2))) - 100) 
+    gr = with(hhs.summary, 100 * exp(b_i - sum(p_i * b_i)) - 100)
+    plot(100 * hhs.summary$p_i, gr, log="x", type="n", ylim=c(min(range(gr + 1.96 * se.gr, gr - 1.96 * se.gr)[1], -75),
+                                                              max(range(gr + 1.96 * se.gr, gr - 1.96 * se.gr)[2],100)),
+         xaxt="n", xlim=c(0.0005,110),
+         xlab = "Weighted share (%)", ylab="Week over week growth rate (%)", main=paste("HHS Region", hhs))
+    if(is.null(svymlm_hhs$SE)){
+      mtext(text = "*No SE estimates b/c of non-invertible Hessian in multinomial model fit.", 
+            side = 3,
+            line = 0, 
+            cex = 0.75, 
+            font = 4, 
+            col = 'red' )
+    }
+    axis(1, at=c(0.001,0.01, 0.1, 1, 10,100), labels=c(0.001,0.01, 0.1, 1, 10,100))
+    abline(h=0, col="grey65")
+    for (vv in seq(model_vars)) {
+      lines(100 * rep(hhs.summary$p_i[vv], 2), gr[vv] + 1.96 * c(1,-1) * se.gr[vv], col="blue",lwd=2)
+      lines(pmax(#1e-2, 
+        100 * hhs.summary$p_i[vv] + 1.96 * c(1,-1) * hhs.summary$se.p_i[vv]), rep(gr[vv], 2), col="blue",lwd=2)
+      }
+    #identify which variants have share>1% or growth rate>0%
+    labels=unique(c(which(100 * hhs.summary$p_i>1), which(gr>1)))
+    text(100 * hhs.summary$p_i, gr, c(names(model_vars),""), cex=0.85, col="grey25", adj=1.15)
+    
+    if (fig_gen_run) dev.off()
+    }
 }
 
 
@@ -680,7 +681,7 @@ all.ftnt2=all.ftnt2[,c("USA_or_HHSRegion","Fortnight_ending","Variant","Share",
 
 all.ftnt2 <- all.ftnt2[order(all.ftnt2$USA_or_HHSRegion),]
 
-write.csv(all.ftnt2, paste0(script.basename, "/results/variant_share_weighted_", ci.type,"CI_",svy.type,"_", data_date,tag, ".csv"), row.names=FALSE)
+write.csv(all.ftnt2, paste0(script.basename, "/results/variant_share_weighted_", ci.type, "CI_", svy.type, "_", data_date, tag, custom_tag, ".csv"), row.names=FALSE)
 
 # Weekly estimates --------------------------------------------------------------------
 #if (update_wk == 2) {wks = head(sort(unique(subset(src.dat, DAY >= as.numeric(as.Date("2021-01-25") - week0day1))$yr_wk)), -1)} else { 
@@ -753,7 +754,7 @@ all.wkly2=all.wkly2[,c("USA_or_HHSRegion","WEEK_END","Variant","Share",
 
 all.wkly2 <- all.wkly2[order(all.wkly2$USA_or_HHSRegion),]
 
-write.csv(all.wkly2, paste0(script.basename, "/results/variant_share_weekly_weighted_", ci.type,"CI_",svy.type,"_", data_date,tag,  ".csv"), row.names=FALSE)
+write.csv(all.wkly2, paste0(script.basename, "/results/variant_share_weekly_weighted_", ci.type, "CI_", svy.type, "_", data_date, tag, custom_tag, ".csv"), row.names=FALSE)
 
 }
 
@@ -761,7 +762,7 @@ write.csv(all.wkly2, paste0(script.basename, "/results/variant_share_weekly_weig
 
 # State-level estimates - Rolling 4 wk bins --------------------------------------------------------------------
 
-
+# RUN3
 if (length(grep("Run3",tag))!=0){ #Only Run the state-level estimates when running the state list of lineages (i.e. Run 3) 
   
   #get the week number that corresponds to date defined in state_time_end
@@ -833,11 +834,12 @@ if (length(grep("Run3",tag))!=0){ #Only Run the state-level estimates when runni
                                  "CI_width","nchs_flag","nchs_flag_wodf")]
   
   
-  write.csv(all.state.out, paste0(script.basename, "/results/state_weighted_roll4wk_", ci.type,"CI_svyNEW_", data_date,tag,  ".csv"), row.names=FALSE)
+  write.csv(all.state.out, paste0(script.basename, "/results/state_weighted_roll4wk_", ci.type, "CI_svyNEW_", data_date, tag, custom_tag, ".csv"), row.names=FALSE)
 }
 
 ### Model-smoothed estimates; needs Hessian for regional multinomial model ----------------------------------------
 
+# RUN2
 if (length(grep("Run2",tag))!=0){ #Run the nowcast output only when doing the run 2 list of lineages
   
   #Check to see which lineages are in model_vars, add those that need to be added
@@ -901,14 +903,14 @@ if (length(grep("Run2",tag))!=0){ #Run the nowcast output only when doing the ru
   run_1=proj.res[proj.res$Variant %notin% c(AY_agg,"B.1.617.2", Other_agg,"Other"),]
   run_1[run_1$Variant=="Other Aggregated","Variant"] <- "Other"
   
-  write.csv(run_1, paste0(script.basename, "/results/updated_nowcast_fortnightly_", data_date,"_state_tag_included_Run1.csv"), row.names=FALSE)
+  write.csv(run_1, paste0(script.basename, "/results/updated_nowcast_fortnightly_", data_date,"_state_tag_included_Run1", custom_tag, ".csv"), row.names=FALSE)
   
   #Format output for the run2 lineage list
   drop_lin <- row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"]
   run_2=proj.res[proj.res$Variant %notin% c(drop_lin, Other_agg,"Other"),]
   run_2[run_2$Variant=="Other Aggregated","Variant"] <- "Other"
   
-  write.csv(run_2, paste0(script.basename, "/results/updated_nowcast_fortnightly_", data_date,"_state_tag_included_Run2.csv"), row.names=FALSE)
+  write.csv(run_2, paste0(script.basename, "/results/updated_nowcast_fortnightly_", data_date,"_state_tag_included_Run2", custom_tag, ".csv"), row.names=FALSE)
   
   
   ## Weekly
@@ -949,14 +951,14 @@ if (length(grep("Run2",tag))!=0){ #Run the nowcast output only when doing the ru
   run_1=proj.res[proj.res$Variant %notin% c(AY_agg,"B.1.617.2", Other_agg,"Other"),]
   run_1[run_1$Variant=="Other Aggregated","Variant"] <- "Other"
   
-  write.csv(run_1, paste0(script.basename, "/results/updated_nowcast_weekly_", data_date,"_state_tag_included_Run1.csv"), row.names=FALSE)
+  write.csv(run_1, paste0(script.basename, "/results/updated_nowcast_weekly_", data_date,"_state_tag_included_Run1", custom_tag, ".csv"), row.names=FALSE)
   
   #Format output for the run2 lineage list
   drop_lin <- row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"]
   run_2=proj.res[proj.res$Variant %notin% c(drop_lin, Other_agg,"Other"),]
   run_2[run_2$Variant=="Other Aggregated","Variant"] <- "Other"
   
-  write.csv(run_2, paste0(script.basename, "/results/updated_nowcast_weekly_", data_date,"_state_tag_included_Run2.csv"), row.names=FALSE)
+  write.csv(run_2, paste0(script.basename, "/results/updated_nowcast_weekly_", data_date,"_state_tag_included_Run2", custom_tag, ".csv"), row.names=FALSE)
   
 }
 

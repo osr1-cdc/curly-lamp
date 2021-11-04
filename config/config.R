@@ -1,17 +1,19 @@
 # Update the following each run ----------------------------------------
+custom_lineages = TRUE
 svy.type <- "svyNEW" #variable specifying which survey design to use
 ci.type <- "KG" #variable specifying which CI estimator to use for weighted proportion esimtates
 
 #variable for whether or not to include the state tagged sequences
 # Update the following each run ----------------------------------------
-time_end <- as.Date("2021-10-23") #set end date for national and regional survey estimates  
-state_time_end=c(as.Date("2021-09-18"),as.Date("2021-09-25"), as.Date("2021-10-02"), as.Date("2021-10-09"), as.Date("2021-10-16")) # set end dates for state-level estimates
+time_end <- as.Date("2021-10-30") #set end date for national and regional survey estimates  
+state_time_end=c(as.Date("2021-09-25"), as.Date("2021-10-02"), as.Date("2021-10-09"), as.Date("2021-10-16"), as.Date("2021-10-23")) # set end dates for state-level estimates
 data_date <- Sys.Date()  # set date for data creation, set to current date to allow more portability
 
 
 #variable for whether or not to include the state tagged sequences
 state_source <- "state_tag_included" #argument indicating whether to include state tagged data
 tag <- paste0("_",state_source,"_Run", opts$run_number) #a tag for the filename to indicate which run from Lab TF request the results are for
+custom_tag = ifelse(custom_lineages == TRUE, "_custom", "")
 
 
 #arguments to indicate whether sublineages should be aggregated to parent lineage
@@ -30,35 +32,63 @@ B429_7_agg=TRUE
 #
 # All other lineages (including AY.4.2 and AY.35) are from default pangolin calls.
 if(length(grep("Run1",tag))>0){
-  
-  voc=c("AY.1",
+  if(custom_lineages == FALSE) {
+    voc=c("AY.1",
         "AY.2",
-        "B.1.1.7",#*
-        "B.1.617.2"#*
-  )
+        "B.1.617.2")
+  } else {
+    voc=c("AY.1",
+        "AY.2",
+        "B.1.617.2",
+        "AY.35+",
+        "AY.4.2+")
+  }
+  
   
 } else if(length(grep("Run2",tag))>0) {
-  voc=c("AY.1",
+
+  if(custom_lineages == FALSE) {
+    voc=c("AY.1",
         "AY.2",
-        "AY.3",
-        "AY.3.1",
-        "AY.10",
-        "AY.14",
-        "AY.16",
         "AY.20",
-        "AY.24",
+        "AY.3",
+        "AY.35",
+        "B.1.617.2",
+        "AY.43",
         "AY.25",
         "AY.26",
+        "AY.24",
+        "AY.44",
+        "AY.14",
+        "AY.3.1",
+        "AY.47",
+        "AY.39")
+  } else {
+      voc=c("AY.1",
+        "AY.2",
+        "AY.20",
+        "AY.3",
         "AY.35",
+        "B.1.617.2",
+        "AY.43",
+        "AY.25",
+        "AY.26",
+        "AY.24",
+        "AY.44",
+        "AY.14",
+        "AY.3.1",
+        "AY.47",
         "AY.39",
-        "AY.4",
-        "B.1.1.7",#*
-        "B.1.617.2"#* (non-enumerated AYs aggregated)
-  )
+        "AY.35+",
+        "AY.4.2+")
+  }
+  
   
   #State-level run
 } else if(length(grep("Run3",tag))>0) {
-  voc=c("B.1.1.7",# with Q.1 to 8* 
+  
+  if(custom_lineages == FALSE) {
+      voc=c("B.1.1.7",# with Q.1 to 8* 
         "B.1.351", #and B.1.351.* 
         "P.1", #and P.* 
         "B.1.617.2", #and AY.3-AY.25* 
@@ -70,8 +100,24 @@ if(length(grep("Run1",tag))>0){
         "B.1.617.1", 
         "B.1.617.3", 
         "P.2", 
-        "B.1.621"# and B.1.621.1* 
-  ) 
+        "B.1.621")# and B.1.621.1* 
+  } else {
+      voc=c("B.1.1.7",# with Q.1 to 8* 
+        "B.1.351", #and B.1.351.* 
+        "P.1", #and P.* 
+        "B.1.617.2", #and AY.3-AY.25* 
+        "AY.1", 
+        "AY.2", 
+        "B.1.427",#/B.1.429* 
+        "B.1.525", 
+        "B.1.526", 
+        "B.1.617.1", 
+        "B.1.617.3", 
+        "P.2", 
+        "B.1.621")# and B.1.621.1*
+  }
+  
+ 
 }
 
 
