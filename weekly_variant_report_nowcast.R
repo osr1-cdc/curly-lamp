@@ -10,7 +10,7 @@
 #          ~Function to calculate binomial CI for nowcast proportion
 #
 # Last updated: 10/5/2021 (by Molly Steele)
-# Ver: KGCI_29Sep2021                            
+# Ver: KGCI_29Sep2021
 library(optparse)
 
 # optparse option list
@@ -18,7 +18,7 @@ option_list <- list(
   make_option(c("-r", "--run_number"), type = "character", default= "1",
               help="User Name",
               metavar = "character")
-  
+
 )
 
 # parseing options list
@@ -47,14 +47,14 @@ source(paste0(script.basename, "/config/config.R"))
 library(survey) #package with survey desgin functions
 library(nnet) #package with multinomial regression for nowcast
 library(data.table) # package for speeding up calculation of simple adjusted weights
-options(survey.adjust.domain.lonely=T, survey.lonely.psu="average") #defines what to do when you have a lonely PSU 
+options(survey.adjust.domain.lonely=T, survey.lonely.psu="average") #defines what to do when you have a lonely PSU
 options(stringsAsFactors=FALSE)
 
 
 # Load output from variant_surveillance_system.r ------------------------
 
 #Source the code with svycipropkg function created by Crescent Martin (odb4).
-#NOTE: the svyciprop function from the survey package uses the calculated 
+#NOTE: the svyciprop function from the survey package uses the calculated
 #     effective sample size for the KG CI (which can be larger than the actual sample size)
 #     The svycipropkg function caps the effective sample size at the actual sample size
 #CAVEATE: the svycipropkg code hasn't gone through comprehensive testing.
@@ -124,20 +124,20 @@ src.dat$VARIANT = as.character(src.dat$VARIANT) # if saved as factor
 
 #Identify all the AYs in the surveillance database
 
-AY=sort(unique(src.dat$VARIANT)[grep("AY",unique(src.dat$VARIANT))]) 
+AY=sort(unique(src.dat$VARIANT)[grep("AY",unique(src.dat$VARIANT))])
 AY=AY[which(AY %notin% voc)] #vector of the AYs to aggregate
-P1=sort(unique(src.dat$VARIANT)[grep("P.1.",unique(src.dat$VARIANT))]) 
+P1=sort(unique(src.dat$VARIANT)[grep("P.1.",unique(src.dat$VARIANT))])
 P1=P1[which(P1 %notin% voc)] #vector of the P1s to aggregate
-Q=sort(unique(src.dat$VARIANT)[grep("Q.",unique(src.dat$VARIANT))]) 
+Q=sort(unique(src.dat$VARIANT)[grep("Q.",unique(src.dat$VARIANT))])
 Q=Q[which(Q %notin% voc)] #vector of the Qs to aggregate
-B351=sort(unique(src.dat$VARIANT)[grep("B.1.351.",unique(src.dat$VARIANT))]) 
+B351=sort(unique(src.dat$VARIANT)[grep("B.1.351.",unique(src.dat$VARIANT))])
 B351=B351[which(B351 %notin% voc)] #vector of the B351s to aggregate
-B621=sort(unique(src.dat$VARIANT)[grep("B.1.621.",unique(src.dat$VARIANT))]) 
+B621=sort(unique(src.dat$VARIANT)[grep("B.1.621.",unique(src.dat$VARIANT))])
 B621=B621[which(B621 %notin% voc)] #vector of the B621s to aggregate
-B429=sort(unique(src.dat$VARIANT)[grep("B.1.429",unique(src.dat$VARIANT))]) 
+B429=sort(unique(src.dat$VARIANT)[grep("B.1.429",unique(src.dat$VARIANT))])
 B429=B429[which(B429 %notin% voc)] #vector of the B621s to aggregate
 
-#Added per specifc 6/11/2021 request to aggregate sublineages of P1 and B1.351 to 
+#Added per specifc 6/11/2021 request to aggregate sublineages of P1 and B1.351 to
 # the parent lineage (for now taking the easy route of just recoding those lineages)
 # [updated by Molly 10/21/21: updated to automatically define list of sublineages to aggregate]
 if(P.1_agg==TRUE) {src.dat[src.dat$VARIANT %in% P1,"VARIANT"] <- "P.1"}
@@ -152,7 +152,7 @@ svyNOGIS_ADJ = svydesign(ids=~SOURCE, strata=~STUSAB, weights= ~ SIMPLE_ADJ_WT, 
 svyREG = svydesign(ids=~STUSAB+SOURCE, strata=~HHS, weights= ~ SIMPLE_ADJ_WT, nest=TRUE, data=src.dat)
 
 # Estimated degrees of freedom = number of clusters - number of strata
-svyDF = with(src.dat, length(unique(paste(STUSAB, SOURCE))) - length(unique(STUSAB))) 
+svyDF = with(src.dat, length(unique(paste(STUSAB, SOURCE))) - length(unique(STUSAB)))
 
 
 # Helper wrapper for svyciprop with CI: as vector (p, l, h), formatted string (pp.p (ll.l-hh.h)), or range (ll.l-hh.h)
@@ -168,7 +168,7 @@ svyDF = with(src.dat, length(unique(paste(STUSAB, SOURCE))) - length(unique(STUS
 myciprop = function(voc, geoid, svy, str=TRUE, range=FALSE, mut=FALSE,level = 0.95, ...) {
   #Create a binary indicator variable based on whether S_MUT or VARIANT is in voc
   if (mut) {VOC = grepl(paste0("^(?=.*\\",paste(voc,collapse="\\b)(?=.*\\"),"\\b)"), svy$variables$S_MUT,perl=T) }else {VOC = (svy$variables$VARIANT %in% voc)}
-  
+
   if (ci.type=="xlogit"){
     res = svyciprop(~VOC, design = subset(update(svy, VOC=VOC), (STUSAB %in% geoid) | (HHS %in% geoid) | (geoid=="USA")),method="xlogit", ...)
   } else {
@@ -176,24 +176,24 @@ myciprop = function(voc, geoid, svy, str=TRUE, range=FALSE, mut=FALSE,level = 0.
   }
   res = c(res, confint(res))
   res = c(res, degf(subset(update(svy, VOC=VOC), (STUSAB %in% geoid) | (HHS %in% geoid) | (geoid=="USA"))))
-  
+
   #add effective sample size to res output
   m <- eval(bquote(svymean(~as.numeric(VOC), subset(update(svy, VOC=VOC), (STUSAB %in% geoid) | (HHS %in% geoid) | (geoid=="USA"))))) #extracts the mean and SE for each estimate
   CVmean <- cv(svymean(~as.numeric(VOC), subset(update(svy, VOC=VOC), (STUSAB %in% geoid) | (HHS %in% geoid) | (geoid=="USA"))))
   deffmean <- deff(svymean(~as.numeric(VOC), subset(update(svy, VOC=VOC), (STUSAB %in% geoid) | (HHS %in% geoid) | (geoid=="USA")),deff=T))
-  
+
   n.eff <- coef(m) * (1 - coef(m))/vcov(m)
   alpha <- 1-level #define alpha based on CI level
   n.eff.capped <- min( n.eff * (qt(alpha/2, nrow(subset(update(svy, VOC=VOC), (STUSAB %in% geoid) | (HHS %in% geoid) | (geoid=="USA"))) - 1)/qt(alpha/2, degf(subset(update(svy, VOC=VOC), (STUSAB %in% geoid) | (HHS %in% geoid) | (geoid=="USA")))))^2, nrow(subset(update(svy, VOC=VOC), (STUSAB %in% geoid) | (HHS %in% geoid) | (geoid=="USA"))))
   res = c(res,n.eff.capped,CVmean,deffmean)
-  if (str) { 
+  if (str) {
     res = c(round( 100 * res[1:3], 1),res[4],res[5],res[6],res[7])
     if (range) {res = paste0(res[2], "-", res[3])} else {res = paste0(res[1], " (", res[2], "-", res[3], ") DF=",res[4],", Eff.sampsize=",res[5],", CVprop=",res[6],",DEff=",res[7])}
   }
   #modified to output degrees of freedom for each survey design subset
-  
+
   res
-} 
+}
 
 week_label = function(week_from_current) {
   strftime(Sys.Date() - as.numeric(strftime(Sys.Date(), format="%w")) + 7 * week_from_current, format="%m-%d")
@@ -206,13 +206,13 @@ svymultinom = function(src.dat, mysvy, fmla=formula("as.numeric(as.factor(K_US))
   ## Get multinomial logistic regression coefficients (and Hessian unadapted to survey design)
   # Multinomial logistic regression (without survey design, but with survey weights) using nnet::multinom:
   # multinom_geoid = nnet::multinom(fmla, data=src.dat, weights=weights(mysvy), Hess=TRUE, maxit=1000, trace=FALSE)
-  
+
   # aggregate data before fitting the multinomial model to vastly improve run time
   # see: https://git.biotech.cdc.gov/sars2seq/sc2_proportion_modeling/-/issues/6#note_86544
   fmla.vars = all.vars(fmla)
   mlm.dat = data.table::data.table(cbind(data.frame(src.dat)[, fmla.vars], weight=weights(mysvy)))[, .(weight=sum(weight)), by=fmla.vars]
   multinom_geoid = nnet::multinom(fmla, data=mlm.dat, weights=weight, Hess=TRUE, maxit=1000, trace=FALSE)
-  
+
   # Format results to fit into svymle-like workflow
   num_var = length(unique(with(src.dat, eval(terms(fmla)[[2]])))) #gets the number of variants being modeled (should be length of model_vars plus 1 for others)
   fmla.no.response = formula(delete.response(terms(fmla))) #generates the model formula without the response term
@@ -223,14 +223,14 @@ svymultinom = function(src.dat, mysvy, fmla=formula("as.numeric(as.factor(K_US))
   rval = list(mlm = multinom_geoid, estimates = coefficients(multinom_geoid)) #creates a list that contains the mlm object and the coefficient estimates
   rval$estimates = as.list(data.frame(t(rval$estimates))) #transforms the estimates object to be a list where each element is a vector of the coefficients for a given variant (hhs model: Intercept,week, HHS 2:10; us model: Intercept, week)
   ## End multinomial regression
-  
-  
+
+
   # if the Hessian is not invertible, avoid errors by not running the rest of the function
   # (note: the se.multinom function will still run, but will assume the SE is 0)
   # if(det(multinom_geoid$Hessian) == -Inf) {
   if(det(multinom_geoid$Hessian) < -9e100) {
     # might want to replace -Inf with a very large negative number: e.g. -9e100
-    
+
     # add empty items to the results (setting to NULL in list() does create the item)
     rval <- append(rval,
                    list(
@@ -239,25 +239,25 @@ svymultinom = function(src.dat, mysvy, fmla=formula("as.numeric(as.factor(K_US))
                      'sandwich' = NULL,
                      'SE' = NULL
                    ))
-    
+
     # remove the Hessian
     rval$mlm$Hessian = NULL
-    
+
     # make the estimates a vector instead of a list
     rval$estimates = unlist(rval$estimates)
     # add prettier names to the estimates (to match names that are produced below)
-    names(rval$estimates) <- paste0('b', 
-                                    sub(pattern = ':', 
-                                        replacement = '\\.', 
+    names(rval$estimates) <- paste0('b',
+                                    sub(pattern = ':',
+                                        replacement = '\\.',
                                         x = colnames(multinom_geoid$Hessian)))
-    
-    # add a warning 
+
+    # add a warning
     warning_message = 'Hessian is non-invertible. Nowcast estimates will not have confidence intervals. Check for geographic regions with very few samples of a variant.'
     warning(warning_message)
     # also print out an alert b/c warnings can sometimes get swamped by other minor warnings
     print(warning_message)
   } else {
-    
+
     ## Define likelihood
     # Loglikelihood:
     lmultinom = function(v, ...) {
@@ -282,7 +282,7 @@ svymultinom = function(src.dat, mysvy, fmla=formula("as.numeric(as.factor(K_US))
       (delta_ij - p)[, -1]
     }
     ## End likelihood definitions
-    
+
     ## Build dataframe to pass to svyrecvar
     # Adapted from code in svymle
     nms = c("", names(formulas)) #modifies formula names
@@ -306,13 +306,13 @@ svymultinom = function(src.dat, mysvy, fmla=formula("as.numeric(as.factor(K_US))
     parnms = lapply(mm, colnames) #gets the column names from all the dataframes in mm
     for (i in 1:length(parnms)) parnms[[i]] = paste(nms[i + 1], parnms[[i]], sep = ".") #formats column names in each list element to correspond to the coefficient
     parnms = unlist(parnms) #converts the parameter names from a list to a vector
-    
+
     theta = unlist(rval$estimates) # gets the estimated coefficients from multinom as a vector
     args = vector("list", length(nms)) #creates empty list the same length as the number of variants plus other
     args[[1]] = Y #sets first list element to the variant rank data (i.e. response variable)
     names(args) = nms #assigns the names of the args list to nms
     for (i in 2:length(nms)) args[[i]] = drop(mm[[i - 1]] %*% theta[(np[i - 1] + 1):np[i]]) #gets the coefficient estimates for each of the regression coefficients for each modeled variant, and places in the appropriate model design object
-    
+
     deta = matrix(do.call("gmultinom", args), ncol=length(args)-1) #this takes the args list and uses the gmultinom function above to estimate the gradient of the log likelihood
     rval$scores = NULL # creates an empty list element called scores in the rval list
     reorder = na.omit(match(names(formulas), nms[-1])) # creates numerical vector the same length as the names of formulas
@@ -320,7 +320,7 @@ svymultinom = function(src.dat, mysvy, fmla=formula("as.numeric(as.factor(K_US))
     rval$invinf = solve(-multinom_geoid$Hessian) #not 100% sure what this step does it looks like it's solving the inverse (negative?) multinomial regression object and adds as a list element to rval
     dimnames(rval$invinf) = list(parnms, parnms) #assigns names to the rval$invinf
     db = rval$scores %*% rval$invinf # this uses matrix multiplication to multiply the "scores" (i.e., the gradient loglikelihood * survey weights) by the inverse(?) multinomial regression object
-    
+
     #Everything up until now has been formatting steps to get the estimates/data formatted in way that's compatible with the svyrecvar function
     rval$sandwich = svyrecvar(db, mysvy$cluster, mysvy$strata, mysvy$fpc, postStrata = mysvy$postStrata) #Computes the variance of a total under multistage sampling, using a recursive descent algorithm.The object that's returned ("sandwich") is the covariance matrix
     rval$SE = sqrt(diag(rval$sandwich)) #estimating the "SE" (although isn't this sd?) as the square root of the diagonal elements of the variance-covariance matrix (i.e. the variance)
@@ -328,18 +328,18 @@ svymultinom = function(src.dat, mysvy, fmla=formula("as.numeric(as.factor(K_US))
     names(rval$estimates) = names(rval$SE) #assigns the names of "estimates" in rval to be the same as the names of "SE"
     rval$mlm$svyvcov = rval$sandwich #adds the variance-covariance matrix to the mlm object (mlm being the results object you get from solving the multinomial model)
   }
-  
+
   rval #makes sure the rval object is the output from this function
 }
 
 
-se.multinom = function(mlm, week, geoid="USA", composite_variant=NULL) { 
+se.multinom = function(mlm, week, geoid="USA", composite_variant=NULL) {
   #mlm=svymlm_us$mlm; week=85; geoid="USA"; composite_variant=agg_var_mat
   # Modified to handle composite variants (eg. Delta = combination of multiple lineages in multinomial model) [2021-09-29]
   #   composite_variant (if not NA) is a matrix with one column per model lineage and one row per composite variant
   #     matrix element of 1 marks each component lineage (column) for each composite variant (row)
-  #   example: matrix(c(1, 0, 0, 1, 0, 0), nrow=1) designates a variant comprising the first and fourth lineages in the model 
-  #     estimates for composites will be appended at end of p_i and se.p_i     
+  #   example: matrix(c(1, 0, 0, 1, 0, 0), nrow=1) designates a variant comprising the first and fourth lineages in the model
+  #     estimates for composites will be appended at end of p_i and se.p_i
   # Modified to handle geoid = state [2021-08-09]
   #   example: se.multinom(temp_state, 80, "GA")
   # Modified to handle output from svymultinom [2021-08-15]
@@ -361,7 +361,7 @@ se.multinom = function(mlm, week, geoid="USA", composite_variant=NULL) {
   if (ref_geoid) {hhs1tail = NULL} else {hhs1tail = 1}
   coeffs = c(1, week, hhs1tail)
   # b is vector of coefficients of time (week)
-  sub.vc = vc[indices,,indices,] 
+  sub.vc = vc[indices,,indices,]
   y_i = c(0, cf[, indices] %*% coeffs)
   vc.y_i = outer(1:dim(sub.vc)[2], 1:dim(sub.vc)[4], Vectorize(function(i, j) c(coeffs %*% sub.vc[, i, , j] %*% coeffs)))
   vc.y_i = rbind(0, cbind(0, vc.y_i))
@@ -374,13 +374,13 @@ se.multinom = function(mlm, week, geoid="USA", composite_variant=NULL) {
   p.vcov = dp_dy %*% vc.y_i %*% dp_dy
   se.p_i = as.vector(sqrt(diag(p.vcov)))
   if (!is.null(composite_variant)) {
-    composite_variant = list(matrix = composite_variant, 
+    composite_variant = list(matrix = composite_variant,
                              p_i = as.vector(composite_variant %*% p_i),
                              se.p_i = as.vector(sqrt(diag(composite_variant %*% p.vcov %*% t(composite_variant))))
     )
   }
   list(p_i=p_i, se.p_i=se.p_i, b_i=c(0, cf[, 2]), se.b_i= c(0, sqrt(diag(vc[2,,2,]))), composite_variant=composite_variant)
-}  
+}
 
 #Function to get binomial confidence interval based on the point estimated proportion and associated SE
 svyCI = function(p, s) {
@@ -394,22 +394,22 @@ svyCI = function(p, s) {
 }
 
 #######################################################
-# 
-# 
+#
+#
 # ```
-# 
+#
 # # Background
-# 
-# This brief summarizes findings from the variant surveillance system for variants of concern and of interest. 
-# 
+#
+# This brief summarizes findings from the variant surveillance system for variants of concern and of interest.
+#
 # The sequence are those submitted to NS3 and by contract with lab vendors. Both raw numbers and weighted estimates are displayed. Weights allow estimates to be representative of all infected persons, aggregated by week of specimen collection and by state. Currently, the probability of selection for each sample is assumed to be independent of data source, but that may be modified as more data on sampling protocol become available. An adjustment is applied to account for oversampling of SGTF specimens in certain data streams.
-# 
+#
 # # Results ------------------------------------------------------------------------------------------
-# 
+#
 # ## Current top variants by share and variants of concern or interest
-# 
+#
 # Based on sequences where the specimen was collected in the current or previous `r n_recent_weeks` weeks, the count of sequences, and variant share (weighted percent) are:
-# 
+#
 # Select display and model variants- this basically selects which variables are the top variables to include in the model
 us_var = sort(
   prop.table(xtabs(SIMPLE_ADJ_WT ~ VARIANT, subset(src.dat, week >= current_week - n_recent_weeks & VARIANT != "None"))),
@@ -449,7 +449,7 @@ if (length(grep("Run2",tag))!=0) { #Only run the nowcast when you're looking at 
   bp_hhs = xtabs(NORM_WTS ~ HHS + week + VARIANT, subset(src.moddat, week < current_week & week >= current_week - display_lookback))
   bp_hhs = prop.table(bp_hhs, 1:2)[,, display_vars]
   dimnames(bp_hhs)[[2]] = week_label(as.numeric(dimnames(bp_hhs)[[2]]) - current_week)
-  
+
   svymlm_us = svymultinom(src.moddat, mysvy,fmla=formula("as.numeric(as.factor(K_US))  ~ week"))
   pred_us.df = expand.grid(week = seq(-display_lookback, 2, 0.02) + current_week) #creates smoothed vector of week values to predict over (for the model smoothed figure)
   pred_us.df = cbind(pred_us.df, predict(svymlm_us$mlm, pred_us.df, type="probs")) #generates predicted probabilities over timeframe defined above
@@ -457,26 +457,26 @@ if (length(grep("Run2",tag))!=0) { #Only run the nowcast when you're looking at 
   bp_us = prop.table(bp_us, 1)
   bp_us = bp_us[, display_vars]
   rownames(bp_us) = week_label(as.numeric(rownames(bp_us)) - current_week)
-  
-  
+
+
   # Weighted variant shares of the top variants in the past `r display_lookback` weeks (number of sequences collected weekly above each bar), and model-based smoothed estimates, nationwide:
-  # 
-  # 
+  #
+  #
   # ```{r graphics us, warning=FALSE, message=FALSE, fig.width = 6, fig.height=6, dpi=300}
-  
+
   #knitr::kable(round(100*bp_us, 1), row.names=TRUE)
-  
+
   # Set up colors
   col.dk = hcl.colors(length(display_vars), palette="TealRose", alpha=0.8)
   names(col.dk) = display_vars
-  
+
   stub = paste0(script.basename, "/results/wtd_shares_", format(Sys.Date(), "%Y%m%d"), "_")
-  
-  
+
+
   if (fig_gen_run) jpeg(paste0(stub, "barplot_US", tag, custom_tag, ".jpg"), width=1500, height=1500, pointsize=40)
   bp = barplot(100*t(bp_us), xlab="Week beginning", ylab="Weighted variant share (%)", main="Nationwide",
-               border=NA, ylim=110*0:1,  col=col.dk, 
-               names.arg=rownames(bp_us), 
+               border=NA, ylim=110*0:1,  col=col.dk,
+               names.arg=rownames(bp_us),
                legend.text=display_vars, args.legend=list(x="topleft", bty="n", border=NA))
   text(bp, 3 + colSums(100*t(tail(bp_us, 12))), with(subset(src.dat, week < current_week & week >= current_week - display_lookback), table(week)), cex=0.7)
   if (fig_gen_run) dev.off()
@@ -488,20 +488,20 @@ if (length(grep("Run2",tag))!=0) { #Only run the nowcast when you're looking at 
   pc = unlist(100 * subset(pred_us.df, week==current_week)[, 1+display_indices])
   y = cumsum(pc) - pc/2
   text(1.02 * tail(bp, 1), y, round(pc, 1), cex=0.7, xpd=TRUE, adj=c(0, 0.5))
-  x = bp[which(pred_us.df$week %in% (current_week + c(-2, 0, 2)))] 
+  x = bp[which(pred_us.df$week %in% (current_week + c(-2, 0, 2)))]
   rect(x[1], 0, x[2], 100, border=NA, col="#00000020")
   rect(x[2], 0, x[3], 100, border=NA, col="#00000040")
   if (fig_gen_run) dev.off()
-  
-  
-  # 
+
+
+  #
   # The following is a "nowcast"; the vertical axis depicts the variant share growth rate (derivative of log of variant proportion with respect to time). The axis on the right shows an estimate of variant transmissibility with respect to the overall mean transmissibility.
-  # 
-  
-  
+  #
+
+
   us.summary = se.multinom(svymlm_us$mlm, current_week,geoid="USA")
-  se.gr = with(us.summary, 100 * exp(sqrt(se.b_i^2 + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2))) - 100) 
-  
+  se.gr = with(us.summary, 100 * exp(sqrt(se.b_i^2 + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2))) - 100)
+
   # WIP: getting better CIs (2021-04-26):
   # svyDF = with(svyNOGIS_ADJ$variables, length(unique(paste(STUSAB, SOURCE))) - length(unique(STUSAB)))
   # us.summary$se.p_i = with(us.summary, sqrt(se.p_i^2 + p_i * (1 - p_i)/svyDF))
@@ -511,39 +511,39 @@ if (length(grep("Run2",tag))!=0) { #Only run the nowcast when you're looking at 
        xaxt="n", xlim=c(0.0005,110),
        xlab = "Nowcast Estimated Proportion (%)", ylab="Week over week growth rate (%)", main="Nationwide")
   if(is.null(svymlm_us$SE)){
-    mtext(text = "*No SE estimates b/c of non-invertible Hessian in multinomial model fit.", 
+    mtext(text = "*No SE estimates b/c of non-invertible Hessian in multinomial model fit.",
           side = 3,
-          line = 0, 
-          cex = 0.75, 
-          font = 4, 
+          line = 0,
+          cex = 0.75,
+          font = 4,
           col = 'red' )
   }
   axis(1, at=c(0.001,0.01, 0.1, 1, 10,100), labels=c(0.001,0.01, 0.1, 1, 10,100))
   abline(h=0, col="grey65")
   for (vv in seq(model_vars)) {
     lines(100 * rep(us.summary$p_i[vv], 2), gr[vv] + 1.96 * c(1,-1) * se.gr[vv], col="blue",lwd=2)
-    lines(pmax(#1e-2, 
+    lines(pmax(#1e-2,
       100 * us.summary$p_i[vv] + 196 * c(1,-1) * us.summary$se.p_i[vv]), rep(gr[vv], 2), col="blue",lwd=2)
   }
   text(100 * us.summary$p_i, gr, c(names(model_vars),""), cex=0.85, col="grey25", adj=1.15)
-  
+
   if (fig_gen_run)  dev.off()
-  
-  gr_tab = cbind(variant=c(names(model_vars), "OTHER"), 
-                 variant_share=(100 * us.summary$p_i), 
+
+  gr_tab = cbind(variant=c(names(model_vars), "OTHER"),
+                 variant_share=(100 * us.summary$p_i),
                  growth_rate=gr)
-  
+
   write.csv(gr_tab, paste0(script.basename, "/results/wow_growth_variant_share", Sys.Date(), tag, custom_tag, ".csv"), row.names=FALSE)
-  
-  # 
+
+  #
   # Weighted variant shares of the top variants in the past `r display_lookback` weeks (number of sequences collected weekly above each bar), and model-based smoothed estimates, for each HHS region:
-  # 
-  
+  #
+
   for (hhs in sort(unique(src.dat$HHS))) {
     if (fig_gen_run) jpeg(paste0(stub, "barplot_HHS", hhs,tag, custom_tag, ".jpg"), width=1500, height=1500, pointsize=40)
     bp = barplot(100*t(bp_hhs[hhs,,]), xlab="Week beginning", ylab="Weighted variant share (%)", main=paste("HHS Region", hhs),
-                 border=NA, ylim=110*0:1,  col=col.dk, 
-                 names.arg=rownames(bp_hhs[hhs,,] - current_week), 
+                 border=NA, ylim=110*0:1,  col=col.dk,
+                 names.arg=rownames(bp_hhs[hhs,,] - current_week),
                  legend.text=display_vars, args.legend=list(x="topleft", bty="n", border=NA))
     text(bp, 3 + colSums(100*t(tail(bp_hhs[hhs,,], 12))), with(subset(src.dat, HHS==hhs & week < current_week & week >= current_week - display_lookback), table(week)), cex=0.7)
     if (fig_gen_run) dev.off()
@@ -556,52 +556,52 @@ if (length(grep("Run2",tag))!=0) { #Only run the nowcast when you're looking at 
     pc = unlist(100 * subset(pred.df, week==current_week)[, 1+display_indices])
     y = cumsum(pc) - pc/2
     text(1.02 * tail(bp, 1), y, round(pc, 1), cex=0.7, xpd=TRUE, adj=c(0, 0.5))
-    x = bp[which(pred.df$week %in% (current_week + c(-2, 0, 2)))] 
+    x = bp[which(pred.df$week %in% (current_week + c(-2, 0, 2)))]
     rect(x[1], 0, x[2], 100, border=NA, col="#00000020")
     rect(x[2], 0, x[3], 100, border=NA, col="#00000040")
     if (fig_gen_run) dev.off()
-    
+
     if (fig_gen_run) jpeg(paste0(stub, "growthrate_HHS", hhs, tag, custom_tag, ".jpg"), width=1500, height=1500, pointsize=40)
     hhs.summary = se.multinom(svymlm_hhs$mlm, current_week, hhs)
-    se.gr = with(hhs.summary, 100 * exp(sqrt(se.b_i^2 + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2))) - 100) 
+    se.gr = with(hhs.summary, 100 * exp(sqrt(se.b_i^2 + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2))) - 100)
     gr = with(hhs.summary, 100 * exp(b_i - sum(p_i * b_i)) - 100)
     plot(100 * hhs.summary$p_i, gr, log="x", type="n", ylim=c(min(range(gr + 1.96 * se.gr, gr - 1.96 * se.gr)[1], -75),
                                                               max(range(gr + 1.96 * se.gr, gr - 1.96 * se.gr)[2],100)),
          xaxt="n", xlim=c(0.0005,110),
          xlab = "Weighted share (%)", ylab="Week over week growth rate (%)", main=paste("HHS Region", hhs))
     if(is.null(svymlm_hhs$SE)){
-      mtext(text = "*No SE estimates b/c of non-invertible Hessian in multinomial model fit.", 
+      mtext(text = "*No SE estimates b/c of non-invertible Hessian in multinomial model fit.",
             side = 3,
-            line = 0, 
-            cex = 0.75, 
-            font = 4, 
+            line = 0,
+            cex = 0.75,
+            font = 4,
             col = 'red' )
     }
     axis(1, at=c(0.001,0.01, 0.1, 1, 10,100), labels=c(0.001,0.01, 0.1, 1, 10,100))
     abline(h=0, col="grey65")
     for (vv in seq(model_vars)) {
       lines(100 * rep(hhs.summary$p_i[vv], 2), gr[vv] + 1.96 * c(1,-1) * se.gr[vv], col="blue",lwd=2)
-      lines(pmax(#1e-2, 
+      lines(pmax(#1e-2,
         100 * hhs.summary$p_i[vv] + 1.96 * c(1,-1) * hhs.summary$se.p_i[vv]), rep(gr[vv], 2), col="blue",lwd=2)
       }
     #identify which variants have share>1% or growth rate>0%
     labels=unique(c(which(100 * hhs.summary$p_i>1), which(gr>1)))
     text(100 * hhs.summary$p_i, gr, c(names(model_vars),""), cex=0.85, col="grey25", adj=1.15)
-    
+
     if (fig_gen_run) dev.off()
     }
 }
 
 
 
-# 
+#
 # ## Technical notes
-# 
+#
 # * Weights are imputed from regional incidence if testing data for a state are unavailable
-# 
+#
 # * Model-based smoothing is performed using a multinomial logistic model
-# 
-# 
+#
+#
 # ```{r generate spreadsheet of estimates, warning=FALSE, message=FALSE, eval=FALSE}
 
 reported_variants = voc # voc for short list, all_tops for long; (will differ in what falls under "other")
@@ -616,8 +616,8 @@ svyDES = svydesign(ids=~SOURCE, strata=~STUSAB+yr_wk, weights= ~ SIMPLE_ADJ_WT, 
 src.dat$VARIANT2=as.character(src.dat$VARIANT)
 src.dat[src.dat$VARIANT %notin% voc,"VARIANT2"] <- "Other"
 
-if (length(grep("Run3",tag))==0){ #Run the fortnight and weekly estimates when 
-  
+if (length(grep("Run3",tag))==0){ #Run the fortnight and weekly estimates when
+
 #if (update_wk == 2) {ftnts = head(sort(unique(subset(src.dat, DAY >= as.numeric(as.Date("2021-01-25") - week0day1))$FORTNIGHT_END)), -1)} else{
 #  ftnts = head(sort(unique(subset(src.dat, DAY >= as.numeric(as.Date("2021-01-25") - week0day1))$FORTNIGHT_END)))}
 ftnts=(unique(subset(src.dat, as.Date(FORTNIGHT_END)>=as.Date("2021-05-08") & as.Date(FORTNIGHT_END)<=time_end)$FORTNIGHT_END))
@@ -646,7 +646,7 @@ raw_counts_US <- cbind(raw_counts_US[,1:2],HHS="USA",count=raw_counts_US[,3])
 raw_counts <- rbind.data.frame(raw_counts_US,raw_counts_REG)
 
 #merge sequence counts with weighted proportions estimates
-all.ftnt2 <- merge(all.ftnt, raw_counts,by.x=c("USA_or_HHSRegion","Fortnight_ending","Variant"),by.y=c("HHS","FORTNIGHT_END","VARIANT2"),all=T) 
+all.ftnt2 <- merge(all.ftnt, raw_counts,by.x=c("USA_or_HHSRegion","Fortnight_ending","Variant"),by.y=c("HHS","FORTNIGHT_END","VARIANT2"),all=T)
 
 all.ftnt2[is.na(all.ftnt2$count)==T,"count"] <- 0
 
@@ -675,7 +675,7 @@ all.ftnt2$nchs_flag=ifelse(all.ftnt2$flag_df==1|all.ftnt2$flag_eff.size==1|all.f
 all.ftnt2$nchs_flag_wodf=ifelse(all.ftnt2$flag_eff.size==1|all.ftnt2$denom_count==1|all.ftnt2$flag_abs.ciw==1|all.ftnt2$flag_rel.ciw==1,
                            1,0)
 
-all.ftnt2=all.ftnt2[,c("USA_or_HHSRegion","Fortnight_ending","Variant","Share",           
+all.ftnt2=all.ftnt2[,c("USA_or_HHSRegion","Fortnight_ending","Variant","Share",
                        "Share_lo","Share_hi","count","denom_count","DF","eff.size",
                        "CI_width","nchs_flag","nchs_flag_wodf")]
 
@@ -684,7 +684,7 @@ all.ftnt2 <- all.ftnt2[order(all.ftnt2$USA_or_HHSRegion),]
 write.csv(all.ftnt2, paste0(script.basename, "/results/variant_share_weighted_", ci.type, "CI_", svy.type, "_", data_date, tag, custom_tag, ".csv"), row.names=FALSE)
 
 # Weekly estimates --------------------------------------------------------------------
-#if (update_wk == 2) {wks = head(sort(unique(subset(src.dat, DAY >= as.numeric(as.Date("2021-01-25") - week0day1))$yr_wk)), -1)} else { 
+#if (update_wk == 2) {wks = head(sort(unique(subset(src.dat, DAY >= as.numeric(as.Date("2021-01-25") - week0day1))$yr_wk)), -1)} else {
 #  wks = sort(unique(subset(src.dat, DAY >= as.numeric(as.Date("2021-01-25") - week0day1))$yr_wk))-2}
 
 wks = sort(unique(subset(src.dat, as.Date(yr_wk) >= as.Date("2021-05-02") & as.Date(yr_wk) <= time_end-6)$yr_wk)) # all in 2021
@@ -704,7 +704,7 @@ all.wkly$WEEK_END = as.Date(all.wkly$Week_of) + 6
 dat2 <- subset(src.dat, as.Date(yr_wk) >= as.Date("2021-05-02"))
 dat2$WEEK_END = as.Date(dat2$yr_wk) + 6
 
-#make sure dates match dates in proportions dataframe 
+#make sure dates match dates in proportions dataframe
 dat2 <- subset(dat2, WEEK_END <= tail(unique(all.wkly$WEEK_END),1))
 
 raw_counts_REG <- aggregate(count~VARIANT2+WEEK_END+HHS, data=dat2, FUN=sum,drop=FALSE)
@@ -715,7 +715,7 @@ raw_counts_US <- cbind(raw_counts_US[,1:2],HHS="USA",count=raw_counts_US$count)
 raw_counts <- rbind.data.frame(raw_counts_US,raw_counts_REG)
 
 #merge sequence counts with weighted proportions estimates
-all.wkly2 <- merge(all.wkly, raw_counts,by.x=c("USA_or_HHSRegion","WEEK_END","Variant"),by.y=c("HHS","WEEK_END","VARIANT2"),all=T) 
+all.wkly2 <- merge(all.wkly, raw_counts,by.x=c("USA_or_HHSRegion","WEEK_END","Variant"),by.y=c("HHS","WEEK_END","VARIANT2"),all=T)
 
 all.wkly2[is.na(all.wkly2$count)==T ,"count"] <- 0
 
@@ -748,7 +748,7 @@ all.wkly2$nchs_flag_wodf=ifelse(all.wkly2$flag_eff.size==1|all.wkly2$denom_count
 all.wkly2$count_LT20=ifelse(all.wkly2$count<20,1,0)
 all.wkly2$count_LT10=ifelse(all.wkly2$count<10,1,0)
 
-all.wkly2=all.wkly2[,c("USA_or_HHSRegion","WEEK_END","Variant","Share",           
+all.wkly2=all.wkly2[,c("USA_or_HHSRegion","WEEK_END","Variant","Share",
                        "Share_lo","Share_hi","count","denom_count","DF","eff.size",
                        "CI_width","nchs_flag","nchs_flag_wodf","count_LT20","count_LT10")]
 
@@ -763,77 +763,77 @@ write.csv(all.wkly2, paste0(script.basename, "/results/variant_share_weekly_weig
 # State-level estimates - Rolling 4 wk bins --------------------------------------------------------------------
 
 # RUN3
-if (length(grep("Run3",tag))!=0){ #Only Run the state-level estimates when running the state list of lineages (i.e. Run 3) 
-  
+if (length(grep("Run3",tag))!=0){ #Only Run the state-level estimates when running the state list of lineages (i.e. Run 3)
+
   #get the week number that corresponds to date defined in state_time_end
   data_week=c()
   for(i in 1:length(state_time_end)){
     data_week[i] <-unique(src.dat$week[src.dat$yr_wk==state_time_end[i]-6]) #have to subtract 6 days because the yr_wk variable defines week starting on Sunday whereas the state_time_end is defined as week ending Saturday
   }
-  
+
   svyDES = svydesign(ids=~SOURCE, strata=~STUSAB+yr_wk, weights= ~ SIMPLE_ADJ_WT, nest=TRUE, data=src.dat) #redefine survey design to the new design for state-level estimates
-  
+
   #
   all.state = expand.grid(Variant=reported_variants, Roll_4wk_end=data_week,State=sort(unique(src.dat$STUSAB)))[, 3:1]
   ests = apply(all.state, 1, function(rr) myciprop(rr[3], rr[1], subset(svyDES, week >= (as.numeric(rr[2])- 3) & week < (as.numeric(rr[2])+1)), FALSE))
   all.state = cbind(all.state, Share=ests[1,], Share_lo=ests[2,], Share_hi=ests[3,],DF=ests[4,],eff.size=ests[5,], cv.mean=ests[6,])
-  
+
   others = expand.grid(Variant="Other", Roll_4wk_end=data_week,State=sort(unique(src.dat$STUSAB)))[, 3:1]
   ests.others = apply(others, 1, function(rr) myciprop(reported_variants, rr[1],subset(svyDES, week >= (as.numeric(rr[2])- 3) & week < (as.numeric(rr[2])+1)), FALSE))
   others = cbind(others, Share=1-ests.others[1,], Share_lo=1-ests.others[3,], Share_hi=1-ests.others[2,],DF=ests.others[4,],eff.size=ests.others[5,], cv.mean=ests.others[6,])
-  
+
   all.state = rbind(all.state, others)
-  
+
   all.state.out <-c()
   for(i in 1:length(data_week)){
     dat2 <- src.dat[src.dat$week >= (as.numeric(data_week[i])- 3) & src.dat$week < (as.numeric(data_week[i])+1),]
-    
-    #make sure dates match dates in proportions dataframe 
+
+    #make sure dates match dates in proportions dataframe
     raw_counts_state <- aggregate(count~VARIANT2+STUSAB, data=dat2, FUN=sum,drop=FALSE)
     raw_counts_state$count <- ifelse(is.na(raw_counts_state$count)==T,0,raw_counts_state$count)
     #merge sequence counts with weighted proportions estimates
-    all.state2 <- merge(all.state[all.state$Roll_4wk_end==data_week[i],], raw_counts_state,by.x=c("State","Variant"),by.y=c("STUSAB","VARIANT2"),all=T) 
-    
+    all.state2 <- merge(all.state[all.state$Roll_4wk_end==data_week[i],], raw_counts_state,by.x=c("State","Variant"),by.y=c("STUSAB","VARIANT2"),all=T)
+
     all.state2[is.na(all.state2$count)==T,"count"] <- 0
-    
-    
+
+
     #calculate denominator counts
     dss <- aggregate(count~State, data=all.state2,FUN=sum)
     names(dss)[grep("count",names(dss))] <- "denom_count"
     all.state2 <- merge(all.state2, dss,all=T)
-    
+
     all.state2$Roll_Fourweek_ending <- unique(as.Date(src.dat$yr_wk[src.dat$week==data_week[i]]) + 6)
-    
+
     all.state.out <- rbind.data.frame(all.state.out,all.state2)
   }
-  
+
   #set the Share 0 and CI limits to NA when the count for a lineage is 0
   all.state.out$Share=ifelse(all.state.out$Share!=0 & all.state.out$count==0,0,all.state.out$Share)
   all.state.out$Share_lo=ifelse(is.na(all.state.out$Share_lo)==F & all.state.out$count==0,NA,all.state.out$Share_lo)
   all.state.out$Share_hi=ifelse(is.na(all.state.out$Share_hi)==F & all.state.out$count==0,NA,all.state.out$Share_hi)
-  
+
   #calculate absolute CI width
   all.state.out$CI_width=all.state.out$Share_hi-all.state.out$Share_lo
-  
+
   #generate NCHS flags
   all.state.out$flag_df=ifelse(all.state.out$DF<8,1,0)
   all.state.out$flag_eff.size=ifelse(all.state.out$eff.size<30 | is.na(all.state.out$eff.size)==T,1,0 )
   all.state.out$flag_dss=ifelse(all.state.out$denom_count<30| is.na(all.state.out$denom_count)==T,1,0 )
   all.state.out$flag_abs.ciw=ifelse(all.state.out$CI_width>0.30 | is.na(all.state.out$CI_width)==T,1,0)
   all.state.out$flag_rel.ciw=ifelse(((all.state.out$CI_width/all.state.out$Share)*100)>130 | is.na((all.state.out$CI_width/all.state.out$Share)*100)==T,1,0)
-  
-  all.state.out$nchs_flag=ifelse(all.state.out$flag_df==1| all.state.out$flag_eff.size==1| all.state.out$denom_count==1| 
+
+  all.state.out$nchs_flag=ifelse(all.state.out$flag_df==1| all.state.out$flag_eff.size==1| all.state.out$denom_count==1|
                                    all.state.out$flag_abs.ciw==1| all.state.out$flag_rel.ciw==1,1,0)
-  
-  all.state.out$nchs_flag_wodf=ifelse( all.state.out$flag_eff.size==1| all.state.out$denom_count==1| 
+
+  all.state.out$nchs_flag_wodf=ifelse( all.state.out$flag_eff.size==1| all.state.out$denom_count==1|
                                          all.state.out$flag_abs.ciw==1| all.state.out$flag_rel.ciw==1,1,0)
-  
-  
-  all.state.out=all.state.out[,c("State","Roll_Fourweek_ending","Variant","Share",           
+
+
+  all.state.out=all.state.out[,c("State","Roll_Fourweek_ending","Variant","Share",
                                  "Share_lo","Share_hi","count","denom_count","DF","eff.size",
                                  "CI_width","nchs_flag","nchs_flag_wodf")]
-  
-  
+
+
   write.csv(all.state.out, paste0(script.basename, "/results/state_weighted_roll4wk_", ci.type, "CI_svyNEW_", data_date, tag, custom_tag, ".csv"), row.names=FALSE)
 }
 
@@ -841,34 +841,41 @@ if (length(grep("Run3",tag))!=0){ #Only Run the state-level estimates when runni
 
 # RUN2
 if (length(grep("Run2",tag))!=0){ #Run the nowcast output only when doing the run 2 list of lineages
-  
-  #Check to see which lineages are in model_vars, add those that need to be added
+
+  # Check to see which lineages are in model_vars, add those that need to be added
   AY_agg=names(model_vars)[grep("AY",names(model_vars))]
-  
-  AY_agg=AY_agg[AY_agg %notin% c("AY.1","AY.2")]
+
+  # get the names of the lineages to avoid aggregating for Run1
+  if(custom_lineages){
+    run1_lineages = voc1_custom
+  } else { run1_lineages = voc1 }
+
+  # get the names of the lineages to aggregate for Run1
+  AY_agg=AY_agg[AY_agg %notin% run1_lineages]
+
+
   Other_agg=names(model_vars)[names(model_vars) %notin% voc]
-  
-  
+
   #generate a matrix that indicates which lineages to aggregate for the nowcast
   #Columns are the lineages in the nowcast model, so all the defined lineages plus the other lineage
   #Rows are the aggregated lineages wanted
   agg_var_mat <- matrix(data=0,nrow=2,ncol=(length(model_vars)+1))
   colnames(agg_var_mat) <- c(names(model_vars),"Other")
-  
+
   #Fill in matrix values: if lineage needs to be aggregated for parent lineage in given row, then value = 1, else value = 0
   agg_var_mat[1,] <- ifelse(colnames(agg_var_mat) %in% c("B.1.617.2",AY_agg),1,0)
   agg_var_mat[2,] <- ifelse(colnames(agg_var_mat) %in% c(Other_agg,"Other"),1,0)
-  row.names(agg_var_mat) <-c("Delta Aggregated","Other Aggregated") 
-  
-  
-  
-  
+  row.names(agg_var_mat) <-c("Delta Aggregated","Other Aggregated")
+
+
+
+
   #define fortnights and regions to get nowcasts for
   proj_ftnts = as.Date(tail(ftnts, 2))
   proj_ftnts = sort(unique(c(proj_ftnts, proj_ftnts + 14, proj_ftnts + 28)))
-  
+
   dfs = expand.grid(USA_or_HHSRegion=c("USA",as.character(1:10)))
-  
+
   proj.res = c()
   for (rgn in dfs$USA_or_HHSRegion) for (ftn in proj_ftnts) {
     if (rgn=="USA") {
@@ -876,15 +883,15 @@ if (length(grep("Run2",tag))!=0){ #Run the nowcast output only when doing the ru
       geoid = rgn } else {
         mlm = svymlm_hhs$mlm
         geoid = as.numeric(rgn)}
-    wk = as.numeric(as.Date(ftn, origin="1970-01-01") - week0day1) %/% 7 
+    wk = as.numeric(as.Date(ftn, origin="1970-01-01") - week0day1) %/% 7
     #df = dfs[dfs$USA_or_HHSRegion==rgn, "x"]
     ests = se.multinom(mlm, wk, geoid, composite_variant = agg_var_mat) #gets proportion and se estimate from multinomial model for given week/region
-    
+
     ests = data.frame(
-      USA_or_HHSRegion=rgn, 
-      Fortnight_ending=as.Date(ftn, origin="1970-01-01"), 
-      Variant=c(names(model_vars),"Other",row.names(ests$composite_variant$matrix)), 
-      Share=c(ests$p_i,ests$composite_variant$p_i), 
+      USA_or_HHSRegion=rgn,
+      Fortnight_ending=as.Date(ftn, origin="1970-01-01"),
+      Variant=c(names(model_vars),"Other",row.names(ests$composite_variant$matrix)),
+      Share=c(ests$p_i,ests$composite_variant$p_i),
       se.Share=c(ests$se.p_i, ests$composite_variant$se.p_i)#,
       #Share_lo=ifelse( (ests$p_i - (1.96*ests$se.p_i))<0,0,(ests$p_i - (1.96*ests$se.p_i)) ),
       #Share_hi=ifelse( (ests$p_i + (1.96*ests$se.p_i))>1,1,(ests$p_i + (1.96*ests$se.p_i)) )
@@ -894,29 +901,29 @@ if (length(grep("Run2",tag))!=0){ #Run the nowcast output only when doing the ru
     ests$Share_lo=binom.ci[1,]
     ests$Share_hi=binom.ci[2,]
     proj.res=rbind(proj.res,ests)
-    
+
   }
-  
+
   proj.res = proj.res[, c("USA_or_HHSRegion", "Fortnight_ending", "Variant", "Share", "Share_lo", "Share_hi")]
-  
+
   #Format output for the run 1 lineage list
   run_1=proj.res[proj.res$Variant %notin% c(AY_agg,"B.1.617.2", Other_agg,"Other"),]
   run_1[run_1$Variant=="Other Aggregated","Variant"] <- "Other"
-  
+
   write.csv(run_1, paste0(script.basename, "/results/updated_nowcast_fortnightly_", data_date,"_state_tag_included_Run1", custom_tag, ".csv"), row.names=FALSE)
-  
+
   #Format output for the run2 lineage list
   drop_lin <- row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"]
   run_2=proj.res[proj.res$Variant %notin% c(drop_lin, Other_agg,"Other"),]
   run_2[run_2$Variant=="Other Aggregated","Variant"] <- "Other"
-  
+
   write.csv(run_2, paste0(script.basename, "/results/updated_nowcast_fortnightly_", data_date,"_state_tag_included_Run2", custom_tag, ".csv"), row.names=FALSE)
-  
-  
+
+
   ## Weekly
-  
+
   cast_wks = (function(dd) as.Date(seq(dd[1], dd[2], 7), origin="1970-01-01"))(range(as.Date(proj_ftnts)) + c(-7, 0)) # End-of-week dates
-  
+
   proj.res = c()
   for (rgn in dfs$USA_or_HHSRegion) for (cwk in cast_wks) {
     if (rgn=="USA") {
@@ -924,15 +931,15 @@ if (length(grep("Run2",tag))!=0){ #Run the nowcast output only when doing the ru
       geoid = rgn } else {
         mlm = svymlm_hhs$mlm
         geoid = as.numeric(rgn)}
-    wk = as.numeric(as.Date(cwk, origin="1970-01-01") - week0day1) %/% 7 
+    wk = as.numeric(as.Date(cwk, origin="1970-01-01") - week0day1) %/% 7
     #df = dfs[dfs$USA_or_HHSRegion==rgn, "x"]
     ests = se.multinom(mlm, wk, geoid, composite_variant = agg_var_mat) #gets proportion and se estimate from multinomial model for given week/region
-    
+
     ests = data.frame(
-      USA_or_HHSRegion=rgn, 
-      Week_ending=as.Date(cwk, origin="1970-01-01"), 
-      Variant=c(names(model_vars),"Other",row.names(ests$composite_variant$matrix)), 
-      Share=c(ests$p_i,ests$composite_variant$p_i), 
+      USA_or_HHSRegion=rgn,
+      Week_ending=as.Date(cwk, origin="1970-01-01"),
+      Variant=c(names(model_vars),"Other",row.names(ests$composite_variant$matrix)),
+      Share=c(ests$p_i,ests$composite_variant$p_i),
       se.Share=c(ests$se.p_i, ests$composite_variant$se.p_i)#,
       #Share_lo=ifelse( (ests$p_i - (1.96*ests$se.p_i))<0,0,(ests$p_i - (1.96*ests$se.p_i)) ),
       #Share_hi=ifelse( (ests$p_i + (1.96*ests$se.p_i))>1,1,(ests$p_i + (1.96*ests$se.p_i)) )
@@ -942,24 +949,24 @@ if (length(grep("Run2",tag))!=0){ #Run the nowcast output only when doing the ru
     ests$Share_lo=binom.ci[1,]
     ests$Share_hi=binom.ci[2,]
     proj.res=rbind(proj.res,ests)
-    
+
   }
-  
+
   proj.res = proj.res[, c("USA_or_HHSRegion", "Week_ending", "Variant", "Share", "Share_lo", "Share_hi")]
-  
+
   #Format output for the run 1 lineage list
   run_1=proj.res[proj.res$Variant %notin% c(AY_agg,"B.1.617.2", Other_agg,"Other"),]
   run_1[run_1$Variant=="Other Aggregated","Variant"] <- "Other"
-  
+
   write.csv(run_1, paste0(script.basename, "/results/updated_nowcast_weekly_", data_date,"_state_tag_included_Run1", custom_tag, ".csv"), row.names=FALSE)
-  
+
   #Format output for the run2 lineage list
   drop_lin <- row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"]
   run_2=proj.res[proj.res$Variant %notin% c(drop_lin, Other_agg,"Other"),]
   run_2[run_2$Variant=="Other Aggregated","Variant"] <- "Other"
-  
+
   write.csv(run_2, paste0(script.basename, "/results/updated_nowcast_weekly_", data_date,"_state_tag_included_Run2", custom_tag, ".csv"), row.names=FALSE)
-  
+
 }
 
 #capture system time

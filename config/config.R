@@ -5,7 +5,7 @@ ci.type <- "KG" #variable specifying which CI estimator to use for weighted prop
 
 #variable for whether or not to include the state tagged sequences
 # Update the following each run ----------------------------------------
-time_end <- as.Date("2021-10-30") #set end date for national and regional survey estimates  
+time_end <- as.Date("2021-10-30") #set end date for national and regional survey estimates
 state_time_end=c(as.Date("2021-09-25"), as.Date("2021-10-02"), as.Date("2021-10-09"), as.Date("2021-10-16"), as.Date("2021-10-23")) # set end dates for state-level estimates
 data_date <- Sys.Date()  # set date for data creation, set to current date to allow more portability
 
@@ -19,7 +19,7 @@ custom_tag = ifelse(custom_lineages == TRUE, "_custom", "")
 #arguments to indicate whether sublineages should be aggregated to parent lineage
 P.1_agg=TRUE
 B.1.351_agg=TRUE
-AY_agg=TRUE 
+AY_agg=TRUE
 Q.1_3_agg=TRUE
 B.1.621_agg=TRUE
 B429_7_agg=TRUE
@@ -31,93 +31,68 @@ B429_7_agg=TRUE
 # - AY.35+ - AY.35 with E484Q
 #
 # All other lineages (including AY.4.2 and AY.35) are from default pangolin calls.
+
+# define voc's for Run1
+custom_lineage_names = c("AY.35+",
+                         "AY.4.2+")
+voc1 = c("AY.1",
+         "AY.2",
+         "B.1.617.2")
+voc1_custom = c(voc1,
+                custom_lineage_names)
+voc2 = c("AY.1",
+         "AY.2",
+         "AY.20",
+         "AY.3",
+         "AY.35",
+         "B.1.617.2",
+         "AY.43",
+         "AY.25",
+         "AY.26",
+         "AY.24",
+         "AY.44",
+         "AY.14",
+         "AY.3.1",
+         "AY.47",
+         "AY.39")
+voc2_custom = c(voc2,
+                custom_lineage_names)
+voc3 = c("B.1.1.7",# with Q.1 to 8*
+         "B.1.351", #and B.1.351.*
+         "P.1", #and P.*
+         "B.1.617.2", #and AY.3-AY.25*
+         "AY.1",
+         "AY.2",
+         "B.1.427",#/B.1.429*
+         "B.1.525",
+         "B.1.526",
+         "B.1.617.1",
+         "B.1.617.3",
+         "P.2",
+         "B.1.621")# and B.1.621.1*
+voc3_custom = c(voc3,
+                custom_lineage_names)
+
 if(length(grep("Run1",tag))>0){
   if(custom_lineages == FALSE) {
-    voc=c("AY.1",
-        "AY.2",
-        "B.1.617.2")
+    voc = voc1
   } else {
-    voc=c("AY.1",
-        "AY.2",
-        "B.1.617.2",
-        "AY.35+",
-        "AY.4.2+")
+    voc = voc1_custom
   }
-  
-  
-} else if(length(grep("Run2",tag))>0) {
-
+}
+if(length(grep("Run2",tag))>0) {
   if(custom_lineages == FALSE) {
-    voc=c("AY.1",
-        "AY.2",
-        "AY.20",
-        "AY.3",
-        "AY.35",
-        "B.1.617.2",
-        "AY.43",
-        "AY.25",
-        "AY.26",
-        "AY.24",
-        "AY.44",
-        "AY.14",
-        "AY.3.1",
-        "AY.47",
-        "AY.39")
+    voc = voc2
   } else {
-      voc=c("AY.1",
-        "AY.2",
-        "AY.20",
-        "AY.3",
-        "AY.35",
-        "B.1.617.2",
-        "AY.43",
-        "AY.25",
-        "AY.26",
-        "AY.24",
-        "AY.44",
-        "AY.14",
-        "AY.3.1",
-        "AY.47",
-        "AY.39",
-        "AY.35+",
-        "AY.4.2+")
+    voc = voc2_custom
   }
-  
-  
-  #State-level run
-} else if(length(grep("Run3",tag))>0) {
-  
+}
+if(length(grep("Run3",tag))>0) {
   if(custom_lineages == FALSE) {
-      voc=c("B.1.1.7",# with Q.1 to 8* 
-        "B.1.351", #and B.1.351.* 
-        "P.1", #and P.* 
-        "B.1.617.2", #and AY.3-AY.25* 
-        "AY.1", 
-        "AY.2", 
-        "B.1.427",#/B.1.429* 
-        "B.1.525", 
-        "B.1.526", 
-        "B.1.617.1", 
-        "B.1.617.3", 
-        "P.2", 
-        "B.1.621")# and B.1.621.1* 
+      voc = voc3
   } else {
-      voc=c("B.1.1.7",# with Q.1 to 8* 
-        "B.1.351", #and B.1.351.* 
-        "P.1", #and P.* 
-        "B.1.617.2", #and AY.3-AY.25* 
-        "AY.1", 
-        "AY.2", 
-        "B.1.427",#/B.1.429* 
-        "B.1.525", 
-        "B.1.526", 
-        "B.1.617.1", 
-        "B.1.617.3", 
-        "P.2", 
-        "B.1.621")# and B.1.621.1*
+      voc = voc3_custom
   }
-  
- 
 }
 
 
