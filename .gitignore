@@ -1,4 +1,6 @@
-run*
-Run*
+# Exclude shell scripts
+# run*
+# Run*
+# Exclude results
 results/
 data/
