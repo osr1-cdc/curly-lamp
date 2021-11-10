@@ -1,4 +1,5 @@
-options(java.parameters = "-Xmx8000m")
+options(java.parameters = "-Xmx8000m",
+		stringsAsFactors=FALSE)
 # Background
 
 #Emerging variants of SARS-CoV-2 with increasing share among cases are of potential public health concern. 
@@ -359,7 +360,7 @@ svy.dat$count=1
 aggregate(count~LAB,data=svy.dat,FUN=sum)
 
 #clean LAB names
-svy.dat$LAB2=svy.dat$LAB
+svy.dat$LAB2=as.character(svy.dat$LAB)
 
 svy.dat[svy.dat$LAB %in% unique(c(sort(unique(svy.dat$LAB)[grep(ignore.case=T,"Maryland",unique(svy.dat$LAB))]),unique(svy.dat$LAB)[grep("MD",unique(svy.dat$LAB))])),"LAB2"] <- "MD-DPH"
 svy.dat[svy.dat$LAB %in% unique(c(sort(unique(svy.dat$LAB)[grep(ignore.case=T,"New Jersey",unique(svy.dat$LAB))]),unique(svy.dat$LAB)[grep("NJ",unique(svy.dat$LAB))])),"LAB2"] <- "NJ-DPH"
