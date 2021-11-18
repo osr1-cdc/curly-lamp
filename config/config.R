@@ -54,6 +54,7 @@ ci.type <- "KG"
 # set end date for national and regional survey estimates
 time_end <- as.Date("2021-11-13")
 # this is generally the end of the previous week:   Sys.Date() - as.numeric(format(Sys.Date(), '%w')) - 1
+# alternatively, just set this manually:            as.Date("2021-11-13")
 
 # set end dates for state-level estimates (Run3)
 # (end of week = Saturday)
@@ -71,7 +72,7 @@ state_time_end = c( # as.Date("2021-09-18"),
 # set date for data creation
 # (generally set to current date to allow more portability)
 # data_date <- Sys.Date()
-data_date <- as.Date('2021-11-16')
+data_date <- as.Date('2021-11-18')
 
 # Use data from the frozen data created on this date
 date_frozen <- if(data_date == Sys.Date()){
@@ -129,8 +130,10 @@ voc1_custom = c(voc1,
 # Set voc's for Run2
 voc2 = c(
   "AY.100",
-  "AY.102",
   "AY.103",
+  "AY.117",
+  "AY.118",
+  "AY.119",
   "AY.14",
   "AY.20",
   "AY.25",
@@ -138,7 +141,6 @@ voc2 = c(
   "AY.3",
   "AY.3.1",
   "AY.39",
-  "AY.43",
   "AY.44",
   "AY.47",
   "AY.75",

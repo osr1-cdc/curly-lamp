@@ -1,0 +1,14 @@
+Warning message:
+In dir.create(paste0(script.basename, "/results")) :
+  './results' already exists
+Loading required package: grid
+Loading required package: Matrix
+Loading required package: survival
+
+Attaching package: ‘survey’
+
+The following object is masked from ‘package:graphics’:
+
+    dotchart
+
+There were 50 or more warnings (use warnings() to see the first 50)
