@@ -32,7 +32,7 @@
 
 
 # Update the following each run ----------------------------------------
-custom_lineages = FALSE
+custom_lineages = TRUE
 
 # specify survey design type (NO NEED TO CHANGE)
 svy.type <- "svyNEW"
