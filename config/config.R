@@ -32,7 +32,7 @@
 
 
 # Update the following each run ----------------------------------------
-custom_lineages = TRUE
+custom_lineages = FALSE
 
 # specify survey design type (NO NEED TO CHANGE)
 svy.type <- "svyNEW"
@@ -129,6 +129,8 @@ voc1_custom = c(voc1,
                 custom_lineage_names)
 # Set voc's for Run2
 voc2 = c(
+  "AY.1", # include regardless of abundance
+  "AY.2", # include regardless of abundance
   "AY.100",
   "AY.103",
   "AY.117",
