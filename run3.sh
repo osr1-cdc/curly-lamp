@@ -11,7 +11,7 @@
 #$ -e Run3.err
 # 
 # Rename the job to be this string instead of the default which is the name of the script
-#$ -N Run3
+#$ -N Run3_proportion_modeling
 # 
 # Refer all file reference to work the current working directory which is
 # the directory from which the script was qsubbed
@@ -37,4 +37,4 @@
 
 conda activate /scicomp/groups/Projects/SARS2Seq/bin/miniconda/envs/prop_model
 
-Rscript weekly_variant_report_nowcast.R -r 3
+Rscript weekly_variant_report_nowcast.R -r 3 -c F
