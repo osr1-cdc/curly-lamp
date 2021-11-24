@@ -32,7 +32,7 @@
 
 
 # Update the following each run ----------------------------------------
-custom_lineages = TRUE
+custom_lineages = FALSE
 
 # specify survey design type (NO NEED TO CHANGE)
 svy.type <- "svyNEW"
@@ -52,7 +52,7 @@ ci.type <- "KG"
 
 # Update the following each run ----------------------------------------
 # set end date for national and regional survey estimates
-time_end <- as.Date("2021-11-13")
+time_end <- as.Date("2021-11-20")
 # this is generally the end of the previous week:   Sys.Date() - as.numeric(format(Sys.Date(), '%w')) - 1
 # alternatively, just set this manually:            as.Date("2021-11-13")
 
@@ -61,18 +61,19 @@ time_end <- as.Date("2021-11-13")
 state_time_end = c( # as.Date("2021-09-18"),
   # as.Date("2021-09-25"),
   # as.Date("2021-10-02"),
-  as.Date("2021-10-09"),
+  # as.Date("2021-10-09"),
   as.Date("2021-10-16"),
   as.Date("2021-10-23"),
   as.Date("2021-10-30"),
-  as.Date("2021-11-06")
+  as.Date("2021-11-06"),
+  as.Date("2021-11-13")
 )
 # this is generally the end of 5 of the 6 most recent weeks (doesn't include most recent week):    (Sys.Date() - as.numeric(format(Sys.Date(), '%w')) - 1) - (7*5:1)
 
 # set date for data creation
 # (generally set to current date to allow more portability)
 # data_date <- Sys.Date()
-data_date <- as.Date('2021-11-18')
+data_date <- as.Date('2021-11-24')
 
 # Use data from the frozen data created on this date
 date_frozen <- if(data_date == Sys.Date()){
@@ -136,13 +137,14 @@ voc2 = c(
   "AY.117",
   "AY.118",
   "AY.119",
-  "AY.14",
+  # "AY.14", # removed
   "AY.20",
   "AY.25",
   "AY.26",
   "AY.3",
   "AY.3.1",
-  "AY.39",
+  "AY.39", 
+  'AY.43', # added 
   "AY.44",
   "AY.47",
   "AY.75",
