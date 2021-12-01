@@ -1,0 +1,6 @@
+# Exclude results
+results/
+results_*/
+data/
+*.Rproj*
+.Rproj.user
