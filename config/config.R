@@ -32,84 +32,13 @@
 
 
 # Update the following each run ----------------------------------------
-custom_lineages = TRUE
-
-# specify survey design type (NO NEED TO CHANGE)
-svy.type <- "svyNEW"
-# Survey design options:
-# svyREG: stratified by HHS;
-#         Primary sampling unit = state
-#         Secondary sampling unit = source
-# [anything else]: stratified by state & week;
-#                  Sampling unit = source
-
-# specify confidence interval type for weighted proportion estimates
-# (NO NEED TO CHANGE)
-ci.type <- "KG"
-# ci.type options include:
-#   xlogit: uses function "svyciprop" with method='xlogit'
-#   [anything else]: uses function "svycipropkg"
-
-# Update the following each run ----------------------------------------
-# set end date for national and regional survey estimates
-time_end <- as.Date("2021-11-20")
-# this is generally the end of the previous week:   Sys.Date() - as.numeric(format(Sys.Date(), '%w')) - 1
-# alternatively, just set this manually:            as.Date("2021-11-13")
-
-# set end dates for state-level estimates (Run3)
-# (end of week = Saturday)
-state_time_end = c( # as.Date("2021-09-18"),
-  # as.Date("2021-09-25"),
-  # as.Date("2021-10-02"),
-  # as.Date("2021-10-09"),
-  as.Date("2021-10-16"),
-  as.Date("2021-10-23"),
-  as.Date("2021-10-30"),
-  as.Date("2021-11-06"),
-  as.Date("2021-11-13")
-)
-# this is generally the end of 5 of the 6 most recent weeks (doesn't include most recent week):    (Sys.Date() - as.numeric(format(Sys.Date(), '%w')) - 1) - (7*5:1)
-
+# custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
-# data_date <- Sys.Date()
-data_date <- as.Date('2021-11-24')
-
-# Use data from the frozen data created on this date
-date_frozen <- if(data_date == Sys.Date()){
-  "to_date(date_frozen)"
-} else {
-  paste0('"', data_date, '"')
-}
-# Options:
-# - default = newest data available: "to_date(date_frozen)"
-# - alternative = set a date:        '"2021-11-04"'
-
-#variable for whether or not to include the state tagged sequences
-state_source <- "state_tag_included" #argument indicating whether to include state tagged data
-# options:
-# state_tag_included: include samples tagged by states as surveillance quality
-# [anything else]: excludes samples tagged by states as surveillance quality (i.e. only NS3 & CDC sampling)
-
-# a tag for the filename to indicate which run from Lab TF request the results are for
-tag <- paste0("_",state_source,"_Run", opts$run_number)
-# potentially adjust if there are custom lineages to include
-custom_tag = ifelse(custom_lineages == TRUE, "_custom", "")
-# options:
-# paste0("_",state_source,"_Run1"): calc proportions USING SURVEY DESIGN for reduced set of VOCs
-# paste0("_",state_source,"_Run2"): calc proportions for extended set of VOCs (many Delta subclades)
-#                                   this is the only run that includes the multinomial "nowcast" model
-# Note: Nowcast runs best with a large set of variants (if you group everything into delta, then the model breaks)
-# paste0("_",state_source,"_Run3"): calc proportions for another reduced set of VOCs
-#                                   Specific to state-level runs & VOC's generally won't change
-
-# arguments to indicate whether sublineages should be aggregated to parent lineage
-P.1_agg     = TRUE
-B.1.351_agg = TRUE
-AY_agg      = TRUE
-Q.1_3_agg   = TRUE
-B.1.621_agg = TRUE
-B429_7_agg  = TRUE
+data_date <- Sys.Date()
+# data_date <- as.Date('2021-11-18')
+# I think this needs to be a date on which data were frozen in the CDP database,
+# which is often Thursdays.
 
 # List of variants to track (not just VOC or VOI):
 # VOCs
@@ -122,36 +51,32 @@ B429_7_agg  = TRUE
 # Set custom lineages
 custom_lineage_names = c("AY.35+",
                          "AY.4.2+")
+# NOTE! If you change the custom lineages, you much also change the "custom"
+#       pangolin sql query (lines 305-320) in variant_surveillance_system.R to match!
+
 # Set voc's for Run1
 voc1 = c("AY.1",
          "AY.2",
          "B.1.617.2")
 voc1_custom = c(voc1,
                 custom_lineage_names)
+
 # Set voc's for Run2
-voc2 = c(
-  "AY.1", # include regardless of abundance
-  "AY.2", # include regardless of abundance
-  "AY.100",
-  "AY.103",
-  "AY.117",
-  "AY.118",
-  "AY.119",
-  # "AY.14", # removed
-  "AY.20",
-  "AY.25",
-  "AY.26",
-  "AY.3",
-  "AY.3.1",
-  "AY.39", 
-  'AY.43', # added 
-  "AY.44",
-  "AY.47",
-  "AY.75",
-  "B.1.617.2"
-)
-voc2_custom = c(voc2,
-                custom_lineage_names)
+# THESE ARE NOW DOWNLOADED IN "variant_surveillance_system.R".
+# ONLY SET VALUES HERE TO OVERRIDE THE SQL QUERY IN "variant_surveillance_system.R".
+# Leave set to "NA" to use the variants automatically identified (pulled to
+# "voc2_df" in variant_surveillance_system.R)
+voc2_manual = c(NA)
+
+# optionally specify additional variants that will be added on to the lineages
+# from the SQL query in "variant_surveillance_system.R"
+# (this will not have any effect if "voc2_manual" is used)
+voc2_additional = c("AY.1",
+                    "AY.2",
+                    "B.1.617.2")
+# voc2_custom = c(voc2,
+#                 custom_lineage_names)
+
 # Set voc's for Run3
 voc3 = c("B.1.1.7",# with Q.1 to 8*
          "B.1.351", #and B.1.351.*
@@ -169,28 +94,67 @@ voc3 = c("B.1.1.7",# with Q.1 to 8*
 voc3_custom = c(voc3,
                 custom_lineage_names)
 
-# Choose which list of vocs to use based on the run number
-if( grepl("Run1",tag) ){
-  if(custom_lineages == FALSE) {
-    voc = voc1
-  } else {
-    voc = voc1_custom
-  }
+
+
+
+# do not need to change these on a regular basis -------------------------------
+# specify survey design type (NO NEED TO CHANGE)
+svy.type <- "svyNEW"
+# Survey design options:
+# svyREG: stratified by HHS;
+#         Primary sampling unit = state
+#         Secondary sampling unit = source
+# [anything else]: stratified by state & week;
+#                  Sampling unit = source
+
+# specify confidence interval type for weighted proportion estimates
+# (NO NEED TO CHANGE)
+ci.type <- "KG"
+# ci.type options include:
+#   xlogit: uses function "svyciprop" with method='xlogit'
+#   [anything else]: uses function "svycipropkg"
+
+
+# set end date for national and regional survey estimates
+# this is generally the end of the previous week.
+time_end <- data_date - as.numeric(format(data_date, '%w')) - 1
+# otherwise, set manually:
+# time_end <- as.Date("2021-10-30")
+
+# set end dates for state-level estimates (Run3)
+# (end of week = Saturday)
+# this is generally the end of 5 of the 6 most recent weeks (doesn't include most recent week):
+state_time_end = (data_date - as.numeric(format(data_date, '%w')) - 1) - (7*5:1)
+# otherwise set manually:
+# state_time_end=c(as.Date("2021-09-25"),as.Date("2021-10-02"),as.Date("2021-10-09"),as.Date("2021-10-16"),as.Date("2021-10-23"))
+
+
+# Use data from the frozen data created on data_date
+if(data_date == Sys.Date()){
+  date_frozen <- "to_date(date_frozen)" # "date_frozen" is a column in pangolin table
+  # flag for whether or not current data is being used
+  current_data = TRUE
+} else {
+  date_frozen <- paste0('"', data_date, '"')
+  current_data = FALSE
 }
-if( grepl("Run2",tag) ) {
-  if(custom_lineages == FALSE) {
-    voc = voc2
-  } else {
-    voc = voc2_custom
-  }
-}
-if( grepl("Run3",tag) ) {
-  if(custom_lineages == FALSE) {
-      voc = voc3
-  } else {
-      voc = voc3_custom
-  }
-}
+# Options:
+# - default = newest data available: "to_date(date_frozen)"
+# - alternative = set a date:        '"2021-11-04"'
+
+#variable for whether or not to include the state tagged sequences
+state_source <- "state_tag_included" #argument indicating whether to include state tagged data
+# options:
+# state_tag_included: include samples tagged by states as surveillance quality
+# [anything else]: excludes samples tagged by states as surveillance quality (i.e. only NS3 & CDC sampling)
+
+# arguments to indicate whether sublineages should be aggregated to parent lineage
+P.1_agg     = TRUE
+B.1.351_agg = TRUE
+AY_agg      = TRUE
+Q.1_3_agg   = TRUE
+B.1.621_agg = TRUE
+B429_7_agg  = TRUE
 
 
 # Argument determining whether figures should be output as jpgs
