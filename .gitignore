@@ -3,3 +3,4 @@ results/
 results_*/
 data/
 *.Rproj*
+.Rproj.user
