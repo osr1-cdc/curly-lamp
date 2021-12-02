@@ -102,7 +102,7 @@ It is best to run this from DVD-VM (`dvd-sars2seq-dev01.biotech.cdc.gov`), but c
 6. Run the `variant_surveillance_system.R` script submitting your username and password (FreeIPA CDP password) as well as specifying whether or not to include custom lineages. 
    ```bash
    Rscript variant_surveillance_system.R -u <username> -p <password> -c F
-   # optionally get custom dataset simultaneously from another terminal window
+   # optionally get custom dataset simultaneously from another terminal window or screen session
    Rscript variant_surveillance_system.R -u <username> -p <password> -c T
    ```
    This  will generate the survey dataset. Data results will be output in a folder titled `data/` and will be dated using `data_date` variable from `config/config.R`.

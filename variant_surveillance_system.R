@@ -954,6 +954,28 @@ labnames_df_so <- data.frame(old_name = SO_labs_to_agg,
                              new_name = "SONOMA COUNTY PHL")
 svy.dat[svy.dat$LAB %in% SO_labs_to_agg,"LAB2"] <- "SONOMA COUNTY PHL"
 
+# Aggregate NC labs 
+NC_labs_to_agg <- grep(pattern = "(INFECTIOUS DISEASES,  NC SLPH COVID-19 RESPONSE TEAM)|(INFECTIOUS DISEASES,  NORTH CAROLINA STATE LABORATORY OF PUBLIC HEALTH COVID-19 RESPONSE TEAM)",
+                       x = unique_labs,
+                       ignore.case = T,
+                       value = T)
+labnames_df_nc <- data.frame(old_name = NC_labs_to_agg,
+                             new_name = "INFECTIOUS DISEASES, NC SLPH COVID-19 RESPONSE TEAM")
+svy.dat[svy.dat$LAB %in% NC_labs_to_agg,"LAB2"] <- labnames_df_nc$new_name[1]
+
+# Aggregate other NC labs 
+NC2_labs_to_agg <- unique_labs[grepl(pattern = "NORTH CAROLINA STATE LABORATORY OF PUBLIC HEALTH",
+                       x = unique_labs,
+                       ignore.case = T) & 
+                         !grepl(pattern = "(INFECTIOUS DISEASES)|(COVID-19 RESPONSE TEAM)",
+                               x = unique_labs,
+                               ignore.case = T)]
+labnames_df_nc2 <- data.frame(old_name = NC2_labs_to_agg,
+                             new_name = "NCSLPH")
+svy.dat[svy.dat$LAB %in% NC2_labs_to_agg,"LAB2"] <- labnames_df_nc2$new_name[1]
+
+
+
 # create a dataframe of all the lab names that were changed
 labnames_df <- rbind(
   labnames_df_md,
@@ -967,7 +989,9 @@ labnames_df <- rbind(
   labnames_df_sd,
   labnames_df_om,
   labnames_df_mn,
-  labnames_df_so
+  labnames_df_so,
+  labnames_df_nc,
+  labnames_df_nc2
 )
 # print the list of lab names that were changed to the console
 labnames_df
