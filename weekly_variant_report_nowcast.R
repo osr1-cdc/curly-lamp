@@ -586,8 +586,9 @@ svymultinom = function(src.dat,
   # (note: the se.multinom function will still run on the output of this function,
   #  but will assume the SE is 0)
   # if(det(multinom_geoid$Hessian) == -Inf) {
-  if(det(multinom_geoid$Hessian) < -9e100) {
+  if(abs(det(multinom_geoid$Hessian)) > 9e100) {
     # might want to replace -Inf with a very large negative number: e.g. -9e100
+    # I changed this to an absolute value after running into a Inf value when running a model with very small sample size
 
     # add empty items to the results to match structure of a successful run
     # (setting to NULL inside of list() *does* create the named item)
