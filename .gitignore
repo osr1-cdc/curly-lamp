@@ -4,3 +4,5 @@ results_*/
 data/
 *.Rproj*
 .Rproj.user
+Notes_to_self_on_git.txt
+config/config.R.orig
