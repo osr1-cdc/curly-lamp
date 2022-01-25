@@ -32,34 +32,43 @@
 
 
 # Update the following each run ----------------------------------------
+
 # custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
 data_date <- Sys.Date()
-# data_date <- as.Date('2021-11-18')
+# data_date <- as.Date('2022-01-20')
 # I think this needs to be a date on which data were frozen in the CDP database,
 # which is often Thursdays.
 
-# List of variants to track (not just VOC or VOI):
-# VOCs
+## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
+
 # The current branch has the following custom defined lineages:
+# - BA.1+ = BA.1 with R346K
+# FORMERLY "custom" lineages included:
 # - AY.4.2+ - AY.4.2 with Y145H and A222V
 # - AY.35+ - AY.35 with E484Q
 #
 # All other lineages (including AY.4.2 and AY.35) are from default pangolin calls.
 
 # Set custom lineages
-custom_lineage_names = c("AY.35+",
-                         "AY.4.2+")
+custom_lineage_names <- c("BA.1+")
 # NOTE! If you change the custom lineages, you much also change the "custom"
 #       pangolin sql query (lines 305-320) in variant_surveillance_system.R to match!
 
 # Set voc's for Run1
 voc1 = c("AY.1",
          "AY.2",
-         "B.1.617.2")
-voc1_custom = c(voc1,
-                custom_lineage_names)
+         "B.1.617.2",
+         "B.1.1.529") # omicron
+# define an alternate set of vocs
+# (the reason for including two sets instead of just redefining the first set is 
+#  to make it easier to run both sets simultaneously just changing an option 
+#  passed to weekly_variant_report_nowcast.R)
+voc1_reduced = c(
+  'B.1.1.529', 
+  'B.1.617.2'
+)
 
 # Set voc's for Run2
 # THESE ARE NOW DOWNLOADED IN "variant_surveillance_system.R".
@@ -73,27 +82,31 @@ voc2_manual = c(NA)
 # (this will not have any effect if "voc2_manual" is used)
 voc2_additional = c("AY.1",
                     "AY.2",
-                    "B.1.617.2")
+                    "B.1.617.2",
+                    "B.1.1.529") # omicron (includes B.1.1.529 (probable))
 # voc2_custom = c(voc2,
 #                 custom_lineage_names)
 
+# define an alternate set of vocs
+voc2_reduced = voc1_reduced
+
 # Set voc's for Run3
-voc3 = c("B.1.1.7",# with Q.1 to 8*
-         "B.1.351", #and B.1.351.*
-         "P.1", #and P.*
-         "B.1.617.2", #and AY.3-AY.25*
+voc3 = c("B.1.1.7",   # Alpha  # and Q.1 to 8*
+         "B.1.351",   # Beta   # and B.1.351.*
+         "P.1",       # Gamma  # and P.*
+         "B.1.617.2", # Delta # and AY.3-AY.25*
          "AY.1",
          "AY.2",
-         "B.1.427",#/B.1.429* # B.1.427 & B.1.429 are aggregated on line 137 of "weekly_variant_report_nowcast.R"
-         "B.1.525",
-         "B.1.526",
-         "B.1.617.1",
-         "B.1.617.3",
-         "P.2",
-         "B.1.621")# and B.1.621.1*
-voc3_custom = c(voc3,
-                custom_lineage_names)
-
+         "B.1.427",   # Epsilon  # B.1.427 & B.1.429 are aggregated on line 137 of "weekly_variant_report_nowcast.R"
+         "B.1.525",   # Eta
+         "B.1.526",   # Iota
+         "B.1.617.1", # Kappa 
+         "B.1.617.3", # (unnamed)
+         "P.2",       # Zeta 
+         "B.1.621",   # Mu
+         "B.1.1.529") # Omicron # and BA.*
+# define an alternate set of vocs
+voc3_reduced = voc1_reduced
 
 
 
@@ -118,6 +131,7 @@ ci.type <- "KG"
 # set end date for national and regional survey estimates
 # this is generally the end of the previous week.
 time_end <- data_date - as.numeric(format(data_date, '%w')) - 1
+# time_end <- as.Date('2021-12-11') # VERY little data for this past week. Not worth including. 
 # otherwise, set manually:
 # time_end <- as.Date("2021-10-30")
 
@@ -155,6 +169,7 @@ AY_agg      = TRUE
 Q.1_3_agg   = TRUE
 B.1.621_agg = TRUE
 B429_7_agg  = TRUE
+B.1.1.529_agg = TRUE  # aggregate omicrons
 
 
 # Argument determining whether figures should be output as jpgs

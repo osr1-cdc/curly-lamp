@@ -69,7 +69,7 @@ option_list <- list(
   optparse::make_option(
     opt_str = c("-u", "--user"),
     type    = "character",
-    default = NA,
+    default = '',
     help    = "User Name",
     metavar = "character"
   ),
@@ -77,7 +77,7 @@ option_list <- list(
   optparse::make_option(
     opt_str = c("-p", "--password"),
     type    = "character",
-    default = NA,
+    default = '',
     help    = "Password",
     metavar = "character"
   )
@@ -201,10 +201,10 @@ if( !((as.character(data_date) %in% unlist(valid_data_dates)) &
     'The "data_date" provided (',
     data_date,
     ') is not in valid.\n
-    Valid options from sc2_archive.analytics_metadata_frozen.date_frozen include: ',
-    paste(valid_data_dates, collapse = ', '),
-    '\nValid options from sc2_archive.hhs_protect_testing_frozen.date_frozen include: ',
-    paste(valid_tests_dates, collapse = ', '),
+    Valid options from sc2_archive.analytics_metadata_frozen.date_frozen include:\n',
+    paste(sort(valid_data_dates[,1]), collapse = '\n'),
+    '\nValid options from sc2_archive.hhs_protect_testing_frozen.date_frozen include:\n',
+    paste(sort(valid_tests_dates[,1]), collapse = '\n'),
     '.'
   ))
 }
@@ -276,10 +276,12 @@ if(custom_lineages == TRUE) {
   SELECT DISTINCT
   P.nt_id,
   CASE
-      WHEN P.lineage = "AY.4.2" AND udx.substr_range(A.aa_aln, "145;222") = "HV"
-      THEN "AY.4.2+"
-      WHEN P.lineage = "AY.35" AND udx.substr_range(A.aa_aln, "484") = "Q"
-      THEN "AY.35+"
+      -- WHEN P.lineage = "AY.4.2" AND udx.substr_range(A.aa_aln, "145;222") = "HV"
+      -- THEN "AY.4.2+"
+      -- WHEN P.lineage = "AY.35" AND udx.substr_range(A.aa_aln, "484") = "Q"
+      -- THEN "AY.35+"
+      WHEN P.lineage = "BA.1" AND udx.substr_range(A.aa_aln, "346") = "K"
+      THEN "BA.1+"
       ELSE P.lineage
   END as lineage,
   P.conflict,
@@ -306,10 +308,12 @@ if(custom_lineages == TRUE) {
         SELECT DISTINCT
         P.primary_nt_id as nt_id,
         CASE
-            WHEN P.lineage = "AY.4.2" AND udx.substr_range(A.aa_aln, "145;222") = "HV"
-            THEN "AY.4.2+"
-            WHEN P.lineage = "AY.35" AND udx.substr_range(A.aa_aln, "484") = "Q"
-            THEN "AY.35+"
+            -- WHEN P.lineage = "AY.4.2" AND udx.substr_range(A.aa_aln, "145;222") = "HV"
+            -- THEN "AY.4.2+"
+            -- WHEN P.lineage = "AY.35" AND udx.substr_range(A.aa_aln, "484") = "Q"
+            -- THEN "AY.35+"
+            WHEN P.lineage = "BA.1" AND udx.substr_range(A.aa_aln, "346") = "K"
+            THEN "BA.1+"
             ELSE P.lineage
         END as lineage
         FROM sc2_archive.analytics_metadata_frozen as P
@@ -339,7 +343,7 @@ if(custom_lineages == TRUE) {
         P.lineage
         FROM sc2_archive.analytics_metadata_frozen as P
         WHERE to_date(P.date_frozen) = ', date_frozen
-    ))
+      ))
   }
 }
 
@@ -368,7 +372,7 @@ tests = DBI::dbGetQuery(
   ) as F
   ON to_date(H.date_frozen) = F.max_frozen
   WHERE H.collection_date is NOT NULL'
-))
+  ))
 
 # rename the columns of the testing data
 colnames(tests) = c("collection_date",
@@ -382,99 +386,99 @@ colnames(tests) = c("collection_date",
 # only if voc2_manual is not set
 if(is.na(voc2_manual)){
   # SQL code from: https://cdc.sharepoint.com/teams/NCEZID-OD_CAWG/Shared%20Documents/Forms/AllItems.aspx?FolderCTID=0x01200085513C439903124B82D8FF6016BB819B&id=%2Fteams%2FNCEZID%2DOD%5FCAWG%2FShared%20Documents%2FDAV%2DActivity%2FSOPs%2Fcurrent%5Flineages%5F1%5Fpercent%2Esql&parent=%2Fteams%2FNCEZID%2DOD%5FCAWG%2FShared%20Documents%2FDAV%2DActivity%2FSOPs
-
+  
   # This is a heavily modified version of "current_lineages_1_percent.sql", that
   # groups by regions & weeks (instead of just weeks). Resulting lineages include
   # any lineage that's above 1% in any region-week combination.
-
-#   voc2_df = DBI::dbGetQuery(
-#     conn = impala,
-#     statement = paste0(
-#       "SELECT DISTINCT t.lineage
-# FROM
-# (SELECT a.lineage,
-#         -- c.variant_type,
-#         a.week_ending,
-#         HHS.hhs_region,
-#         count(a.primary_virus_name) AS region_week_lineage_total,
-#         rwt.region_week_total,
-#         count(a.primary_virus_name) / rwt.region_week_total AS share
-#  FROM
-#     (SELECT aa.primary_virus_name,
-#             aa.lineage,
-#             aa.primary_state,
-#             aa.primary_collection_date,
-#             date_add(date_trunc('week', date_add(aa.primary_collection_date, 1)), 5) AS week_ending
-#     FROM sc2_archive.analytics_metadata_frozen AS aa
-#     WHERE to_date(aa.date_frozen) = '", data_date, "'
-#     AND aa.primary_country = 'United States'
-#     AND aa.primary_host = 'Human'
-#     AND datediff(date_add(date_trunc('week', date_add( to_timestamp('", data_date, "', 'yyyy-MM-dd') , 1)), 5), date_add(date_trunc('week', date_add(aa.primary_collection_date, 1)), 5)) >= 14
-#     AND datediff(date_add(date_trunc('week', date_add( to_timestamp('", data_date, "', 'yyyy-MM-dd') , 1)), 5), date_add(date_trunc('week', date_add(aa.primary_collection_date, 1)), 5)) < 98
-#     AND (aa.contractor_vendor_id IS NOT NULL OR aa.cdceventid = '1771')
-#     -- end frozen metadata from a particular date
-#     ) as a
-#  LEFT JOIN sc2_src.hhs_regions AS HHS
-#  ON a.primary_state = HHS.state
-#  LEFT JOIN sc2_src.variant_definitions c
-#  ON a.lineage = c.lineage
-#
-#  -- join in weekly region totals
-#  LEFT JOIN
-#         (SELECT -- z.lineage,
-#                 -- cc.variant_type,
-#                 z.week_ending,
-#                 HHS.hhs_region,
-#                 count(z.primary_virus_name) AS region_week_total
-#         FROM
-#             (SELECT az.primary_virus_name,
-#                     az.lineage,
-#                     az.primary_state,
-#                     az.primary_collection_date,
-#                     date_add(date_trunc('week', date_add(az.primary_collection_date, 1)), 5) AS week_ending
-#             FROM sc2_archive.analytics_metadata_frozen AS az
-#             WHERE to_date(az.date_frozen) = '", data_date, "'
-#             AND az.primary_country = 'United States'
-#             AND az.primary_host = 'Human'
-#             AND datediff(date_add(date_trunc('week', date_add( to_timestamp('", data_date, "', 'yyyy-MM-dd') , 1)), 5), date_add(date_trunc('week', date_add(az.primary_collection_date, 1)), 5)) >= 14
-#             AND datediff(date_add(date_trunc('week', date_add( to_timestamp('", data_date, "', 'yyyy-MM-dd') , 1)), 5), date_add(date_trunc('week', date_add(az.primary_collection_date, 1)), 5)) < 98
-#             AND (az.contractor_vendor_id IS NOT NULL OR az.cdceventid = '1771')
-#             -- end frozen metadata from a particular date
-#             ) as z
-#         LEFT JOIN sc2_src.hhs_regions AS HHS
-#         ON z.primary_state = HHS.state
-#         LEFT JOIN sc2_src.variant_definitions cc
-#         ON z.lineage = cc.lineage
-#         WHERE HHS.hhs_region IS NOT NULL
-#         GROUP BY -- z.lineage,
-#                 -- cc.variant_type, -- CDC's VOC, VOI, etc. designations
-#                 z.week_ending,
-#                 HHS.hhs_region
-#         ) as rwt
-#  ON a.week_ending = rwt.week_ending AND HHS.hhs_region = rwt.hhs_region
-#  WHERE HHS.hhs_region IS NOT NULL
-#  AND a.lineage != 'None'
-#  GROUP BY a.lineage,
-#           -- c.variant_type, -- CDC's VOC, VOI, etc. designations
-#           a.week_ending,
-#           HHS.hhs_region,
-#           rwt.region_week_total
-#  -- order by a.week_ending, HHS.hhs_region, a.lineage
-#  ) AS t
-#  WHERE t.share >= 0.01
-#  ORDER BY t.lineage"
-#     ))
-
-
+  
+  #   voc2_df = DBI::dbGetQuery(
+  #     conn = impala,
+  #     statement = paste0(
+  #       "SELECT DISTINCT t.lineage
+  # FROM
+  # (SELECT a.lineage,
+  #         -- c.variant_type,
+  #         a.week_ending,
+  #         HHS.hhs_region,
+  #         count(a.primary_virus_name) AS region_week_lineage_total,
+  #         rwt.region_week_total,
+  #         count(a.primary_virus_name) / rwt.region_week_total AS share
+  #  FROM
+  #     (SELECT aa.primary_virus_name,
+  #             aa.lineage,
+  #             aa.primary_state,
+  #             aa.primary_collection_date,
+  #             date_add(date_trunc('week', date_add(aa.primary_collection_date, 1)), 5) AS week_ending
+  #     FROM sc2_archive.analytics_metadata_frozen AS aa
+  #     WHERE to_date(aa.date_frozen) = '", data_date, "'
+  #     AND aa.primary_country = 'United States'
+  #     AND aa.primary_host = 'Human'
+  #     AND datediff(date_add(date_trunc('week', date_add( to_timestamp('", data_date, "', 'yyyy-MM-dd') , 1)), 5), date_add(date_trunc('week', date_add(aa.primary_collection_date, 1)), 5)) >= 14
+  #     AND datediff(date_add(date_trunc('week', date_add( to_timestamp('", data_date, "', 'yyyy-MM-dd') , 1)), 5), date_add(date_trunc('week', date_add(aa.primary_collection_date, 1)), 5)) < 98
+  #     AND (aa.contractor_vendor_id IS NOT NULL OR aa.cdceventid = '1771')
+  #     -- end frozen metadata from a particular date
+  #     ) as a
+  #  LEFT JOIN sc2_src.hhs_regions AS HHS
+  #  ON a.primary_state = HHS.state
+  #  LEFT JOIN sc2_src.variant_definitions c
+  #  ON a.lineage = c.lineage
+  #
+  #  -- join in weekly region totals
+  #  LEFT JOIN
+  #         (SELECT -- z.lineage,
+  #                 -- cc.variant_type,
+  #                 z.week_ending,
+  #                 HHS.hhs_region,
+  #                 count(z.primary_virus_name) AS region_week_total
+  #         FROM
+  #             (SELECT az.primary_virus_name,
+  #                     az.lineage,
+  #                     az.primary_state,
+  #                     az.primary_collection_date,
+  #                     date_add(date_trunc('week', date_add(az.primary_collection_date, 1)), 5) AS week_ending
+  #             FROM sc2_archive.analytics_metadata_frozen AS az
+  #             WHERE to_date(az.date_frozen) = '", data_date, "'
+  #             AND az.primary_country = 'United States'
+  #             AND az.primary_host = 'Human'
+  #             AND datediff(date_add(date_trunc('week', date_add( to_timestamp('", data_date, "', 'yyyy-MM-dd') , 1)), 5), date_add(date_trunc('week', date_add(az.primary_collection_date, 1)), 5)) >= 14
+  #             AND datediff(date_add(date_trunc('week', date_add( to_timestamp('", data_date, "', 'yyyy-MM-dd') , 1)), 5), date_add(date_trunc('week', date_add(az.primary_collection_date, 1)), 5)) < 98
+  #             AND (az.contractor_vendor_id IS NOT NULL OR az.cdceventid = '1771')
+  #             -- end frozen metadata from a particular date
+  #             ) as z
+  #         LEFT JOIN sc2_src.hhs_regions AS HHS
+  #         ON z.primary_state = HHS.state
+  #         LEFT JOIN sc2_src.variant_definitions cc
+  #         ON z.lineage = cc.lineage
+  #         WHERE HHS.hhs_region IS NOT NULL
+  #         GROUP BY -- z.lineage,
+  #                 -- cc.variant_type, -- CDC's VOC, VOI, etc. designations
+  #                 z.week_ending,
+  #                 HHS.hhs_region
+  #         ) as rwt
+  #  ON a.week_ending = rwt.week_ending AND HHS.hhs_region = rwt.hhs_region
+  #  WHERE HHS.hhs_region IS NOT NULL
+  #  AND a.lineage != 'None'
+  #  GROUP BY a.lineage,
+  #           -- c.variant_type, -- CDC's VOC, VOI, etc. designations
+  #           a.week_ending,
+  #           HHS.hhs_region,
+  #           rwt.region_week_total
+  #  -- order by a.week_ending, HHS.hhs_region, a.lineage
+  #  ) AS t
+  #  WHERE t.share >= 0.01
+  #  ORDER BY t.lineage"
+  #     ))
+  
+  
   # this query was formerly defined in "current_lineages_1_percent.sql",
   # but has been updated to accept "data_date" as an argument.
   # "data_date" must be a date on which archive data was created.
-
+  
   # for the moment just use the old query that does not group by HHS region:
   voc2_df = DBI::dbGetQuery(
-        conn = impala,
-        statement = paste0(
-  "SELECT QQ.*,
+    conn = impala,
+    statement = paste0(
+      "SELECT QQ.*,
        cor.*
 FROM
   (SELECT Q.lineage,
@@ -514,15 +518,15 @@ FROM
 GROUP BY lineage) QQ
 LEFT JOIN sc2_air.analytics_lineage_corr cor ON QQ.lineage = cor.lineage
 WHERE cor.date_range_of_calc LIKE '%US:3mo'"
-  ))
-
+    ))
+  
   # get the variant names
   voc2_auto = sort(voc2_df$lineage)
-
+  
   # save the results to file
   saveRDS(object = voc2_auto,
           file = paste0(script.basename,
-                        "/data/voc2_auto", data_date, custom_tag, ".RDS"))
+                        "/data/voc2_auto_", data_date, custom_tag, ".RDS"))
 }
 
 # end the database connection
@@ -530,13 +534,46 @@ DBI::dbDisconnect(conn = impala)
 
 # read in static table of state populations
 # (population data may need to be updated)
-pops = read.delim(file = paste0(script.basename,"/resources/ACStable_B01001_40_2018_5.txt"))[, c("STUSAB", "Total.")]
+pops = read.delim(file = paste0(script.basename, "/resources/ACStable_B01001_40_2018_5.txt"))[, c("STUSAB", "Total.")]
 
 # save the various data objects to file as a backup
-save(dat, pangolin, baseline, tests, pops, voc2_auto,
-     file = paste0(script.basename, "/data/", "variant_survey_dat", data_date, custom_tag, ".RData"))
+# save(dat, pangolin, baseline, tests, pops, voc2_auto,
+#      file = paste0(script.basename, "/data/", "variant_survey_dat", data_date, custom_tag, ".RData"))
+
+# create a folder for the backup data (data that do not get used in "weekly_variant_report_nowcast.R")
+dir.create(
+  path = paste0(script.basename, "/data/backup_", data_date),
+  showWarnings = FALSE
+)
+
+saveRDS(dat,
+  file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_data", custom_tag, ".RDS")
+)
+saveRDS(pangolin,
+  file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pangolin", custom_tag, ".RDS")
+)
+saveRDS(baseline,
+  file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_baseline", custom_tag, ".RDS")
+)
+saveRDS(tests,
+  file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_tests", custom_tag, ".RDS")
+)
+saveRDS(pops,
+  file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pops", custom_tag, ".RDS")
+)
 
 # Data Cleaning ----------------------------------------------------------------
+
+# Things that this code filters on: [as of 2022-01-19]
+# 1) only human hosts
+# 2) only US sequences
+# 3) drop invalid state abbreviations
+# 4) drop duplicates
+# 5) drop invalid dates (collection_date older than 2019-10-01 or newer than the final day in the analysis) 
+# 6) drop sequences from labs with < 100 sequences total
+# 7) drop invalid lab names (NA's)
+# 8) drop invalid variant names (NA's or "None")
+# 9) drop invalid weights (NA or infinite values, which can happen if the testing data for a state is really sparse in a given week)
 
 # The genomic data are subset to U.S. specimens among human hosts. Some light
 # cleaning of the sequence data includes dropping records where the state
@@ -629,6 +666,10 @@ us.dat = merge(x = us.dat,
 # (this line of code only works if using the dedupe table)
 if ("covv_lineage" %in% names(us.dat)) us.dat$lineage = with(us.dat, ifelse(is.na(lineage), covv_lineage, lineage))
 
+# print out counts of omicron sequences
+# print('Table of all omicron sequences:')
+# table(us.dat$lineage[grep(pattern = '(B\\.1\\.1\\.529)|(BA\\.[0-9])', x = us.dat$lineage)])
+
 # Merge S-gene mutation (baseline) data into the us.dat
 # NS3 identifier in baseline$source:
 us.dat = merge(x = us.dat,
@@ -683,13 +724,45 @@ for (cc in c("POSITIVE", "TOTAL")) {
                                         data = tests,
                                         subset = TRUE)), # "subset" totally unnecessary, but it keeps Rstudio from complaining
                    all.x = TRUE)
-
+  
   # rename the newly created column
   names(tests_wk) = gsub(pattern = "[Ff]req",
                          replacement = cc,
                          x = names(tests_wk))
 }
 
+# Aggregate tests by state & group for alternate weighting
+{
+  # Aggregate most recent 3 weeks together
+  # aggregegate 2 weeks before that 
+  # aggregate weekly before that 
+  
+  # most recent 3 weeks: 
+  final_3_wks <- as.character((as.Date(time_end) - 20) + (0:2)*7)
+  previous_2_wks <- as.character( min(as.Date(final_3_wks)) - (2:1)*7 )
+  
+  tests$group = tests$yr_wk
+  tests$group[ tests$yr_wk %in% final_3_wks] <- final_3_wks[1]
+  tests$group[ tests$yr_wk %in% previous_2_wks] <- previous_2_wks[1]
+  
+  tests_group = expand.grid(STUSAB = unique(tests$STUSAB),
+                            stringsAsFactors = FALSE)
+  
+  # calculate the number of positive tests & total tests for each fortnight & state
+  for (cc in c("POSITIVE", "TOTAL")) {
+    # calculate number of tests
+    tests_group = merge(x = tests_group,
+                        y = data.frame(xtabs(formula = tests[, cc] ~ STUSAB + group,
+                                             data = tests,
+                                             subset = TRUE)), # "subset" totally unnecessary, but it keeps Rstudio from complaining
+                        all.x = TRUE)
+    
+    # rename the newly created column
+    names(tests_group) = gsub(pattern = "[Ff]req",
+                              replacement = cc,
+                              x = names(tests_group))
+  }
+}
 
 # Weighting---------------------------------------------------------------------
 # (weights are calculated here & recalculated in weekly_variant_report_nowcast.R
@@ -730,91 +803,135 @@ test_tallies_wk = merge(x = merge(x = tests_wk,
                                        state_population = pops$Total.),
                         all.x = TRUE)
 
+# by grouping
+test_tallies_gp = merge(x = merge(x = tests_group,
+                                  y = hhs,
+                                  all.x=TRUE),
+                        y = data.frame(STUSAB = toupper(pops$STUSAB),
+                                       state_population = pops$Total.),
+                        all.x = TRUE)
+
+# adjust populations based on the number of weeks in each group
+test_tallies_gp$group_population = test_tallies_gp$state_population
+test_tallies_gp[ test_tallies_gp$group %in% final_3_wks, 'group_population'] = test_tallies_gp[ test_tallies_gp$group %in% final_3_wks, 'state_population'] * length(final_3_wks)
+test_tallies_gp[ test_tallies_gp$group %in% previous_2_wks, 'group_population'] = test_tallies_gp[ test_tallies_gp$group %in% previous_2_wks, 'state_population'] * length(previous_2_wks)
+  
+
 # estimates of infections based on: https://www.medrxiv.org/content/10.1101/2020.10.07.20208504v2.full-text
 # sqrt(state_population/TOTAL) this estimates the geometric mean of the total population versus the state population
 # to try to get around the bias of assuming either total or state population
 
 # Estimate the total number of infections based on test positivity rate
-test_tallies_wk = within(data = test_tallies_wk,
-                         expr = INFECTIONS <- ifelse(test = TOTAL > 0,
-                                                     yes = POSITIVE * sqrt(state_population/TOTAL),
-                                                     no = 0))
+# test_tallies_wk = within(data = test_tallies_wk,
+#                          expr = INFECTIONS <- ifelse(test = TOTAL > 0,
+#                                                      yes = POSITIVE * sqrt(state_population/TOTAL),
+#                                                      no = 0))
+# 
+# test_tallies_gp = within(data = test_tallies_gp,
+#                          expr = INFECTIONS <- ifelse(test = TOTAL > 0,
+#                                                      yes = POSITIVE * sqrt(group_population/TOTAL),
+#                                                      no = 0))
+
 # Number of weeks since start date
 test_tallies_wk$week = as.numeric(as.Date(test_tallies_wk$yr_wk) - week0day1)%/%7
+test_tallies_gp$week = as.numeric(as.Date(test_tallies_gp$group) - week0day1)%/%7
 
 # Aggregate infections & populations by HHS region
-incidence_by_region = merge(
-  x = aggregate(formula = INFECTIONS ~ yr_wk + HHS,
-                data = test_tallies_wk,
-                FUN = sum),
-  y = aggregate(formula = state_population ~ yr_wk + HHS,
-                data = test_tallies_wk,
-                FUN = sum)
-)
+# incidence_by_region = merge(
+#   x = aggregate(formula = INFECTIONS ~ yr_wk + HHS,
+#                 data = test_tallies_wk,
+#                 FUN = sum),
+#   y = aggregate(formula = state_population ~ yr_wk + HHS,
+#                 data = test_tallies_wk,
+#                 FUN = sum)
+# )
+# incidence_by_region_gp = merge(
+#   x = aggregate(formula = INFECTIONS ~ group + HHS,
+#                 data = test_tallies_gp,
+#                 FUN = sum),
+#   y = aggregate(formula = group_population ~ group + HHS,
+#                 data = test_tallies_gp,
+#                 FUN = sum)
+# )
 
 # calculate infection rate
-incidence_by_region$HHS_INCIDENCE = incidence_by_region$INFECTIONS / incidence_by_region$state_population
+# incidence_by_region$HHS_INCIDENCE = incidence_by_region$INFECTIONS / incidence_by_region$state_population
+# incidence_by_region_gp$HHS_INCIDENCE = incidence_by_region_gp$INFECTIONS / incidence_by_region_gp$group_population
 
 ## SGTF over-sampling weights
 # (only correcting for the Helix upsampling; other labs were not specifically SGTF up-sampling)
 
-# counts of lineages by contractor name
-sgtf.1 = table(us.dat$lineage,
-               paste(us.dat$contractor_vendor_name,
-                     us.dat$contractor_targeted_sequencing))
-
-# Get the labs/columns with s-gene target failure oversampling
-# (identified by having more "dropout" tests than "Illumina" tests)
-sgtf.vars = rownames(sgtf.1)[
-  sgtf.1[, grep(pattern = "dropout$", x = colnames(sgtf.1))] > sgtf.1[, grep(pattern = "Illumina $", x = colnames(sgtf.1))] ]
-# might need to update this line based on the updated lab names? "Illumina $" doesn't match any, but "Illumina" does...
-# but doesn't really matter since there's no known SGTF over-sampling being done in fall 2021.
-
-# Smoothed weights: use set of states and weeks where targeted samples were sequenced
-sgtf.sub = unique(subset(x = us.dat,
-                         contractor_targeted_sequencing %in% "Screened for S dropout")[, c("primary_state_abv", "yr_wk")])
-
-# If there are data with SGTF flag, run a binomial model to estimate probability
-# of oversampling
-if (nrow(sgtf.sub) > 0) {
-
-  #linear model that fits sgtf lineage weights
-  sgtf.glm = glm(
-    formula = I(lineage %in% sgtf.vars) ~ I(contractor_vendor_name %in% "Helix/Illumina") + primary_state_abv + yr_wk,
-    family = "binomial",
-    data = subset(x = us.dat,
-                  yr_wk %in% sgtf.sub$yr_wk &
-                    primary_state_abv %in% sgtf.sub$primary_state_abv))
-
-  # Define sgtf_weights as the relative probability of being in one of the
-  # oversampled lineages if from the lab that did oversampling vs any other lab
-  # (assumes that the samples tested by each lab had the same proportions of
-  #  different variants)
-  sgtf.sub$sgtf_weights =
-    predict(object = sgtf.glm,
-            newdata = cbind(contractor_vendor_name = c("Helix/Illumina"),
-                            sgtf.sub),
-            type = "response") /
-    predict(object = sgtf.glm,
-            newdata = cbind(contractor_vendor_name = c("Other"),
-                            sgtf.sub),
-            type = "response")
-} else {
-  # if there are no rows that had oversampling, then just set all the weights to 0
-  sgtf.sub$sgtf_weights = numeric(0)
-}
-
-# add the SGTF oversampling weights into the test_tallies
-test_tallies_wk = merge(x = test_tallies_wk,
-                        y = sgtf.sub,
-                        by.x = c("STUSAB", "yr_wk"),
-                        by.y = c("primary_state_abv", "yr_wk"),
-                        all.x = TRUE)
-
-# Set weights to 1 if weights are NA
-test_tallies_wk$sgtf_weights = ifelse(test = is.na(test_tallies_wk$sgtf_weights),
-                                      yes = 1,
-                                      no = test_tallies_wk$sgtf_weights)
+# # counts of lineages by contractor name
+# sgtf.1 = table(us.dat$lineage,
+#                paste(us.dat$contractor_vendor_name,
+#                      us.dat$contractor_targeted_sequencing))
+# 
+# # Get the labs/columns with s-gene target failure oversampling
+# # (identified by having more "dropout" tests than "Illumina" tests)
+# sgtf.vars = rownames(sgtf.1)[
+#   sgtf.1[, grep(pattern = "dropout$", x = colnames(sgtf.1))] > sgtf.1[, grep(pattern = "Illumina $", x = colnames(sgtf.1))] ]
+# # might need to update this line based on the updated lab names? "Illumina $" doesn't match any, but "Illumina" does...
+# # but doesn't really matter since there's no known SGTF over-sampling being done in fall 2021.
+# 
+# # Smoothed weights: use set of states and weeks where targeted samples were sequenced
+# sgtf.sub = unique(subset(x = us.dat,
+#                          contractor_targeted_sequencing %in% "Screened for S dropout")[, c("primary_state_abv", "yr_wk")])
+# 
+# # If there are data with SGTF flag, run a binomial model to estimate probability
+# # of oversampling
+# if (nrow(sgtf.sub) > 0) {
+#   
+#   #linear model that fits sgtf lineage weights
+#   sgtf.glm = glm(
+#     formula = I(lineage %in% sgtf.vars) ~ I(contractor_vendor_name %in% "Helix/Illumina") + primary_state_abv + yr_wk,
+#     family = "binomial",
+#     data = subset(x = us.dat,
+#                   yr_wk %in% sgtf.sub$yr_wk &
+#                     primary_state_abv %in% sgtf.sub$primary_state_abv))
+#   
+#   # Define sgtf_weights as the relative probability of being in one of the
+#   # oversampled lineages if from the lab that did oversampling vs any other lab
+#   # (assumes that the samples tested by each lab had the same proportions of
+#   #  different variants)
+#   sgtf.sub$sgtf_weights =
+#     predict(object = sgtf.glm,
+#             newdata = cbind(contractor_vendor_name = c("Helix/Illumina"),
+#                             sgtf.sub),
+#             type = "response") /
+#     predict(object = sgtf.glm,
+#             newdata = cbind(contractor_vendor_name = c("Other"),
+#                             sgtf.sub),
+#             type = "response")
+# } else {
+#   # if there are no rows that had oversampling, then just set all the weights to 0
+#   sgtf.sub$sgtf_weights = numeric(0)
+# }
+# 
+# # add the SGTF oversampling weights into the test_tallies
+# test_tallies_wk = merge(x = test_tallies_wk,
+#                         y = sgtf.sub,
+#                         by.x = c("STUSAB", "yr_wk"),
+#                         by.y = c("primary_state_abv", "yr_wk"),
+#                         all.x = TRUE)
+# 
+# # FIX THIS IF WE EVER START USING SGTF WEIGHTING AGAIN!!
+# sgtf.sub$group = sgtf.sub$yr_wk
+# # sgtf.sub$group[ sgtf.sub$yr_wk %in% final_3_wks] <- final_3_wks[1]
+# # sgtf.sub$group[ sgtf.sub$yr_wk %in% previous_2_wks] <- previous_2_wks[1]
+# 
+# test_tallies_gp = merge(x = test_tallies_gp,
+#                         y = sgtf.sub[,c('primary_state_abv', 'group', 'sgtf_weights')],
+#                         by.x = c("STUSAB", "group"),
+#                         by.y = c("primary_state_abv", "group"),
+#                         all.x = TRUE)
+# 
+# # Set weights to 1 if weights are NA
+# test_tallies_wk$sgtf_weights = ifelse(test = is.na(test_tallies_wk$sgtf_weights),
+#                                       yes = 1,
+#                                       no = test_tallies_wk$sgtf_weights)
+# test_tallies_gp$sgtf_weights = ifelse(test = is.na(test_tallies_gp$sgtf_weights),
+#                                       yes = 1,
+#                                       no = test_tallies_gp$sgtf_weights)
 
 ## Creating a trimmed down survey dataset
 # Removing submission/receive dates for now, for consistency with frozen dataset
@@ -822,12 +939,18 @@ svy.dat = data.frame(STUSAB = us.dat$primary_state_abv,
                      HHS    = us.dat$HHS,
                      yr_wk  = us.dat$yr_wk,
                      DAY    = us.dat$DAY,
+                     date   = us.dat$collection_date,
+                     # nt_id  = us.dat$primary_nt_id,
+                     # csid   = us.dat$csid,
+                     covv_accession_id = us.dat$covv_accession_id,
+                     # ID number just to help keep track of individual sequences
+                     myID = 1:nrow(us.dat),
                      # SUBM_DT = us.dat$covv_subm_date,
-                     # CDC_DT = us.dat$contractor_receive_date_to_cdc,
-                     # AGE = us.dat$age_group,
+                     # CDC_DT  = us.dat$contractor_receive_date_to_cdc,
+                     # AGE     = us.dat$age_group,
                      LAB     = toupper(us.dat$source),
                      SGTF_UPSAMPLING = (us.dat$contractor_targeted_sequencing %in% "Screened for S dropout"),
-                     SOURCE  = us.dat$source,
+                     # SOURCE  = us.dat$source,
                      VARIANT = us.dat$lineage,
                      S_MUT   = us.dat$s_mut)
 
@@ -846,10 +969,13 @@ svy.dat = merge(x = svy.dat,
 # Cleaning state tagged sequences-----------------------------------------------
 # unique(svy.dat$LAB)
 
-# add in a column so count occurances using aggregate (could also use table or xtab)
-svy.dat$count=1
-print("Unique labs include:")
-aggregate(count~LAB,data=svy.dat,FUN=sum)
+# add in a column so count occurrences using aggregate (could also use table or xtab)
+svy.dat$count = 1
+# print("Unique labs include:")
+# aggregate(count ~ LAB, data = svy.dat, FUN = sum)
+
+# print('table of omicron variants before removing any labs:')
+# table(svy.dat$VARIANT[grep(pattern = '(B\\.1\\.1\\.529)|(BA\\.[0-9])', x = svy.dat$VARIANT)])
 
 #clean LAB names
 svy.dat$LAB2 = as.character(svy.dat$LAB)
@@ -965,16 +1091,40 @@ svy.dat[svy.dat$LAB %in% NC_labs_to_agg,"LAB2"] <- labnames_df_nc$new_name[1]
 
 # Aggregate other NC labs 
 NC2_labs_to_agg <- unique_labs[grepl(pattern = "NORTH CAROLINA STATE LABORATORY OF PUBLIC HEALTH",
-                       x = unique_labs,
-                       ignore.case = T) & 
-                         !grepl(pattern = "(INFECTIOUS DISEASES)|(COVID-19 RESPONSE TEAM)",
-                               x = unique_labs,
-                               ignore.case = T)]
+                                     x = unique_labs,
+                                     ignore.case = T) & 
+                                 !grepl(pattern = "(INFECTIOUS DISEASES)|(COVID-19 RESPONSE TEAM)",
+                                        x = unique_labs,
+                                        ignore.case = T)]
 labnames_df_nc2 <- data.frame(old_name = NC2_labs_to_agg,
-                             new_name = "NCSLPH")
+                              new_name = "NCSLPH")
 svy.dat[svy.dat$LAB %in% NC2_labs_to_agg,"LAB2"] <- labnames_df_nc2$new_name[1]
 
+# Aggregate UNMC labs
+UNMC_labs_to_agg <- grep(pattern = '^UNMC COVID.*RESPONSE TEAM', 
+                          x = unique_labs, 
+                          ignore.case = T, 
+                          value = T)
+labnames_df_unmc <- data.frame(old_name = UNMC_labs_to_agg,
+                               new_name = 'UNMC COVID-19 RESPONSE TEAM')
+svy.dat[svy.dat$LAB %in% UNMC_labs_to_agg, 'LAB2'] <- labnames_df_unmc$new_name[1]
 
+# Aggregate COUNTY OF SAN LUIS OBISPO labs
+SLO_labs_to_agg <- grep(pattern = 'COUNTY OF SAN LUIS OBISPO', 
+                         x = unique_labs, 
+                         ignore.case = T, 
+                         value = T)
+labnames_df_slo <- data.frame(old_name = SLO_labs_to_agg,
+                               new_name = 'COUNTY OF SAN LUIS OBISPO PHL')
+svy.dat[svy.dat$LAB %in% SLO_labs_to_agg, 'LAB2'] <- labnames_df_slo$new_name[1]
+
+# Other labs that might be duplicates, but that I have not combined:
+# 1. "INFECTIOUS DISEASE PROGRAM, BROAD INSTITUTE OF HARVARD AND MIT"
+# 1. "BROAD INSTITUTE"
+
+# 2. "RIPHL AT RUSH UNIVERSITY MEDICAL CENTER"
+# 2. "RUSH UNIVERSITY MEDICAL CENTER"
+# 2. "RHODE ISLAND STATE HEALTH LABORATORY"
 
 # create a dataframe of all the lab names that were changed
 labnames_df <- rbind(
@@ -991,10 +1141,58 @@ labnames_df <- rbind(
   labnames_df_mn,
   labnames_df_so,
   labnames_df_nc,
-  labnames_df_nc2
+  labnames_df_nc2,
+  labnames_df_unmc,
+  labnames_df_slo
 )
+
 # print the list of lab names that were changed to the console
-labnames_df
+print("Labs that were re-named:")
+for (x in seq(nrow(labnames_df))) {
+  print(
+    paste(
+      labnames_df[x,'old_name'], "     to     ", labnames_df[x,'new_name']
+    )
+  )
+}
+
+# print the names of labs that were NOT renamed
+print("")
+print("Labs that were NOT re-named:")
+print(sort(unique_labs[unique_labs %notin% labnames_df$old_name]))
+
+# find similar lab names that remain
+# (This doesn't work very well, but it can be helpful to see things a little differently)
+{
+  # ul2 <- unique(svy.dat$LAB2)
+  # sim_mat <- stringdist::stringdistmatrix(a = ul2,
+  #                                         b = ul2, 
+  #                                         method = "lv") # use Levenshtein-distance
+  # # remove diagonal
+  # diag(sim_mat) <- NA
+  # # convert matrix to long data.frame
+  # names <- expand.grid(a = ul2, 
+  #                      b = ul2,
+  #                      dist = NA)
+  # names$a <- as.character(names$a)
+  # names$b <- as.character(names$b)
+  # # add in string distances
+  # for(a in seq(ul2)){
+  #   for(b in seq(ul2)){
+  #     names$dist[names$a == ul2[a] & 
+  #                  names$b == ul2[b]] <- sim_mat[a,b]
+  #   }
+  # }
+  # 
+  # # remove duplicates
+  # names$c = sapply(X = seq(nrow(names)), FUN = function(x) paste(sort(c(names$a[x], names$b[x])), collapse = ' '))
+  # names <- names[!duplicated(names[,c('c', 'dist')]),]
+  # # return the shortest string distances
+  # write.csv(x = names[order(names$dist),c('a', 'b', 'dist')], 
+  #           file = './data/lab_name_distances.csv', 
+  #           row.names = F)
+}
+
 # save the list of lab names that were changed to file
 write.csv(x = labnames_df,
           file = paste0('./data/lab_name_updates_', data_date, '.csv'),
@@ -1006,7 +1204,14 @@ check_count <- aggregate(formula = count ~ LAB2,
                          FUN = sum)
 
 # print a list of cleaned lab names to the console
-check_count
+# check_count
+
+# print a list of the newly added lab names to aid in checking for typos 
+print('\nnewly added lab names:')
+recent_lab_names <- sort(unique(svy.dat$LAB2[svy.dat$week == max(svy.dat$week)]))
+older_lab_names  <- sort(unique(svy.dat$LAB2[svy.dat$week != max(svy.dat$week)]))
+new_lab_names <- recent_lab_names[ recent_lab_names %notin% older_lab_names ]
+if( length(new_lab_names) > 0) print(new_lab_names) else print('No new lab names in the most recent week of data')
 
 # check which state-level sources have fewer than 100 samples
 low_lab <- check_count$LAB2[ check_count$count < 100 ]
@@ -1014,6 +1219,10 @@ low_lab <- check_count$LAB2[ check_count$count < 100 ]
 # Drop sequences from sources with less than 100 samples or were listed as CDC sequenced
 svy.dat <- svy.dat[svy.dat$LAB2 %notin% c("CDC",low_lab), ]
 
+print('table of omicron sequences from labs with > 100 sequences:')
+table(svy.dat$VARIANT[grep('(B\\.1\\.1\\.529)|(BA\\.[0-9])', x = svy.dat$VARIANT)])
+print('table of omicron sequences that will be included in analysis:')
+table(svy.dat$VARIANT[ svy.dat$LAB2 != 'OTHER'][grep('(B\\.1\\.1\\.529)|(BA\\.[0-9])', x = svy.dat$VARIANT[ svy.dat$LAB2 != 'OTHER'])])
 
 # Create survey weights --------------------------------------------------------
 
@@ -1028,25 +1237,97 @@ svy.dat <- svy.dat[svy.dat$LAB2 %notin% c("CDC",low_lab), ]
 # Infections to test-positive ratio
 # Geometric mean strategy: https://www.medrxiv.org/content/10.1101/2020.10.07.20208504v2.full-text
 #   infections/test positives = sqrt(population/number tested)
-svy.dat = merge(x = svy.dat,
-                y = cbind(test_tallies_wk[, c("STUSAB", "yr_wk")],
-                          I_over_POSITIVE_unadj = sqrt(test_tallies_wk$state_population/test_tallies_wk$TOTAL)),
-                all.x = TRUE) # using same bias correcting method as above get ratio of infections to positives
+# svy.dat = merge(x = svy.dat,
+#                 y = cbind(test_tallies_wk[, c("STUSAB", "yr_wk")],
+#                           I_over_POSITIVE_unadj = sqrt(test_tallies_wk$state_population/test_tallies_wk$TOTAL)),
+#                 all.x = TRUE) # using same bias correcting method as above get ratio of infections to positives
 
 # State-week totals of total and positive test counts, and population, added in to enable alternate weighting (2021-03-18)
 # sgtf_weights merged in to enable alternate weighting (2021-03-19)
 svy.dat = merge(x = svy.dat,
-                y = test_tallies_wk[, c("STUSAB", "yr_wk", "POSITIVE", "TOTAL", "INFECTIONS", "sgtf_weights")],
+                y = test_tallies_wk[, c("STUSAB", "yr_wk", "POSITIVE", "TOTAL")],
                 all.x = TRUE)
 
-# replace NAs with 1
-svy.dat$sgtf_weights[is.na(svy.dat$sgtf_weights) | !svy.dat$SGTF_UPSAMPLING] = 1
+# add in grouped test tallies
+{
+  test_tallies_gp$POSITIVE_gp     = test_tallies_gp$POSITIVE
+  test_tallies_gp$TOTAL_gp        = test_tallies_gp$TOTAL
+  
+  svy.dat$group = svy.dat$yr_wk
+  svy.dat$group[ svy.dat$yr_wk %in% final_3_wks] <- final_3_wks[1]
+  svy.dat$group[ svy.dat$yr_wk %in% previous_2_wks] <- previous_2_wks[1]
+  
+  svy.dat = merge(x = svy.dat,
+                  y = test_tallies_gp[, c("STUSAB", 
+                                          "group", 
+                                          "group_population",
+                                          "POSITIVE_gp", 
+                                          "TOTAL_gp")],
+                  all.x = TRUE)
+}
 
-# Add in HHS region data
-# (used for states missing testing data (OH), using the region level incidence)
-svy.dat = merge(x = svy.dat,
-                y = incidence_by_region[, c("HHS", "yr_wk", "HHS_INCIDENCE")],
-                all.x = TRUE)
+# summarize daily testing data and save to file
+if(FALSE){
+  # Aggregate tests by state & week for weighting
+  tests_dy = expand.grid(STUSAB           = unique(tests$STUSAB),
+                         collection_date  = unique(tests$collection_date),
+                         stringsAsFactors = FALSE)
+  
+  # calculate the number of positive tests & total tests for each week & state
+  for (cc in c("POSITIVE", "TOTAL")) {
+    # calculate number of tests
+    tests_dy = merge(x = tests_dy,
+                     y = data.frame(xtabs(formula = tests[, cc] ~ STUSAB + collection_date,
+                                          data = tests,
+                                          subset = TRUE)), # "subset" totally unnecessary, but it keeps Rstudio from complaining
+                     all.x = TRUE)
+    
+    # rename the newly created column
+    names(tests_dy) = gsub(pattern = "[Ff]req",
+                           replacement = cc,
+                           x = names(tests_dy))
+  }
+  
+  tests_dy$date = tests_dy$collection_date
+  tests_dy$TOTAL_daily = tests_dy$TOTAL
+  tests_dy$POSITIVE_daily = tests_dy$POSITIVE
+  
+  
+  # merge in HHS data and state populations
+  # TO USE THESE IN WEIGHTING, MAY NEED TO ADJUST POPULATIONS!!
+  test_tallies_dly = merge(x = merge(x = tests_dy,
+                                     y = hhs,
+                                     all.x = TRUE),
+                           y = data.frame(STUSAB = toupper(pops$STUSAB),
+                                          state_population = pops$Total.),
+                           all.x = TRUE)
+  
+  saveRDS(list('tests_daily'  = test_tallies_dly,
+               'tests_weekly' = test_tallies_wk,
+               'tests_group'  = test_tallies_gp), 
+          file = paste0(script.basename, 
+                        "/data/testing_data_", 
+                        data_date, 
+                        custom_tag, 
+                        ".RDS"))
+}
+
+# Add in columns that were previously calculated in "weekly_variant_report_nowcast.R" -----
+# so that they're calculated once instead of many times
+
+# Define "source" as "LAB2"; (used for survey design weights)
+svy.dat$SOURCE = svy.dat$LAB2
+
+# create a variable for aggregating counts of different groupings of samples
+# svy.dat$count = 1
+
+# calculate final date of 2-week bins for each observation
+svy.dat$FORTNIGHT_END = as.character(week0day1 + svy.dat$week%/%2 * 14 + 13)
+
+# add the current week to the source data
+svy.dat$current_week = current_week
+
+
 
 # save the data to file
 save(svy.dat,
