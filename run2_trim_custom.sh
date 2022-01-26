@@ -18,8 +18,7 @@
 #$ -cwd
 #
 # Set up mail address for script
-# -M ncy6@cdc.gov,fep2@cdc.gov,nyy7@cdc.gov,qiu5@cdc.gov,rsv4@cdc.gov,oow9@cdc.gov
-#$ -M rsv4@cdc.gov
+#$ -M ncy6@cdc.gov,fep2@cdc.gov,nyy7@cdc.gov,qiu5@cdc.gov,rsv4@cdc.gov,oow9@cdc.gov
 # ncy6 = Norman Hassell
 # fep2 = Clinton Paden
 # nyy7 = Sandra Seby
@@ -36,7 +35,7 @@
 # Set the parallel_environment to "smp" and use 4 cores (smp = Symmetric multiprocessing or shared-memory multiprocessing)
 #$ -pe smp 4
 
-conda activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
+source /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
 
 Rscript weekly_variant_report_nowcast.R -r 2 -c T -v F -t quantile_99 -s T
 # -r = run number
