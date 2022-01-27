@@ -161,7 +161,7 @@ options(survey.adjust.domain.lonely = T,
   # In the future it's probably better to make estimates for each omicron sublineage 
   # and then aggregate results, as it done for delta & run1 results that are produced
   # from the nowcast model during run2, but this is easier to implement.
-  force_aggregate_omicron <- TRUE
+  force_aggregate_omicron <- FALSE
   
   # rescale the weights that are used in the multinomial Nowcast model.
   # this can help avoid numerical overflow when trying to calculate prediction intervals. 
