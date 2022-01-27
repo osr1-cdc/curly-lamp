@@ -57,17 +57,16 @@ custom_lineage_names <- c("BA.1+")
 #       pangolin sql query (lines 305-320) in variant_surveillance_system.R to match!
 
 # Set voc's for Run1
-voc1 = c("AY.1",
-         "AY.2",
-         "B.1.617.2",
-         "B.1.1.529") # omicron
+voc1 = c(# "AY.1", "AY.2",
+         "B.1.617.2", # Delta
+         "B.1.1.529") # Omicron
 # define an alternate set of vocs
 # (the reason for including two sets instead of just redefining the first set is 
 #  to make it easier to run both sets simultaneously just changing an option 
 #  passed to weekly_variant_report_nowcast.R)
 voc1_reduced = c(
-  'B.1.1.529', 
-  'B.1.617.2'
+  'B.1.1.529', # Omicron 
+  'B.1.617.2'  # Delta 
 )
 
 # Set voc's for Run2
@@ -80,10 +79,9 @@ voc2_manual = c(NA)
 # optionally specify additional variants that will be added on to the lineages
 # from the SQL query in "variant_surveillance_system.R"
 # (this will not have any effect if "voc2_manual" is used)
-voc2_additional = c("AY.1",
-                    "AY.2",
-                    "B.1.617.2",
-                    "B.1.1.529") # omicron (includes B.1.1.529 (probable))
+voc2_additional = c(# "AY.1", "AY.2",
+                    "B.1.617.2", # Delta 
+                    "B.1.1.529") # Omicron
 # voc2_custom = c(voc2,
 #                 custom_lineage_names)
 
@@ -95,8 +93,8 @@ voc3 = c("B.1.1.7",   # Alpha  # and Q.1 to 8*
          "B.1.351",   # Beta   # and B.1.351.*
          "P.1",       # Gamma  # and P.*
          "B.1.617.2", # Delta # and AY.3-AY.25*
-         "AY.1",
-         "AY.2",
+         # "AY.1",
+         # "AY.2",
          "B.1.427",   # Epsilon  # B.1.427 & B.1.429 are aggregated on line 137 of "weekly_variant_report_nowcast.R"
          "B.1.525",   # Eta
          "B.1.526",   # Iota
@@ -190,7 +188,7 @@ n_top = 10
 n_recent_weeks = 7
 
 # Multinomial model includes current week + model_weeks weeks of previous data
-model_weeks = 20
+model_weeks = 21 # early on the model ended up including 1 more week than was set here. Now it includes the number set here. 
 
 # Criterion for inclusion in model (i.e to be included in model, weighted share
 # must be at least 0.01 in the n_recent_weeks)

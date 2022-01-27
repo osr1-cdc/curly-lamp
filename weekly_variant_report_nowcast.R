@@ -161,11 +161,14 @@ options(survey.adjust.domain.lonely = T,
   # In the future it's probably better to make estimates for each omicron sublineage 
   # and then aggregate results, as it done for delta & run1 results that are produced
   # from the nowcast model during run2, but this is easier to implement.
-  force_aggregate_omicron <- FALSE
+  force_aggregate_omicron <- TRUE
   
   # rescale the weights that are used in the multinomial Nowcast model.
   # this can help avoid numerical overflow when trying to calculate prediction intervals. 
   rescale_model_weights <- TRUE
+
+  # optionally remove UTAH PHL sequences
+  remove_utahphl <- TRUE
 }
 
 
@@ -272,6 +275,14 @@ omicron_sublineages <- omicron_sublineages[!grepl("BA\\.1\\+", omicron_sublineag
 
   # remove omicron sublineages (leaving "B.1.1.529")
   voc <- voc[ voc %notin% omicron_sublineages ]
+}
+
+
+############# REMOVE UTAH PHL
+if (remove_utahphl){
+  # grep(pattern = 'utah', x = unique(svy.dat$SOURCE), ignore.case = T, value = T)
+  svy.dat <- subset(x = svy.dat, 
+                    subset = SOURCE != 'UTAH PUBLIC HEALTH LABORATORY')
 }
 
 ### subset data ----------------------------------------------------------------

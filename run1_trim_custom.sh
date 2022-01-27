@@ -11,14 +11,16 @@
 #$ -e Run1_trim_custom.err
 # 
 # Rename the job to be this string instead of the default which is the name of the script
-#$ -N Run1_trim_custom_proportion_modeling
+# -N Run1_trim_custom_proportion_modeling
+#$ -N s1_r1c
 # 
 # Refer all file reference to work the current working directory which is
 # the directory from which the script was qsubbed
 #$ -cwd
 #
 # Set up mail address for script
-#$ -M ncy6@cdc.gov,fep2@cdc.gov,nyy7@cdc.gov,qiu5@cdc.gov,rsv4@cdc.gov,oow9@cdc.gov
+# -M ncy6@cdc.gov,fep2@cdc.gov,nyy7@cdc.gov,qiu5@cdc.gov,rsv4@cdc.gov,oow9@cdc.gov
+#$ -M rsv4@cdc.gov
 # ncy6 = Norman Hassell
 # fep2 = Clinton Paden
 # nyy7 = Sandra Seby
