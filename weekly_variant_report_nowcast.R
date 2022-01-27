@@ -1120,9 +1120,9 @@ if ( grepl("Run2",tag) ){
   
   # scale the data weights to help avoid numerical overflow in the multinomial model
   if(rescale_model_weights){
-    src.moddat$wts <- src.moddat$weights / max(src.moddat$weights)
+    # src.moddat$wts <- src.moddat$weights / max(src.moddat$weights)
     # can try other values: 
-    # src.moddat$wts <- src.moddat$weights / mean(src.moddat$weights)
+    src.moddat$wts <- src.moddat$weights / mean(src.moddat$weights)
     # src.moddat$wts <- src.moddat$weights / 50
   } else {
     src.moddat$wts <- src.moddat$weights

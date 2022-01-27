@@ -12,7 +12,7 @@
 # 
 # Rename the job to be this string instead of the default which is the name of the script
 # -N Run1_trim_proportion_modeling
-#$ -N s4_r1
+#$ -N s5_r1
 # 
 # Refer all file reference to work the current working directory which is
 # the directory from which the script was qsubbed
@@ -39,7 +39,7 @@
 
 source /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
 
-Rscript weekly_variant_report_nowcast.R -r 1 -c F -v F -t F -s T
+Rscript weekly_variant_report_nowcast.R -r 1 -c F -v F -t quantile_99 -s T
 # -r = run number
 # -c = include custom lineages
 # -v = use reduced vocs

@@ -58,6 +58,7 @@ custom_lineage_names <- c("BA.1+")
 
 # Set voc's for Run1
 voc1 = c(# "AY.1", "AY.2",
+         "BA.2",
          "B.1.617.2", # Delta
          "B.1.1.529") # Omicron
 # define an alternate set of vocs
@@ -80,6 +81,7 @@ voc2_manual = c(NA)
 # from the SQL query in "variant_surveillance_system.R"
 # (this will not have any effect if "voc2_manual" is used)
 voc2_additional = c(# "AY.1", "AY.2",
+                    "BA.2",
                     "B.1.617.2", # Delta 
                     "B.1.1.529") # Omicron
 # voc2_custom = c(voc2,
@@ -89,7 +91,8 @@ voc2_additional = c(# "AY.1", "AY.2",
 voc2_reduced = voc1_reduced
 
 # Set voc's for Run3
-voc3 = c("B.1.1.7",   # Alpha  # and Q.1 to 8*
+voc3 = c("BA.2",
+         "B.1.1.7",   # Alpha  # and Q.1 to 8*
          "B.1.351",   # Beta   # and B.1.351.*
          "P.1",       # Gamma  # and P.*
          "B.1.617.2", # Delta # and AY.3-AY.25*
