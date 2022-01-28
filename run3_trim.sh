@@ -11,8 +11,8 @@
 #$ -e Run3_trim.err
 # 
 # Rename the job to be this string instead of the default which is the name of the script
-#$ -N Run3_trim_proportion_modeling
-# -N s5_r3
+# -N Run3_trim_proportion_modeling
+#$ -N s1_r3
 # 
 # Refer all file reference to work the current working directory which is
 # the directory from which the script was qsubbed

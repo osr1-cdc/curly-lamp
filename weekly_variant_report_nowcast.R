@@ -163,6 +163,10 @@ options(survey.adjust.domain.lonely = T,
   # from the nowcast model during run2, but this is easier to implement.
   force_aggregate_omicron <- FALSE
   
+  # force-aggregate "B" into "other"
+  # variant "B" most likely indicates trouble sequencing, rather than an actual variant, so don't split it out. 
+  force_aggregate_B <- TRUE
+
   # rescale the weights that are used in the multinomial Nowcast model.
   # this can help avoid numerical overflow when trying to calculate prediction intervals. 
   rescale_model_weights <- TRUE
@@ -270,13 +274,17 @@ if( force_aggregate_omicron & ('B.1.1.529' %in% voc) ){
   # omicron sub-lineages to exclude 
   omicron_sublineages <- voc[ grepl('(BA\\.[0-9])', voc, ignore.case = TRUE) ]
   
-# but don't force-aggregate BA.1+ if it is in the vocs...
-omicron_sublineages <- omicron_sublineages[!grepl("BA\\.1\\+", omicron_sublineages, ignore.case = TRUE)]
+  # but don't force-aggregate BA.1+ if it is in the vocs...
+  omicron_sublineages <- omicron_sublineages[!grepl("BA\\.1\\+", omicron_sublineages, ignore.case = TRUE)]
 
   # remove omicron sublineages (leaving "B.1.1.529")
   voc <- voc[ voc %notin% omicron_sublineages ]
 }
 
+# force-aggregate B into "Other"
+if (force_aggregate_B & ('B' %in% voc)) {
+  voc <- voc[ voc %notin% 'B' ]
+}
 
 ############# REMOVE UTAH PHL
 if (remove_utahphl){
@@ -1099,6 +1107,9 @@ if ( grepl("Run2",tag) ){
     # Ordered by national rank
     # these will be included in results
     model_vars = us_rank[us_rank %in% c(us_rank[1:n_top], voc)]
+
+    # optionally make sure B is not in the model_vars
+    if (force_aggregate_B) model_vars <- model_vars[model_vars %notin% 'B']
   }
   
   ### add variant ranks to src.dat ----
@@ -1120,9 +1131,9 @@ if ( grepl("Run2",tag) ){
   
   # scale the data weights to help avoid numerical overflow in the multinomial model
   if(rescale_model_weights){
-    src.moddat$wts <- src.moddat$weights / max(src.moddat$weights)
+    # src.moddat$wts <- src.moddat$weights / max(src.moddat$weights)
     # can try other values: 
-    # src.moddat$wts <- src.moddat$weights / mean(src.moddat$weights)
+    src.moddat$wts <- src.moddat$weights / mean(src.moddat$weights)
     # src.moddat$wts <- src.moddat$weights / 50
   } else {
     src.moddat$wts <- src.moddat$weights
