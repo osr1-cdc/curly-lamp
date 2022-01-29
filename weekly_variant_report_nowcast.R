@@ -161,7 +161,7 @@ options(survey.adjust.domain.lonely = T,
   # In the future it's probably better to make estimates for each omicron sublineage 
   # and then aggregate results, as it done for delta & run1 results that are produced
   # from the nowcast model during run2, but this is easier to implement.
-  force_aggregate_omicron <- FALSE
+  force_aggregate_omicron <- TRUE
   
   # force-aggregate "B" into "other"
   # variant "B" most likely indicates trouble sequencing, rather than an actual variant, so don't split it out. 
