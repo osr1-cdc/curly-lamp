@@ -37,7 +37,7 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 data_date <- Sys.Date()
-# data_date <- as.Date('2022-01-20')
+data_date <- as.Date('2022-01-28')
 # I think this needs to be a date on which data were frozen in the CDP database,
 # which is often Thursdays.
 
@@ -96,8 +96,8 @@ voc3 = c("BA.2",
          "B.1.351",   # Beta   # and B.1.351.*
          "P.1",       # Gamma  # and P.*
          "B.1.617.2", # Delta # and AY.3-AY.25*
-         # "AY.1",
-         # "AY.2",
+         "AY.1",
+         "AY.2",
          "B.1.427",   # Epsilon  # B.1.427 & B.1.429 are aggregated on line 137 of "weekly_variant_report_nowcast.R"
          "B.1.525",   # Eta
          "B.1.526",   # Iota
