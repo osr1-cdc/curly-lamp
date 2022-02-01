@@ -37,7 +37,7 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 data_date <- Sys.Date()
-data_date <- as.Date('2022-01-28')
+# data_date <- as.Date('2022-01-28')
 # I think this needs to be a date on which data were frozen in the CDP database,
 # which is often Thursdays.
 

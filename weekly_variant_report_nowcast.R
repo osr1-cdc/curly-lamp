@@ -158,11 +158,16 @@ options(survey.adjust.domain.lonely = T,
   # even if sublineages are also included in the vocs.
   # THIS WILL LIKELY NEED TO BE REPLACED IN THE FUTURE, BUT IT'S HERE TO AVOID 
   # SPLITTING OUT BA.1, WHICH IS INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
-  # In the future it's probably better to make estimates for each omicron sublineage 
-  # and then aggregate results, as it done for delta & run1 results that are produced
-  # from the nowcast model during run2, but this is easier to implement.
-  force_aggregate_omicron <- TRUE
+  force_aggregate_omicron <- FALSE
   
+  # force-aggregate Delta sublineages 
+  # this option will force any/all Delta sublineages that show up in the vocs to be 
+  # aggregated into "B.1.617.2". This was introduced on 2022-02-01 to help stabalize 
+  # Nowcast estimates of the BA.2 sublineage.
+  # It would probably be better to just use the "voc_manual" setting in config/config.R
+  # rather than using this setting, but it's here as well. 
+  force_aggregate_delta <- FALSE
+
   # force-aggregate "B" into "other"
   # variant "B" most likely indicates trouble sequencing, rather than an actual variant, so don't split it out. 
   force_aggregate_B <- TRUE
@@ -171,7 +176,7 @@ options(survey.adjust.domain.lonely = T,
   # this can help avoid numerical overflow when trying to calculate prediction intervals. 
   rescale_model_weights <- TRUE
 
-  # optionally remove UTAH PHL sequences
+  # optionally remove UTAH PHL sequences (b/c they were causing issues with Region 8 estimates in January, 2022)
   remove_utahphl <- TRUE
 }
 
@@ -253,8 +258,8 @@ if( grepl("Run2", tag) ) {
     }
   }
 }
-if( grepl("Run3", tag) ) {
-  if(reduced_vocs){
+if ( grepl("Run3", tag) ) {
+  if (reduced_vocs){
     voc = voc3_reduced
   } else {
     voc = voc3
@@ -262,14 +267,14 @@ if( grepl("Run3", tag) ) {
 }
 
 # optionally add on the custom lineages
-if(custom_lineages == TRUE) {
+if (custom_lineages == TRUE) {
   voc = unique(c(voc, custom_lineage_names))
 }
 
 # force-aggregate omicron
 # (even if BA.1 is listed in voc2, this will force all BA sublineages of Omicron
 #  to have the same VARIANT name (B.1.1.529))
-if( force_aggregate_omicron & ('B.1.1.529' %in% voc) ){
+if ( force_aggregate_omicron & ('B.1.1.529' %in% voc) ){
   
   # omicron sub-lineages to exclude 
   omicron_sublineages <- voc[ grepl('(BA\\.[0-9])', voc, ignore.case = TRUE) ]
@@ -279,6 +284,14 @@ if( force_aggregate_omicron & ('B.1.1.529' %in% voc) ){
 
   # remove omicron sublineages (leaving "B.1.1.529")
   voc <- voc[ voc %notin% omicron_sublineages ]
+}
+
+if (force_aggregate_delta){
+  # Delta sublineages to exclude
+  delta_sublineages <- voc[ grepl('^AY', voc, ignore.case = TRUE)]
+  
+  # remove Delta sublineages
+  voc <- voc[ voc %notin% delta_sublineages ]
 }
 
 # force-aggregate B into "Other"

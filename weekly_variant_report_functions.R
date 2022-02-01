@@ -235,7 +235,7 @@ svymultinom = function(mod.dat,
   # get the variant names in the model
   modvars <- data.frame(
     'K_US' = 1:(length(model_vars)+1),
-    'Variant' = c(names(model_vars), 'Other')
+    'Variant' = c(model_vars, 'Other')
   )
   moddatvars <- mod.dat[,
                         .(.N,
