@@ -1,5 +1,5 @@
-# Functions that are used by the "weekly_variant_report_nowcast.R" script. 
-# Formerly just the "svycipopkg" function was in its own file. Philip Shirk 
+# Functions that are used by the "weekly_variant_report_nowcast.R" script.
+# Formerly just the "svycipopkg" function was in its own file. Philip Shirk
 # moved the rest of the functions here on 2022-01-07.
 
 # Helper wrapper for svyciprop
@@ -28,7 +28,7 @@ myciprop = function(voc,
   #  ~ level: numeric specifying confidence level (1-alpha)
   #  ~ ...:   when method = "asin" or "mean", these arguments are passed on to
   #           svyciprop (which passes them to "confint.svystat")
-  
+
   # Output: Confidence Intervals in 1 of several formats:
   #  1) if str == FALSE: named numeric vector with 7 values:
   #                      estimate: estimated proportion
@@ -43,7 +43,7 @@ myciprop = function(voc,
   #               string range: "ll.l-hh.h"
   #         if range == FALSE:
   #               string: "pp.p (ll.l-hh.h) DF=__, Eff.sampsize=__, CVprop=__, DEff=__"
-  
+
   # Create a binary indicator variable to ID samples to analyze
   # (based on either S_MUT or VARIANT)
   if (mut) {
@@ -56,13 +56,13 @@ myciprop = function(voc,
   } else {
     VOC = (svy$variables$VARIANT %in% voc)
   }
-  
+
   # extract the relevant survey design
   srv_design = subset(update(svy, VOC = VOC),
                       (STUSAB %in% geoid) |
                         (HHS %in% geoid) |
                         (geoid == "USA"))
-  
+
   # calculate the confidence interval
   # (of all specified "voc" grouped together and all non-"voc" grouped together)
   if (ci.type == "xlogit"){
@@ -83,19 +83,19 @@ myciprop = function(voc,
                   ...)
     )
   }
-  
+
   # svyciprop & svycipropkg return a single number (the proportion estimate)
   # with the confidence interval in the attributes.
   # Add the confidence interval directly to the results
   res = c('estimate' = unname(res[1]),
           'lcl' = survey:::confint.svyciprop(res)[1],
           'ucl' = survey:::confint.svyciprop(res)[2])
-  
+
   # add on the degrees of freedom
   res = c(res,
           'DF' = survey::degf(design = srv_design))
-  
-  
+
+
   #add effective sample size to res output
   m <- eval(bquote( # eval and bquote are superfluous b/c there's no variable substitution going on...
     # suppress warnings caused by single PSU in stratum
@@ -104,7 +104,7 @@ myciprop = function(voc,
       survey::svymean(x = ~as.numeric(VOC),
                       design = srv_design)
     )))
-  
+
   # coefficient of variation
   CVmean <- suppressWarnings(
     # suppress warnings caused by single PSU in stratum
@@ -112,7 +112,7 @@ myciprop = function(voc,
     survey::cv(object = survey::svymean(x = ~as.numeric(VOC),
                                         design = srv_design))
   )
-  
+
   # calculate the design effect
   # "The design effect compares the variance of a mean or total to the variance
   #  from a study of the same size using simple random sampling without replacement"
@@ -122,15 +122,15 @@ myciprop = function(voc,
                                           design = srv_design,
                                           deff = T))
   )
-  
+
   # n_effective (this comes from the "survey::svyciprop" function when using the
   #              beta method for calculating the CI)
   #              coef(m) = mean     vcov(m) = variance
   n.eff <- coef(m) * (1 - coef(m))/vcov(m)
-  
+
   # define alpha based on CI level
   alpha <- 1-level
-  
+
   # this is also from the "survey::svyciprop" function using method == 'beta'
   n.eff.capped <- min(
     n.eff * (qt(p = alpha/2,
@@ -139,13 +139,13 @@ myciprop = function(voc,
                   df = survey::degf(design = srv_design)))^2,
     nrow(srv_design)
   )
-  
+
   # add more info into the results
   res = c(res,
           'n.eff.capped' = n.eff.capped,
           'CVmean'= CVmean,
           'deffmean' = unname(deffmean))
-  
+
   # optionally convert results to a string
   if (str) {
     res = c(round( 100 * res[1:3], 1),
@@ -153,7 +153,7 @@ myciprop = function(voc,
             res[5],
             res[6],
             res[7])
-    
+
     # optionally format results as a range
     if (range) {
       res = paste0(res[2], "-", res[3])
@@ -166,7 +166,7 @@ myciprop = function(voc,
                    ",DEff=",res[7])
     }
   }
-  
+
   # return the results
   res
 }
@@ -175,13 +175,13 @@ myciprop = function(voc,
 week_label = function(week_from_current,
                       datadate = data_date) {
   # returns the date of the first day of a future week in "%m-%d" format
-  
+
   # the current day of the week
   day_of_week = as.numeric(strftime(as.Date(datadate), format="%w"))
-  
+
   # start of current week
   start_of_week = as.Date(datadate) - day_of_week
-  
+
   # formatted date of a future week
   strftime(x = start_of_week + 7 * week_from_current,
            format = "%m-%d")
@@ -212,9 +212,9 @@ svymultinom = function(mod.dat,
   #  ~  mod.dat: source data frame
   #  ~  mysvy:   survey design object
   #  ~  fmla:    multinomial model formula
-  #  ~  model_vars: vector of variants that are included in the model (in same order as K_US). 
-  #                 This is only used for helping to troubleshoot model-fit issues. 
-  
+  #  ~  model_vars: vector of variants that are included in the model (in same order as K_US).
+  #                 This is only used for helping to troubleshoot model-fit issues.
+
   # Output: list of 6 objects:
   #  mlm:       nnet multinomial model object (edited to include "svyvcov", which
   #             is the variance-covariance matrix after accounting for survey
@@ -230,8 +230,8 @@ svymultinom = function(mod.dat,
   #             (numeric matrix with row and column for each coefficient)
   #  SE:        SE of coefficients after accounting for survey design
   #             (named numeric vector)
-  
-  
+
+
   # get the variant names in the model
   modvars <- data.frame(
     'K_US' = 1:(length(model_vars)+1),
@@ -243,8 +243,8 @@ svymultinom = function(mod.dat,
                         by = 'K_US']
   names(moddatvars) = c('K_US', 'N', 'Weight')
   modvars <- merge(modvars, moddatvars, all.x = TRUE, by = 'K_US')
-  
-  
+
+
   # aggregate data before fitting the multinomial model to vastly improve run time
   # see: https://git.biotech.cdc.gov/sars2seq/sc2_proportion_modeling/-/issues/6#note_86544
   fmla.vars = all.vars(fmla)
@@ -253,7 +253,7 @@ svymultinom = function(mod.dat,
                                            ,
                                            .(weight = sum(weight)), # aggregate "weight" column
                                            by = fmla.vars] # by the formula
-  
+
   # Fit multinomial logistic regression
   # (without survey design, but with survey weights)
   multinom_geoid = nnet::multinom(formula = fmla,
@@ -262,38 +262,38 @@ svymultinom = function(mod.dat,
                                   Hess    = TRUE,
                                   maxit   = 1000,
                                   trace   = FALSE)
-  
+
   ## Format results to fit into svymle-like workflow
   # get the number of variants being modeled
   # (should be length of model_vars plus 1 for others)
   num_var = length(unique(with(mod.dat,
                                eval(terms(fmla)[[2]]))))
-  
+
   # generate the model formula without the response term
   fmla.no.response = formula(delete.response(terms(fmla)))
-  
+
   # repeat the model formula w/o response term for each variant listed in model_vars
   formulas = rep(list(fmla.no.response),
                  num_var - 1)
-  
+
   # Add response back to first formula to ensure inclusion as response later on
   formulas[[1]] = fmla
-  
+
   # sets the names of the formulas to correspond to beta coefficients for each variant
   names(formulas) = paste0("b", 1:length(formulas) + 1)
-  
+
   # creates a list that contains the mlm object and the coefficient estimates
   # (this will form the output of this function after other things are added on)
   rval = list(mlm = multinom_geoid,
               estimates = coefficients(multinom_geoid))
-  
+
   # transforms the estimates object to be a list where each element is a vector
   #  of the coefficients for a given variant
   # (hhs model: Intercept, week, HHS 2:10;
   #   us model: Intercept, week)
   rval$estimates = as.list(data.frame(t(rval$estimates)))
   ## End multinomial regression
-  
+
   # check if the Hessian is invertible
   invinf <- tryCatch(
     {
@@ -303,12 +303,12 @@ svymultinom = function(mod.dat,
       return(NA)
     }
   )
-  
+
   # if the Hessian is not invertible, avoid errors by not running the rest of the function
   # (note: the se.multinom function will still run on the output of this function,
   #  but will assume the SE is 0)
   if( is.na(invinf[1]) ){ # could use length(invinf) == 1
-    
+
     # look through data if hessian is not invertible
     if(FALSE){
       # if there are problems with the Hessian, investigate counts by region
@@ -318,21 +318,21 @@ svymultinom = function(mod.dat,
       model_counts = model_counts[order(model_counts$count, decreasing = FALSE), ]
       model_counts$Variant = modvars$Variant[model_counts$K_US]
       model_counts[,c('HHS', 'K_US', 'Variant', 'count')]
-      
-      
+
+
       # also investigate small values in diagonal of Hessian
       head(sort(diag(multinom_geoid$Hessian), decreasing = FALSE))
       head(sort(diag(multinom_geoid$Hessian), decreasing = TRUE))
       modvars
-      
+
       # add on some more rows to see if that helps
       # mod.dat0 = mod.dat
       extrarows <- mod.dat[ (mod.dat$HHS == 8 & mod.dat$K_US == 20),]
       extrarows$model_week = 9
       extrarows$SIMPLE_ADJ_WT = 10
-      mod.dat = rbind(mod.dat, 
+      mod.dat = rbind(mod.dat,
                       extrarows)
-      
+
       # update mysvy and rerun the model
       mysvy = svydesign(ids     = ~SOURCE,
                         strata  = ~STUSAB + yr_wk,
@@ -340,7 +340,7 @@ svymultinom = function(mod.dat,
                         nest = TRUE, # TRUE = disable checking for duplicate cluster ID's across strata
                         data = mod.dat)
     }
-    
+
     # add empty items to the results to match structure of a successful run
     # (setting to NULL inside of list() *does* create the named item)
     rval <- append(rval,
@@ -350,26 +350,26 @@ svymultinom = function(mod.dat,
                      'sandwich' = NULL,
                      'SE' = NULL
                    ))
-    
+
     # remove the Hessian
     # (setting to NULL outside of list() *removes* item)
     rval$mlm$Hessian = NULL
-    
+
     # make the estimates a vector instead of a list
     rval$estimates = unlist(rval$estimates)
-    
+
     # add prettier names to the estimates (to match names that are produced below)
     names(rval$estimates) <- paste0('b',
                                     sub(pattern = ':',
                                         replacement = '\\.',
                                         x = colnames(multinom_geoid$Hessian)))
-    
+
     # add a warning
     warning_message = 'Hessian is non-invertible. Nowcast estimates will not have confidence intervals. Check for geographic regions with very few samples of a variant.'
     warning(warning_message)
     # also print out an alert (not really necessary)
     # print(warning_message)
-    
+
     # print out regions with the fewest observations
     # if there are problems with the Hessian, investigate counts by region
     model_counts <- mod.dat[,sum(count),by = c('HHS', 'K_US')]
@@ -379,7 +379,7 @@ svymultinom = function(mod.dat,
     model_counts$Variant = modvars$Variant[model_counts$K_US]
     print('Here are counts by region:')
     print(model_counts[,c('HHS', 'K_US', 'Variant', 'count')])
-    
+
     # print out the highest and lowest values in the Hessian
     print('Also investigate very small or very large values in the Hessian')
     # also investigate small values in diagonal of Hessian
@@ -387,30 +387,30 @@ svymultinom = function(mod.dat,
                                 'value' = sort(diag(multinom_geoid$Hessian)))
     rownames(hess_headtail) <- 1:nrow(hess_headtail)
     print(hess_headtail[c(1:5, (nrow(hess_headtail)-4):nrow(hess_headtail)),])
-    
+
   } else {
-    # if the Hessian is invertible, proceed: 
-    
+    # if the Hessian is invertible, proceed:
+
     ## Define likelihood
-    
+
     # Loglikelihood:
     lmultinom = function(v, ...) {
       # vectorized loglikelihood function
       # Arguments: v  (positive integer vector) is position of response variable
       #                in ordered list of possible values (1=reference)
       #            ...  vectors of  linear predictors
-      
+
       # create a matrix of linear predictors (with 0's for reference class)
       b = cbind(0, ...)
       b = matrix(b,
                  nrow = length(v))
-      
+
       # get the predicted probability of the realized (actual) outcomes and
       # subtract the total probability for all classes???
       sapply(X = seq_along(v),
              FUN = function(rr) b[rr, v[rr]])  - log(rowSums(exp(b)))
     }
-    
+
     # Gradient of loglikelihood:
     gmultinom = function(v, ...) {
       # vectorized partial derivatives of lmultinom(v, ...) with respect to
@@ -419,158 +419,158 @@ svymultinom = function(mod.dat,
       # Arguments: v  (positive integer vector) is position of response variable
       #                in ordered list of possible values (1=reference)
       #            ...  vectors of linear predictors
-      
+
       # create a matrix of linear predictors (with 0's for reference class)
       #  column for each observation
       #  row for each possible outcome class
       b = cbind(0, ...)
       b = matrix(b,
                  nrow=length(v))
-      
+
       # convert to probabilities by normalizing linear predicted values by the
       # total value across all possible outcome classes
       p = exp(b) / rowSums(exp(b))
-      
+
       # create a matrix of the same dimensions
       # to hold the observed class of each observation
       delta_ij = p * 0
-      
+
       # set some values of the matrix to 1
       # (for each observation (i.e. row) assign a value of 1 to the column
       #  representing its clade/rank order)
       delta_ij[1:length(v) + (v-1) * length(v)] = 1
-      
+
       # Column n is partial derivative with respect to ...[n]:
       # (realized outcome minus the predicted probability of belonging to that class)
       (delta_ij - p)[, -1]
     }
     ## End likelihood definitions
-    
+
     ## Build dataframe to pass to svyrecvar
     # Adapted from code in svymle
     # modify formula names
     nms = c("", names(formulas))
-    
+
     # logical that identifies which formula has a response variable
     has.response = sapply(formulas, length) == 3
-    
+
     # creates variable equal to regression formula that has response variable
     ff = formulas[[which(has.response)]]
-    
+
     #sets predictor terms to 1 so: as.numeric(as.factor(K_US)) ~ 1
     ff[[3]] = 1
-    
+
     #I think this just gets you what the rankings are for the variants from mod.dat
     # (i.e. the response data for the regression model)
     y = eval.parent(model.frame(formula   = ff,
                                 data      = mod.dat,
                                 na.action = na.pass))
-    
+
     # sets the first formula to a formula without the response term
     formulas[[which(has.response)]] = formula(delete.response(terms(formulas[[which(has.response)]])))
-    
+
     # creates empty list the same length of the formulas object
     # mf = vector("list", length(formulas))
     # object "mf" gets redefined below. This line doesn't seem to do anything.
-    
+
     # vector with the names of the regression predictors
     vnms = unique(do.call(c, lapply(formulas, all.vars)))
-    
+
     # converts the vnms to a formula object w/o the response term
     uformula = make.formula(vnms)
-    
+
     # gets the values for the model predictors from mod.dat
     mf = model.frame(formula   = uformula,
                      data      = mod.dat,
                      na.action = na.pass)
-    
+
     # adds a column for the variant rankings to mf with the column header as
     #  as.numeric(as.factor(K_US))
     mf = cbind(`(Response)` = y,
                mf)
     # this isn't changing/setting the column header to "(Response)"...
-    
+
     # I think this just ensures that there aren't any duplicated columns
     #  (the drop = FALSE ensures that mf remains a dataframe even if only 1 column
     #   is returned)
     mf = mf[, !duplicated(colnames(mf)),
             drop = FALSE]
-    
+
     # get the svy weights from the survey design object
     weights = weights(mysvy)
-    
+
     # defines Y (response variable) as variant group (rank abundance)
     Y = mf[, 1]
-    
+
     # for each formula listed in "formulas", generate the underlying data for
     # those parameters
     # (model.frame object is required for the model.matrix function)
     mmFrame = lapply(X    = formulas,
                      FUN  = model.frame,
                      data = mf) # argument passed to "model.frame"
-    
+
     # creates model design objects for each rank class
     mm = mapply(FUN      = model.matrix,
                 object   = formulas,
                 data     = mmFrame,
                 SIMPLIFY = FALSE)
-    
+
     # get the cumulative number of columns across all dataframes listed in mm
     np = c(0,
            cumsum(sapply(X   = mm,
                          FUN = NCOL)))
-    
+
     # get the column names from all the dataframes in mm
     parnms = lapply(mm, colnames)
-    
+
     # format column names in each list element to correspond to the coefficient
     for (i in 1:length(parnms)){
       parnms[[i]] = paste(nms[i + 1],
                           parnms[[i]],
                           sep = ".")
     }
-    
+
     # convert the parameter names from a list to a vector
     parnms = unlist(parnms)
-    
+
     # get the estimated coefficients from multinom as a vector
     theta = unlist(rval$estimates)
-    
+
     # creates empty list the same length as the number of variants plus "other"
     args = vector("list", length(nms))
-    
+
     # sets first list element to the variant rank data (i.e. response variable)
     args[[1]] = Y
-    
+
     # assigns the names of the args list to nms
     names(args) = nms
-    
+
     # get the linear predictor for each response variable class (rank abundance)
     # by multiplying the covariate values in "mm" by the coefficient values, "theta"
     for (i in 2:length(nms)){
       args[[i]] = drop(mm[[i - 1]] %*% theta[(np[i - 1] + 1):np[i]])
     }
-    
+
     # this takes the args list and uses the gmultinom function above to estimate
     # the gradient of the log likelihood
     deta = matrix(data = do.call(what = "gmultinom",
                                  args = args),
                   ncol = length(args) - 1)
-    
+
     # creates an empty list element called scores in the rval list
     rval <- append(rval,
                    list('scores' = NULL))
-    
+
     # creates numerical vector the same length as the names of formulas
     reorder = na.omit(match(x = names(formulas),
                             table = nms[-1]))
-    
+
     #for each variant this multiplies the gradient of the loglikelihood by the survey weights
     for (i in reorder){
       rval$scores = cbind(rval$scores,
                           deta[, i] * weights * mm[[i]])
     }
-    
+
     # not 100% sure what this step does. It looks like it's solving the inverse
     # (negative?) multinomial regression object and adds as a list element to rval
     rval$invinf = invinf # solve(-multinom_geoid$Hessian)
@@ -578,18 +578,18 @@ svymultinom = function(mod.dat,
     # it's inverting the negative of the Hessian.
     # inverse of the negative Hessian is the estimate of the variance-covariance
     # matrix of model parameters (which is used to estimate parameter SE)
-    
+
     # assign names to the rval$invinf
     dimnames(rval$invinf) = list(parnms, parnms)
-    
+
     # Use matrix multiplication to multiply the "scores" (i.e., the gradient
     # loglikelihood * survey weights * model matrix) by the variance-covariance
     # matrix of parameter estimates
     db = rval$scores %*% rval$invinf
-    
+
     # Everything up until now has been formatting steps to get the estimates/data
     # formatted in way that's compatible with the svyrecvar function
-    
+
     # Computes the variance of a total under multistage sampling, using a recursive
     # descent algorithm. The object that's returned ("sandwich") is the covariance matrix
     rval$sandwich = survey::svyrecvar(x          = db,
@@ -597,22 +597,22 @@ svymultinom = function(mod.dat,
                                       stratas    = mysvy$strata,
                                       fpcs       = mysvy$fpc,
                                       postStrata = mysvy$postStrata)
-    
+
     # estimate the SE as the square root of the diagonal elements of the
     # variance-covariance matrix (diagonal = variance)
     rval$SE = sqrt(diag(rval$sandwich))
-    
+
     # convert the "estimates" object from a list to a vector
     rval$estimates = unlist(rval$estimates)
-    
+
     # assign the names of "estimates" in rval to be the same as the names of "SE"
     names(rval$estimates) = names(rval$SE)
-    
+
     # adds the variance-covariance matrix to the mlm object (mlm being the results
     # object you get from solving the multinomial model)
     rval$mlm$svyvcov = rval$sandwich
   }
-  
+
   # return the rval object
   rval$variants = modvars
   return(rval)
@@ -625,14 +625,13 @@ svymultinom = function(mod.dat,
 # Note: This function estimates proportions (predicted values) and their standard
 #       errors using the results of "svymultinom"; the "svymultinom" function
 #       fits the model and estimates the SE of model coefficients.
+# If including time as a predictor variable, make it the first covariate!
 se.multinom = function(mlm,
-                       week,
-                       geoid = "USA",
+                       newdata_1row,
                        composite_variant = NULL) {
   # Arguments:
   #  ~  mlm:   model output, with Hessian;
-  #  ~  week:  focal week to calculate the SE for
-  #  ~  geoid: geographic region; options include "USA" or HHS Region (1:10)
+  #  ~  newdata_1row:  1-row dataframe consistent with predictors in formula
   #  ~  composite_variant: (if not NA) is a matrix with one column per model
   #                        lineage and one row per composite variant matrix
   #                        element of 1 marks each component lineage (column)
@@ -641,24 +640,31 @@ se.multinom = function(mlm,
   #                        designates a variant comprising the first and fourth
   #                        lineages in the model estimates for composites will
   #                        be appended at end of p_i and se.p_i
-  
+
   # If mlm is without Hessian, all se's are set to zero
   # mlm not geographically stratified for geoid="USA": ~ (week - current_week)
   # mlm, for HHS Regions: ~ week + HHS (1 as reference level)
-  
+
   # Output: list of 5 items:
   #  ~  p_i:     predicted values for each clade/variant (numeric vector)
   #  ~  se.p_i:  SE of predicted values (numeric vector)
   #  ~  b_i:     coefficient (beta) values (numeric vector)
+  #              NOTE! b_i is only interpretable as growth rates if first
+  #                    predictor term is time (eg I((date - Sys.Date())/7)
   #  ~  se.b_i:  SE of coefficients (numeric vector)
   #  ~  composite_variant: list with 3 element:
   #                        matrix = composite_variant (input matrix)
   #                        p_i    = predicted proportions for composite variants
   #                        se.p_i = SE of the predicted proportions
-  
+
+  # modification history:
+  # Modified to handle 1-row dataframe consistent with predictors in formula (similar to interface for predict) [2022-01-21]
+  # Modified to handle composite variants (eg. Delta = combination of multiple lineages in multinomial model) [2021-09-29]
+  # Modified to handle output from svymultinom [2021-08-15]
+
   # get the model coefficients
   cf = coefficients(mlm)
-  
+
   # get the variance-covariance matrix
   if ("svyvcov" %in% names(mlm)) {
     vc = mlm$svyvcov
@@ -675,84 +681,120 @@ se.multinom = function(mlm,
     } else {
       # If there's no variance-covariance matrix from the svymultinom function
       # and there's no Hessian, just set the variance-covariance to 0
-      vc = rep(0, length(cf)^2)
+      # vc = rep(0, length(cf)^2)
+      vc = matrix(data = 0,
+                  nrow = length(cf),
+                  ncol = length(cf))
     }
   }
-  
-  # Rearrange terms to ease pulling out relevant submatrix
-  # convert symmetrical matrix with rows & columns for each coefficient:
-  # 4-d array with dim 1 for each covariates
-  #                dim 2 for each outcome class
-  #                dim 3 for each covariate
-  #                dim 4 for each outcome class
-  dim(vc) = rep(x = rev(dim(cf)),
-                times = 2)
-  
-  # Boolean: is the geoid the reference level
-  ref_geoid = ((length(mlm$xlevels) == 0) || (geoid == mlm$xlevels[[1]][1]))
-  
-  # get the number/index of the geoid/area being modeled
-  if (ref_geoid) { # if the geoid is the reference level
-    n_geoid = NULL
-  } else { # if it's not the reference level
-    n_geoid = which(mlm$xlevels[[1]] == geoid)
-  }
-  
-  # Set value for "hhs1tail"
-  # index of column identifying column for the hhs region in question
-  if (ref_geoid) { # if the geoid is the reference level
-    hhs1tail = NULL
-  } else { # if it's not the reference level
-    hhs1tail = n_geoid + 1
-  }
-  
-  # save values to vector
-  # only want the coefficients for the intercept, the week in question, and the
-  # hhs region in question
-  indices = c(1, 2, hhs1tail)
-  
-  # reset value for "hhs1tail"
-  # indicator (0/1) covariate value (1 for the hhs region in question)
-  if (ref_geoid) {
-    hhs1tail = NULL
-  } else {
-    hhs1tail = 1
-  }
-  
-  # save values to another vector
-  # (aren't these really covariate values, not coefficients?)
-  coeffs = c(1, week, hhs1tail)
-  
-  # b is vector of coefficients of time (week)
-  # subset the variance-covariance matrix to the relevant parameters
-  sub.vc = vc[indices,,indices,]
-  
-  # get the linear predictor values
-  # (what's the 0 on the beginning for?)
-  y_i = c(0, cf[, indices] %*% coeffs)
-  
+
+  # get the model matrix from the model fit & the new data
+  mm = model.matrix(as.formula(paste("~",as.character(mlm$terms)[3])),
+                    newdata_1row,
+                    xlev = mlm$xlevels)
+
+  # get the covariate names for each variant
+  mnames = outer(X = mlm$lev[-1],
+                 Y = colnames(mm),
+                 FUN = paste, sep=":")
+
+  # vc = vcov(mlm)
+
+  # matrix of covariate values (first create empty matrix)
+  cmat = matrix(data = 0,
+                nrow = nrow(mnames),
+                # ncol = length(cf),
+                ncol = ncol(vc),
+                dimnames = list(mlm$lev[-1],
+                                as.vector(t(mnames))))
+                                # colnames(mlm$Hessian)))
+
+  # fill in covariate values into the cmat
+  for (rr in 1:nrow(cmat)) cmat[rr, mnames[rr,]] = c(mm)
+
+  # linear predictor values
+  y_i = c(0, coefficients(mlm) %*% c(mm))
+
   # get the variance-covariance matrix of the linear predictor
   # (after adjusting for survey design)
-  vc.y_i = outer(1:dim(sub.vc)[2],
-                 1:dim(sub.vc)[4],
-                 Vectorize(function(i, j) c(coeffs %*% sub.vc[, i, , j] %*% coeffs)))
-  # (the "coeffs" here really covariates)
-  
-  # add in row and column for the intercept???
-  vc.y_i = rbind(0, cbind(0, vc.y_i))
-  
+  vc.y_i = rbind(0, cbind(0, cmat %*% vc %*% t(cmat)))
+
+
+
+  # # Rearrange terms to ease pulling out relevant submatrix
+  # # convert symmetrical matrix with rows & columns for each coefficient:
+  # # 4-d array with dim 1 for each covariates
+  # #                dim 2 for each outcome class
+  # #                dim 3 for each covariate
+  # #                dim 4 for each outcome class
+  # dim(vc) = rep(x = rev(dim(cf)),
+  #               times = 2)
+  #
+  # # Boolean: is the geoid the reference level
+  # ref_geoid = ((length(mlm$xlevels) == 0) || (geoid == mlm$xlevels[[1]][1]))
+  #
+  # # get the number/index of the geoid/area being modeled
+  # if (ref_geoid) { # if the geoid is the reference level
+  #   n_geoid = NULL
+  # } else { # if it's not the reference level
+  #   n_geoid = which(mlm$xlevels[[1]] == geoid)
+  # }
+  #
+  # # Set value for "hhs1tail"
+  # # index of column identifying column for the hhs region in question
+  # if (ref_geoid) { # if the geoid is the reference level
+  #   hhs1tail = NULL
+  # } else { # if it's not the reference level
+  #   hhs1tail = n_geoid + 1
+  # }
+  #
+  # # save values to vector
+  # # only want the coefficients for the intercept, the week in question, and the
+  # # hhs region in question
+  # indices = c(1, 2, hhs1tail)
+  #
+  # # reset value for "hhs1tail"
+  # # indicator (0/1) covariate value (1 for the hhs region in question)
+  # if (ref_geoid) {
+  #   hhs1tail = NULL
+  # } else {
+  #   hhs1tail = 1
+  # }
+  #
+  # # save values to another vector
+  # # (aren't these really covariate values, not coefficients?)
+  # coeffs = c(1, week, hhs1tail)
+  #
+  # # b is vector of coefficients of time (week)
+  # # subset the variance-covariance matrix to the relevant parameters
+  # sub.vc = vc[indices,,indices,]
+  #
+  # # get the linear predictor values
+  # # (what's the 0 on the beginning for?)
+  # y_i = c(0, cf[, indices] %*% coeffs)
+  #
+  # # get the variance-covariance matrix of the linear predictor
+  # # (after adjusting for survey design)
+  # vc.y_i = outer(1:dim(sub.vc)[2],
+  #                1:dim(sub.vc)[4],
+  #                Vectorize(function(i, j) c(coeffs %*% sub.vc[, i, , j] %*% coeffs)))
+  # # (the "coeffs" here really covariates)
+  #
+  # # add in row and column for the intercept???
+  # vc.y_i = rbind(0, cbind(0, vc.y_i))
+
   # calculate the predicted proportions
   p_i = exp(y_i)/sum(exp(y_i))
-  
+
   # Taylor series based variance:
   # dp_i/dy_j = delta_ij p_i - p_i * p_j
   dp_dy = diag(p_i) - outer(p_i, p_i, `*`)
-  
+
   # calculate variance/covariance of the predicted proportions
   p.vcov = dp_dy %*% vc.y_i %*% dp_dy
   # SE = sqrt of variance
   se.p_i = as.vector(sqrt(diag(p.vcov)))
-  
+
   # if there are composite variants, calculate calculate their proportions & SE
   if (!is.null(composite_variant)) {
     composite_variant = list(
@@ -761,7 +803,11 @@ se.multinom = function(mlm,
       se.p_i = as.vector(sqrt(diag(composite_variant %*% p.vcov %*% t(composite_variant))))
     )
   }
-  
+
+  # change the dimensions of the variance-covariance matrix to aid in
+  # pulling out the coefficient of time.
+  dim(vc) = rep(rev(dim(cf)), 2)
+
   # output
   list(p_i = p_i, # predicted values
        se.p_i = se.p_i, # SE of predicted values
@@ -777,32 +823,32 @@ se.multinom = function(mlm,
 svyCI = function(p, s) {
   # p = point estimate
   # s = estimated standard error
-  
+
   # if se is 0, n will be Inf (possibly because of non-invertible Hessian); return CI of 0,0
   if(s == 0){
     return(c(0,0))
   } else {
     # calculate the sample size
     n = p*(1-p)/s^2
-    
+
     # calculate the confidence interval using a proportion test
     out = prop.test(x = n * p,   # a vector of counts of successes
                     n = n        # a vector of counts of trials
     )$conf.int
-    
-    ### UPDATE #### 
+
+    ### UPDATE ####
     # prop.test sometimes throws warnings. We should at least produce a flag for the estimates that are suspicious!
-    
-    
-    
-    
+
+
+
+
     # Is this incorporating the Korn-Graubard method?
     #   Korn and Graubard (1998) have suggested a method for producing confidence intervals for
     #   proportions estimated from a sample based on a complex sample design where the proportions
     #   are either very small or very large, or the sample size is small. Their method uses the exact
     #   binomial confidence intervals but with the sample size modified by dividing by the estimated
     #   design effect for the proportion in question.
-    
+
     # could calculate a normal approximation to the confidence interval as:
     # logit( p +/- 1.96 * SE )
     # prop.test says: "The confidence interval is computed by inverting the score test."
@@ -814,7 +860,7 @@ svyCI = function(p, s) {
     # interval, and it may be safely employed with small samples and skewed
     # observations.[3] The observed coverage probability is consistently closer to
     # the nominal value.
-    
+
     # return the lower and upper confidence interval limits
     return(c(out[1],out[2]))
   }
@@ -837,7 +883,7 @@ svyCI = function(p, s) {
 # 'design' can be an age standardized object created using 'svystandardize'
 # this implementation: Crescent Martin, NCHS
 # last updated 6/3/2019
-    
+
 svycipropkg <- function  (formula, design, level = 0.95, df = degf(design), ...) {
 
   # based on svyciprop function in the survey package with method = "beta"
@@ -845,15 +891,15 @@ svycipropkg <- function  (formula, design, level = 0.95, df = degf(design), ...)
   rval <- coef(m)[1]
   attr(rval, "var") <- vcov(m)
   alpha <- 1 - level
-  
+
   # if design is an age-standardized survey design object - custom code not in svyciprop function
   if (!is.null(design[['postStrata']])){
     # error checking
     if (!as.character(design[['call']][[1]]) == "svystandardize"){
       stop("svycipropkg design cannot be a subset of an age-standardized survey design object")
     }
-    
-    # create temporary data frame  
+
+    # create temporary data frame
     design_tmp <- design[['variables']][which(design[['prob']] != Inf), ]
     # get the age-adjustment variable
     ageadjvar <- as.character(design[['call']]$by[[2]])
@@ -884,15 +930,15 @@ svycipropkg <- function  (formula, design, level = 0.95, df = degf(design), ...)
     # effective sample size
     n.eff <- coef(m) * (1 - coef(m))/vcov(m)
     # modification to svyciprop: cap adjusted effective sample size at the actual sample size
-    # Under the assumption that the true design effect is >1, though it may be estimated as <1 due to instability of the variance estimator 
+    # Under the assumption that the true design effect is >1, though it may be estimated as <1 due to instability of the variance estimator
     # This modification produces different estimated CIs than svyciprop IF the estimated design effect <1
     #n.eff <-     n.eff * (qt(alpha/2, nrow(design) - 1)/qt(alpha/2, degf(design)))^2
     n.eff <- min( n.eff * (qt(alpha/2, nrow(design) - 1)/qt(alpha/2, degf(design)))^2, nrow(design))
   }
-  
+
   ci <- c(qbeta(alpha/2, n.eff * rval, n.eff * (1 - rval) +  1), qbeta(1 - alpha/2, n.eff * rval + 1, n.eff * (1 - rval)))
   halfalpha <- (1 - level)/2
-  names(ci) <- paste(round(c(halfalpha, (1 - halfalpha)) * 
+  names(ci) <- paste(round(c(halfalpha, (1 - halfalpha)) *
                              100, 1), "%", sep = "")
   names(rval) <- paste(deparse(formula[[2]]), collapse = "")
   attr(rval, "ci") <- ci
