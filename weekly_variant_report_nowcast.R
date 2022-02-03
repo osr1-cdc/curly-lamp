@@ -168,6 +168,7 @@ options(survey.adjust.domain.lonely = T,
   # AY sublineages from being split out from Delta. The difference between using "voc_manual"
   # and using "force_aggregate_delta" is that using "voc_manual" requires one to look up 
   # all other lineages > 1% for inclusion. 
+  # another option to try to control this problem is to set "n_top" to a low number.
   force_aggregate_delta <- FALSE
 
   # force-aggregate "B" into "other"
@@ -186,7 +187,7 @@ options(survey.adjust.domain.lonely = T,
   remove_utahphl <- TRUE
 
   # optionally remove BROAD sequences (b/c they were having trouble with dropout on the Omicron spike protein, resulting in an inability to distinguish between BA.1 and BA.1+R346K in Jan/Feb 2022)
-  remove_broad <- FALSE 
+  remove_broad <- TRUE 
 }
 
 
