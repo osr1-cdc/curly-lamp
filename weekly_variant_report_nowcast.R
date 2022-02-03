@@ -164,12 +164,15 @@ options(survey.adjust.domain.lonely = T,
   # this option will force any/all Delta sublineages that show up in the vocs to be
   # aggregated into "B.1.617.2". This was introduced on 2022-02-01 to help stabalize
   # Nowcast estimates of the BA.2 sublineage.
-  # It would probably be better to just use the "voc_manual" setting in config/config.R
-  # rather than using this setting, but it's here as well.
+  # Another option would be to use the "voc_manual" setting in config/config.R to prevent
+  # AY sublineages from being split out from Delta. The difference between using "voc_manual"
+  # and using "force_aggregate_delta" is that using "voc_manual" requires one to look up 
+  # all other lineages > 1% for inclusion. 
   force_aggregate_delta <- FALSE
 
   # force-aggregate "B" into "other"
   # variant "B" most likely indicates trouble sequencing, rather than an actual variant, so don't split it out.
+  # this also prevents "B" from being included in the Nowcast model. 
   force_aggregate_B <- TRUE
 
   # rescale the weights that are used in the multinomial Nowcast model.
@@ -181,6 +184,9 @@ options(survey.adjust.domain.lonely = T,
 
   # optionally remove UTAH PHL sequences (b/c they were causing issues with Region 8 estimates in January, 2022)
   remove_utahphl <- TRUE
+
+  # optionally remove BROAD sequences (b/c they were having trouble with dropout on the Omicron spike protein, resulting in an inability to distinguish between BA.1 and BA.1+R346K in Jan/Feb 2022)
+  remove_broad <- FALSE 
 }
 
 
@@ -302,11 +308,15 @@ if (force_aggregate_B & ('B' %in% voc)) {
   voc <- voc[ voc %notin% 'B' ]
 }
 
-############# REMOVE UTAH PHL
+############# REMOVE specified labs
 if (remove_utahphl){
   # grep(pattern = 'utah', x = unique(svy.dat$SOURCE), ignore.case = T, value = T)
   svy.dat <- subset(x = svy.dat,
                     subset = SOURCE != 'UTAH PUBLIC HEALTH LABORATORY')
+}
+if (remove_broad){
+  svy.dat <- subset(x = svy.dat,
+                    subset = SOURCE %notin% c('BROAD INSTITUTE', 'INFECTIOUS DISEASE PROGRAM, BROAD INSTITUTE OF HARVARD AND MIT'))
 }
 
 ### subset data ----------------------------------------------------------------

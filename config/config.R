@@ -91,8 +91,7 @@ voc2_additional = c(# "AY.1", "AY.2",
 voc2_reduced = voc1_reduced
 
 # Set voc's for Run3
-voc3 = c("BA.2",
-         "B.1.1.7",   # Alpha  # and Q.1 to 8*
+voc3 = c("B.1.1.7",   # Alpha  # and Q.1 to 8*
          "B.1.351",   # Beta   # and B.1.351.*
          "P.1",       # Gamma  # and P.*
          "B.1.617.2", # Delta # and AY.3-AY.25*
@@ -105,7 +104,8 @@ voc3 = c("BA.2",
          "B.1.617.3", # (unnamed)
          "P.2",       # Zeta 
          "B.1.621",   # Mu
-         "B.1.1.529") # Omicron # and BA.*
+         "B.1.1.529", # Omicron # and BA.*
+         "BA.2") 
 # define an alternate set of vocs
 voc3_reduced = voc1_reduced
 
