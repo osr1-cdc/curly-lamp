@@ -12,7 +12,7 @@
 # 
 # Rename the job to be this string instead of the default which is the name of the script
 # -N Run2_trim_custom_proportion_modeling
-#$ -N s3_r2c
+#$ -N s4_r2c
 # 
 # Refer all file reference to work the current working directory which is
 # the directory from which the script was qsubbed

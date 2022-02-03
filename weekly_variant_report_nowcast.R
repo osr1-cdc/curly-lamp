@@ -187,7 +187,7 @@ options(survey.adjust.domain.lonely = T,
   remove_utahphl <- TRUE
 
   # optionally remove BROAD sequences (b/c they were having trouble with dropout on the Omicron spike protein, resulting in an inability to distinguish between BA.1 and BA.1+R346K in Jan/Feb 2022)
-  remove_broad <- TRUE 
+  remove_broad <- FALSE
 }
 
 
