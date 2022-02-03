@@ -181,7 +181,7 @@ fig_gen_run = TRUE
 
 # Some parameters defining what is modeled and displayed ---------------
 # Top n variants by variant share that must be included in output
-n_top = 10
+n_top = 3
 # Only a subset of variants that are/were common *in recent weeks* are included
 # in the multinomial model. (Note that the multinomial model itself is run on
 # more weeks of data than are used for defining common variants.) Focal

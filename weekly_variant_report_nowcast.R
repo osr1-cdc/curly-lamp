@@ -169,7 +169,7 @@ options(survey.adjust.domain.lonely = T,
   # and using "force_aggregate_delta" is that using "voc_manual" requires one to look up 
   # all other lineages > 1% for inclusion. 
   # another option to try to control this problem is to set "n_top" to a low number.
-  force_aggregate_delta <- FALSE
+  force_aggregate_delta <- TRUE
 
   # force-aggregate "B" into "other"
   # variant "B" most likely indicates trouble sequencing, rather than an actual variant, so don't split it out.
