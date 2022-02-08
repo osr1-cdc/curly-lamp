@@ -155,10 +155,14 @@ options(survey.adjust.domain.lonely = T,
   # another option that will go away with time, but for now it's here to avoid
   # splitting omicron into multiple sublineages.
   # if 'B.1.1.529' is listed in the vocs, then force-aggregate omicron sublineages
-  # even if sublineages are also included in the vocs.
+  # even if sublineages are also included in the vocs. To avoid aggregating a
+  # specific sublineage, include the sublineage in both "voc" and 
+  # "force_aggregate_omicron_except". 
   # THIS WILL LIKELY NEED TO BE REPLACED IN THE FUTURE, BUT IT'S HERE TO AVOID
-  # SPLITTING OUT BA.1, WHICH IS INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
+  # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
   force_aggregate_omicron <- FALSE
+  # list omicron sublineages that will not be aggregated (if they are also in voc)
+  force_aggregate_omicron_except <- c("BA.1+","BA.2")
 
   # force-aggregate Delta sublineages
   # this option will force any/all Delta sublineages that show up in the vocs to be
@@ -286,11 +290,12 @@ if (custom_lineages == TRUE) {
 #  to have the same VARIANT name (B.1.1.529))
 if ( force_aggregate_omicron & ('B.1.1.529' %in% voc) ){
 
-  # omicron sub-lineages to exclude
+  # omicron sub-lineages to exclude/aggregate
   omicron_sublineages <- voc[ grepl('(BA\\.[0-9])', voc, ignore.case = TRUE) ]
 
-  # but don't force-aggregate BA.1+ if it is in the vocs...
-  omicron_sublineages <- omicron_sublineages[!grepl("BA\\.1\\+", omicron_sublineages, ignore.case = TRUE)]
+  # but don't force-aggregate any sublineages in "force_aggregate_omicron_except"
+  # if they are also in the vocs.
+  omicron_sublineages <- omicron_sublineages[omicron_sublineages %notin% force_aggregate_omicron_except]
 
   # remove omicron sublineages (leaving "B.1.1.529")
   voc <- voc[ voc %notin% omicron_sublineages ]
