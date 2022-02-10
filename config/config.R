@@ -86,7 +86,8 @@ voc2_additional = c(# "AY.1", "AY.2",
                     "BA.3",
                     "BA.1",
                     "B.1.617.2", # Delta 
-                    "B.1.1.529") # Omicron
+                    "B.1.1.529" # Omicron
+                    ) 
 # voc2_custom = c(voc2,
 #                 custom_lineage_names)
 
@@ -184,7 +185,7 @@ fig_gen_run = TRUE
 
 # Some parameters defining what is modeled and displayed ---------------
 # Top n variants by variant share that must be included in output
-n_top = 3
+n_top = 10
 # Only a subset of variants that are/were common *in recent weeks* are included
 # in the multinomial model. (Note that the multinomial model itself is run on
 # more weeks of data than are used for defining common variants.) Focal
