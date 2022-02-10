@@ -228,7 +228,7 @@ load(paste0(script.basename, "/data/svydat_", data_date, custom_tag, ".RData"))
 
 
 # create a tag for the filenames to differentiate results from different runs
-tag <- paste0("_",state_source,"_Run", opts$run_number, reduced_voc_tag, custom_tag, "_noBA11noUT")
+tag <- paste0("_",state_source,"_Run", opts$run_number, reduced_voc_tag, custom_tag, "_wBA11noUT")
 
 ### choose vocs ----------------------------------------------------------------
 # - run number
