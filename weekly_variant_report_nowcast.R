@@ -162,7 +162,7 @@ options(survey.adjust.domain.lonely = T,
   # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
   force_aggregate_omicron <- FALSE
   # list omicron sublineages that will not be aggregated (if they are also in voc)
-  force_aggregate_omicron_except <- c("BA.1+","BA.2")
+  force_aggregate_omicron_except <- c("BA.2")
 
   # force-aggregate Delta sublineages
   # this option will force any/all Delta sublineages that show up in the vocs to be
@@ -188,7 +188,7 @@ options(survey.adjust.domain.lonely = T,
   # options: "max", "mean", [number]
 
   # optionally remove UTAH PHL sequences (b/c they were causing issues with Region 8 estimates in January, 2022)
-  remove_utahphl <- TRUE
+  remove_utahphl <- FALSE
 
   # optionally remove BROAD sequences (b/c they were having trouble with dropout on the Omicron spike protein, resulting in an inability to distinguish between BA.1 and BA.1+R346K in Jan/Feb 2022)
   remove_broad <- FALSE
@@ -228,7 +228,7 @@ load(paste0(script.basename, "/data/svydat_", data_date, custom_tag, ".RData"))
 
 
 # create a tag for the filenames to differentiate results from different runs
-tag <- paste0("_",state_source,"_Run", opts$run_number, reduced_voc_tag, custom_tag)
+tag <- paste0("_",state_source,"_Run", opts$run_number, reduced_voc_tag, custom_tag, "noBA11")
 
 ### choose vocs ----------------------------------------------------------------
 # - run number
