@@ -173,12 +173,12 @@ options(survey.adjust.domain.lonely = T,
   # and using "force_aggregate_delta" is that using "voc_manual" requires one to look up 
   # all other lineages > 1% for inclusion. 
   # another option to try to control this problem is to set "n_top" to a low number.
-  force_aggregate_delta <- TRUE
+  force_aggregate_delta <- FALSE
 
   # force-aggregate "B" into "other"
   # variant "B" most likely indicates trouble sequencing, rather than an actual variant, so don't split it out.
   # this also prevents "B" from being included in the Nowcast model. 
-  force_aggregate_B <- TRUE
+  force_aggregate_B <- FALSE
 
   # rescale the weights that are used in the multinomial Nowcast model.
   # this can help avoid numerical overflow when trying to calculate prediction intervals.
@@ -228,7 +228,7 @@ load(paste0(script.basename, "/data/svydat_", data_date, custom_tag, ".RData"))
 
 
 # create a tag for the filenames to differentiate results from different runs
-tag <- paste0("_",state_source,"_Run", opts$run_number, reduced_voc_tag, custom_tag, "_wBA11noUT")
+tag <- paste0("_",state_source,"_Run", opts$run_number, reduced_voc_tag, custom_tag, "_wBA11noUTwAY1AY2")
 
 ### choose vocs ----------------------------------------------------------------
 # - run number

@@ -81,7 +81,7 @@ voc2_manual = c(NA)
 # optionally specify additional variants that will be added on to the lineages
 # from the SQL query in "variant_surveillance_system.R"
 # (this will not have any effect if "voc2_manual" is used)
-voc2_additional = c(# "AY.1", "AY.2",
+voc2_additional = c(#"AY.1", "AY.2",
                     "BA.2",
                     "BA.1.1",
                     "BA.3",
