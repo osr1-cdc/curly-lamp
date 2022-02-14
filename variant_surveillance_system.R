@@ -837,26 +837,26 @@ test_tallies_wk$week = as.numeric(as.Date(test_tallies_wk$yr_wk) - week0day1)%/%
 test_tallies_gp$week = as.numeric(as.Date(test_tallies_gp$group) - week0day1)%/%7
 
 # Aggregate infections & populations by HHS region
-# incidence_by_region = merge(
-#   x = aggregate(formula = INFECTIONS ~ yr_wk + HHS,
-#                 data = test_tallies_wk,
-#                 FUN = sum),
-#   y = aggregate(formula = state_population ~ yr_wk + HHS,
-#                 data = test_tallies_wk,
-#                 FUN = sum)
-# )
-# incidence_by_region_gp = merge(
-#   x = aggregate(formula = INFECTIONS ~ group + HHS,
-#                 data = test_tallies_gp,
-#                 FUN = sum),
-#   y = aggregate(formula = group_population ~ group + HHS,
-#                 data = test_tallies_gp,
-#                 FUN = sum)
-# )
+incidence_by_region = merge(
+  x = aggregate(formula = INFECTIONS ~ yr_wk + HHS,
+                data = test_tallies_wk,
+                FUN = sum),
+  y = aggregate(formula = state_population ~ yr_wk + HHS,
+                data = test_tallies_wk,
+                FUN = sum)
+)
+incidence_by_region_gp = merge(
+  x = aggregate(formula = INFECTIONS ~ group + HHS,
+                data = test_tallies_gp,
+                FUN = sum),
+  y = aggregate(formula = group_population ~ group + HHS,
+                data = test_tallies_gp,
+                FUN = sum)
+)
 
 # calculate infection rate
-# incidence_by_region$HHS_INCIDENCE = incidence_by_region$INFECTIONS / incidence_by_region$state_population
-# incidence_by_region_gp$HHS_INCIDENCE = incidence_by_region_gp$INFECTIONS / incidence_by_region_gp$group_population
+incidence_by_region$HHS_INCIDENCE = incidence_by_region$INFECTIONS / incidence_by_region$state_population
+incidence_by_region_gp$HHS_INCIDENCE_gp = incidence_by_region_gp$INFECTIONS / incidence_by_region_gp$group_population
 
 ## SGTF over-sampling weights
 # (only correcting for the Helix upsampling; other labs were not specifically SGTF up-sampling)
@@ -1311,6 +1311,15 @@ if(FALSE){
                         custom_tag, 
                         ".RDS"))
 }
+
+# Add in HHS region data
+# (used for states missing testing data (OH), using the region level incidence)
+svy.dat = merge(x = svy.dat,
+                y = incidence_by_region[, c("HHS", "yr_wk", "HHS_INCIDENCE")],
+                all.x = TRUE)
+svy.dat = merge(x = svy.dat,
+                y = incidence_by_region_gp[, c("HHS", "yr_wk", "HHS_INCIDENCE_gp")],
+                all.x = TRUE)
 
 # Add in columns that were previously calculated in "weekly_variant_report_nowcast.R" -----
 # so that they're calculated once instead of many times

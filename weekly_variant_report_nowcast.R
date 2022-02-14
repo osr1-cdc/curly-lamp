@@ -371,7 +371,7 @@ if(state_source == "state_tag_included"){
 # set s-gene upsampling weights to 1 until I move the SGTF weights here...
 src.dat$sgtf_weights = 1
 # set this so that default SAW_ALT will be 1
-src.dat$HHS_INCIDENCE = 1/src.dat$state_population
+# src.dat$HHS_INCIDENCE = 1/src.dat$state_population
 
 # SGTF WEIGHT CALCULATIONS SHOULD BE MOVED FROM VARIANT_SURVEILLANCE_SYSTEM.R TO HERE!
 
