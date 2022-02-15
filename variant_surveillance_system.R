@@ -822,15 +822,15 @@ test_tallies_gp[ test_tallies_gp$group %in% previous_2_wks, 'group_population'] 
 # to try to get around the bias of assuming either total or state population
 
 # Estimate the total number of infections based on test positivity rate
-# test_tallies_wk = within(data = test_tallies_wk,
-#                          expr = INFECTIONS <- ifelse(test = TOTAL > 0,
-#                                                      yes = POSITIVE * sqrt(state_population/TOTAL),
-#                                                      no = 0))
-# 
-# test_tallies_gp = within(data = test_tallies_gp,
-#                          expr = INFECTIONS <- ifelse(test = TOTAL > 0,
-#                                                      yes = POSITIVE * sqrt(group_population/TOTAL),
-#                                                      no = 0))
+test_tallies_wk = within(data = test_tallies_wk,
+                         expr = INFECTIONS <- ifelse(test = TOTAL > 0,
+                                                     yes = POSITIVE * sqrt(state_population/TOTAL),
+                                                     no = 0))
+
+test_tallies_gp = within(data = test_tallies_gp,
+                         expr = INFECTIONS <- ifelse(test = TOTAL > 0,
+                                                     yes = POSITIVE * sqrt(group_population/TOTAL),
+                                                     no = 0))
 
 # Number of weeks since start date
 test_tallies_wk$week = as.numeric(as.Date(test_tallies_wk$yr_wk) - week0day1)%/%7
@@ -1118,6 +1118,15 @@ labnames_df_slo <- data.frame(old_name = SLO_labs_to_agg,
                                new_name = 'COUNTY OF SAN LUIS OBISPO PHL')
 svy.dat[svy.dat$LAB %in% SLO_labs_to_agg, 'LAB2'] <- labnames_df_slo$new_name[1]
 
+# Aggregate SAN JOAQUIN COUNTY PUBLIC HEALTH labs
+SJ_labs_to_agg <- grep(pattern = 'SAN JOAQUIN COUNTY PUBLIC HEALTH', 
+                         x = unique_labs, 
+                         ignore.case = T, 
+                         value = T)
+labnames_df_sj <- data.frame(old_name = SJ_labs_to_agg,
+                               new_name = 'SAN JOAQUIN COUNTY PHL')
+svy.dat[svy.dat$LAB %in% SJ_labs_to_agg, 'LAB2'] <- labnames_df_sj$new_name[1]
+
 # Other labs that might be duplicates, but that I have not combined:
 # 1. "INFECTIOUS DISEASE PROGRAM, BROAD INSTITUTE OF HARVARD AND MIT"
 # 1. "BROAD INSTITUTE"
@@ -1143,7 +1152,8 @@ labnames_df <- rbind(
   labnames_df_nc,
   labnames_df_nc2,
   labnames_df_unmc,
-  labnames_df_slo
+  labnames_df_slo,
+  labnames_df_sj
 )
 
 # print the list of lab names that were changed to the console
@@ -1317,6 +1327,7 @@ if(FALSE){
 svy.dat = merge(x = svy.dat,
                 y = incidence_by_region[, c("HHS", "yr_wk", "HHS_INCIDENCE")],
                 all.x = TRUE)
+incidence_by_region_gp$yr_wk = incidence_by_region_gp$group
 svy.dat = merge(x = svy.dat,
                 y = incidence_by_region_gp[, c("HHS", "yr_wk", "HHS_INCIDENCE_gp")],
                 all.x = TRUE)
