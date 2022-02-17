@@ -1127,6 +1127,18 @@ labnames_df_sj <- data.frame(old_name = SJ_labs_to_agg,
                                new_name = 'SAN JOAQUIN COUNTY PHL')
 svy.dat[svy.dat$LAB %in% SJ_labs_to_agg, 'LAB2'] <- labnames_df_sj$new_name[1]
 
+# added 2022-02-17
+# Aggregate Suman Das labs
+SDL_labs_to_agg <- grep(pattern = 'SUMAN DAS LAB', 
+                         x = unique_labs, 
+                         ignore.case = T, 
+                         value = T)
+labnames_df_sdl <- data.frame(old_name = SDL_labs_to_agg,
+                               new_name = 'DR. SUMAN DAS LAB - VANDERBILT UNIVERSITY MEDICAL CENTER')
+svy.dat[svy.dat$LAB %in% SDL_labs_to_agg, 'LAB2'] <- labnames_df_sdl$new_name[1]
+
+
+
 # Other labs that might be duplicates, but that I have not combined:
 # 1. "INFECTIOUS DISEASE PROGRAM, BROAD INSTITUTE OF HARVARD AND MIT"
 # 1. "BROAD INSTITUTE"
@@ -1153,7 +1165,8 @@ labnames_df <- rbind(
   labnames_df_nc2,
   labnames_df_unmc,
   labnames_df_slo,
-  labnames_df_sj
+  labnames_df_sj,
+  labnames_df_sdl
 )
 
 # print the list of lab names that were changed to the console
