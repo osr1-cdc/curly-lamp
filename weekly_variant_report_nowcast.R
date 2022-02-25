@@ -160,7 +160,7 @@ options(survey.adjust.domain.lonely = T,
   # "force_aggregate_omicron_except". 
   # THIS WILL LIKELY NEED TO BE REPLACED IN THE FUTURE, BUT IT'S HERE TO AVOID
   # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
-  force_aggregate_omicron <- TRUE
+  force_aggregate_omicron <- FALSE
   # list omicron sublineages that will not be aggregated (if they are also in voc)
   force_aggregate_omicron_except <- c("BA.2", 'BA.1', 'BA.3')
 
@@ -208,7 +208,7 @@ if(length(script.basename) == 0) {
 }
 
 # create results dir
-dir.create(paste0(script.basename,"/results"))
+dir.create(paste0(script.basename,"/results"), showWarnings = F)
 
 
 ## Data prep -------------------------------------------------------------------
