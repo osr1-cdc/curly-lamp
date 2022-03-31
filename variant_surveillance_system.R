@@ -46,6 +46,7 @@ library(odbc)     # for connecting to databases
 library(dplyr)    # for general data wrangling
 library(RJDBC)    # for connecting to a database via JDBC driver
 library(optparse) # for importing command-line arguments into code
+library(data.table) # for speeding up some of the calculations
 
 # set global options
 options(
@@ -689,47 +690,65 @@ us.dat = merge(x = us.dat,
 # Test data are aggregated by week for weighting.
 
 ## Testing data by state and date (HHS Protect) for weighting
+tests <- data.table::as.data.table(tests)
 
 # convert to date format
-tests$collection_date = as.Date(x = tests$collection_date,
-                                format = "%Y-%m-%d")
+# tests$collection_date = as.Date(x = tests$collection_date,
+#                                 format = "%Y-%m-%d")
+tests[, 'collection_date' := as.Date(x = collection_date,
+                                     format = "%Y-%m-%d")]
 
 # exclude unreasonable dates
-tests = subset(x = tests,
-               collection_date >= as.Date("2019-10-01") &
-                 collection_date <= data_date) # Sys.Date()
+# tests = subset(x = tests,
+#                collection_date >= as.Date("2019-10-01") &
+#                  collection_date <= data_date) # Sys.Date()
+tests <- tests[collection_date >= as.Date("2019-10-01") &
+                 collection_date <= data_date,]
 
 # Add a column for the date of the first day of the week
-tests$yr_wk = as.character(tests$collection_date - as.numeric(strftime(tests$collection_date, format="%w")))
+# tests$yr_wk = as.character(tests$collection_date - as.numeric(strftime(tests$collection_date, format="%w")))
+tests[,'yr_wk' := as.character(collection_date - as.numeric(strftime(collection_date, format="%w")))]
 
 # calculate the total number of tests
 tests$TOTAL = rowSums(tests[, c("INDETERMINATE", "INVALID", "NEGATIVE", "POSITIVE")],
                       na.rm=TRUE)
 
 # Replace NAs with 0
-tests$POSITIVE = ifelse(test = is.na(tests$POSITIVE),
-                        yes = 0,
-                        no = tests$POSITIVE)
+# tests$POSITIVE = ifelse(test = is.na(tests$POSITIVE),
+#                         yes = 0,
+#                         no = tests$POSITIVE)
+tests[is.na(POSITIVE), 'POSITIVE' := 0]
 
 # Aggregate tests by state & week for weighting
-tests_wk = expand.grid(STUSAB = unique(tests$STUSAB),
-                       yr_wk = unique(tests$yr_wk),
-                       stringsAsFactors = FALSE)
+# tests_wk = expand.grid(STUSAB = unique(tests$STUSAB),
+#                        yr_wk = unique(tests$yr_wk),
+#                        stringsAsFactors = FALSE)
+# 
+# # calculate the number of positive tests & total tests for each week & state
+# for (cc in c("POSITIVE", "TOTAL")) {
+#   # calculate number of tests
+#   tests_wk = merge(x = tests_wk,
+#                    y = data.frame(xtabs(formula = tests[, cc] ~ STUSAB + yr_wk,
+#                                         data = tests,
+#                                         subset = TRUE)), # "subset" totally unnecessary, but it keeps Rstudio from complaining
+#                    all.x = TRUE)
+#   
+#   # rename the newly created column
+#   names(tests_wk) = gsub(pattern = "[Ff]req",
+#                          replacement = cc,
+#                          x = names(tests_wk))
+# }
+tests_wk <- tests[,
+                  .(
+                    'POSITIVE' = sum(POSITIVE, na.rm = T),
+                    'TOTAL'    = sum(INDETERMINATE, INVALID, NEGATIVE, POSITIVE, na.rm = T)
+                  ),
+                  by = c('STUSAB', 'yr_wk')]
+# update some of the column names
+# data.table::setnames(x = tests_wk, 
+#                      old = c('TOTAL', 'POSITIVE'), 
+#                      new = c('TOTAL_weekly', 'POSITIVE_weekly'))
 
-# calculate the number of positive tests & total tests for each week & state
-for (cc in c("POSITIVE", "TOTAL")) {
-  # calculate number of tests
-  tests_wk = merge(x = tests_wk,
-                   y = data.frame(xtabs(formula = tests[, cc] ~ STUSAB + yr_wk,
-                                        data = tests,
-                                        subset = TRUE)), # "subset" totally unnecessary, but it keeps Rstudio from complaining
-                   all.x = TRUE)
-  
-  # rename the newly created column
-  names(tests_wk) = gsub(pattern = "[Ff]req",
-                         replacement = cc,
-                         x = names(tests_wk))
-}
 
 # Aggregate tests by state & group for alternate weighting
 {
@@ -745,24 +764,80 @@ for (cc in c("POSITIVE", "TOTAL")) {
   tests$group[ tests$yr_wk %in% final_3_wks] <- final_3_wks[1]
   tests$group[ tests$yr_wk %in% previous_2_wks] <- previous_2_wks[1]
   
-  tests_group = expand.grid(STUSAB = unique(tests$STUSAB),
-                            stringsAsFactors = FALSE)
-  
-  # calculate the number of positive tests & total tests for each fortnight & state
-  for (cc in c("POSITIVE", "TOTAL")) {
-    # calculate number of tests
-    tests_group = merge(x = tests_group,
-                        y = data.frame(xtabs(formula = tests[, cc] ~ STUSAB + group,
-                                             data = tests,
-                                             subset = TRUE)), # "subset" totally unnecessary, but it keeps Rstudio from complaining
-                        all.x = TRUE)
-    
-    # rename the newly created column
-    names(tests_group) = gsub(pattern = "[Ff]req",
-                              replacement = cc,
-                              x = names(tests_group))
-  }
+  # tests_group = expand.grid(STUSAB = unique(tests$STUSAB),
+  #                           stringsAsFactors = FALSE)
+  # 
+  # # calculate the number of positive tests & total tests for each fortnight & state
+  # for (cc in c("POSITIVE", "TOTAL")) {
+  #   # calculate number of tests
+  #   tests_group = merge(x = tests_group,
+  #                       y = data.frame(xtabs(formula = tests[, cc] ~ STUSAB + group,
+  #                                            data = tests,
+  #                                            subset = TRUE)), # "subset" totally unnecessary, but it keeps Rstudio from complaining
+  #                       all.x = TRUE)
+  #   
+  #   # rename the newly created column
+  #   names(tests_group) = gsub(pattern = "[Ff]req",
+  #                             replacement = cc,
+  #                             x = names(tests_group))
+  # }
+  tests_group <- tests[,
+                    .(
+                      'POSITIVE' = sum(POSITIVE, na.rm = T),
+                      'TOTAL'    = sum(INDETERMINATE, INVALID, NEGATIVE, POSITIVE, na.rm = T)
+                    ),
+                    by = c('STUSAB', 'group')]
+  # update some of the column names
+  # data.table::setnames(x = tests_group, 
+  #                      old = c('TOTAL', 'POSITIVE'), 
+  #                      new = c('TOTAL_group', 'POSITIVE_group'))
 }
+
+# aggregate tests by state & day
+# Note: daily aggregation is not for weighting. It's just for calculating the number 
+#       of PCR confirmed infections are the results of each variant (by multiplying
+#       estimated proportions by the number of positive test results).
+tests_dy <- tests[,
+                  .(
+                    'POSITIVE' = sum(POSITIVE, na.rm = T),
+                    'TOTAL'    = sum(INDETERMINATE, INVALID, NEGATIVE, POSITIVE, na.rm = T)
+                  ),
+                  by = c('STUSAB', 'collection_date')]
+# change some column names
+data.table::setnames(x = tests_dy, 
+                     old = c('collection_date', 'TOTAL', 'POSITIVE'), 
+                     new = c('date', 'TOTAL_daily', 'POSITIVE_daily'))
+
+# aggregate tests by state & fortnight
+# Note: fortnightly aggregation is not for weighting. It's just for calculating the number 
+#       of PCR confirmed infections are the results of each variant (by multiplying
+#       estimated proportions by the number of positive test results).
+tests[, 'week' := as.numeric(as.Date(yr_wk) - week0day1)/7]
+tests[, 'fortnight_end' := as.character(week0day1 + week %/% 2 * 14 + 13)]
+tests_fn <- tests[,
+                  .(
+                    'POSITIVE' = sum(POSITIVE, na.rm = T),
+                    'TOTAL'    = sum(INDETERMINATE, INVALID, NEGATIVE, POSITIVE, na.rm = T)
+                  ),
+                  by = c('STUSAB', 'fortnight_end')]
+
+# aggregate tests by state & 4-week period
+# Note: this aggregation is not for weighting. It's just for calculating the number 
+#       of PCR confirmed infections are the results of each variant (by multiplying
+#       estimated state-level proportions (calculated in rolling 4-week bins) by 
+#       the number of positive test results).
+
+tests_state_bins_list <- lapply(X = state_time_end, FUN = function(dd){
+  # filter the tests dataset to only include tests in the relevant bin
+  tests[ collection_date %in% (dd - 7*4):dd,
+         .(
+           'POSITIVE' = sum(POSITIVE, na.rm = T),
+           'TOTAL'    = sum(INDETERMINATE, INVALID, NEGATIVE, POSITIVE, na.rm = T)
+         ),
+         by = c('STUSAB')]
+})
+
+names(tests_state_bins_list) <- state_time_end
 
 # Weighting---------------------------------------------------------------------
 # (weights are calculated here & recalculated in weekly_variant_report_nowcast.R
@@ -811,6 +886,22 @@ test_tallies_gp = merge(x = merge(x = tests_group,
                                        state_population = pops$Total.),
                         all.x = TRUE)
 
+# by day
+test_tallies_dly = merge(x = merge(x = tests_dy,
+                                   y = hhs,
+                                   all.x = TRUE),
+                         y = data.frame(STUSAB = toupper(pops$STUSAB),
+                                        state_population = pops$Total.),
+                         all.x = TRUE)
+# by fortnight
+test_tallies_fn = merge(x = merge(x = tests_fn,
+                                   y = hhs,
+                                   all.x = TRUE),
+                         y = data.frame(STUSAB = toupper(pops$STUSAB),
+                                        state_population = pops$Total.),
+                         all.x = TRUE)
+
+
 # adjust populations based on the number of weeks in each group
 test_tallies_gp$group_population = test_tallies_gp$state_population
 test_tallies_gp[ test_tallies_gp$group %in% final_3_wks, 'group_population'] = test_tallies_gp[ test_tallies_gp$group %in% final_3_wks, 'state_population'] * length(final_3_wks)
@@ -831,6 +922,7 @@ test_tallies_gp = within(data = test_tallies_gp,
                          expr = INFECTIONS <- ifelse(test = TOTAL > 0,
                                                      yes = POSITIVE * sqrt(group_population/TOTAL),
                                                      no = 0))
+# the daily test tallies aren't used for weights, so no need to calculate infections
 
 # Number of weeks since start date
 test_tallies_wk$week = as.numeric(as.Date(test_tallies_wk$yr_wk) - week0day1)%/%7
@@ -935,42 +1027,48 @@ incidence_by_region_gp$HHS_INCIDENCE_gp = incidence_by_region_gp$INFECTIONS / in
 
 ## Creating a trimmed down survey dataset
 # Removing submission/receive dates for now, for consistency with frozen dataset
-svy.dat = data.frame(STUSAB = us.dat$primary_state_abv,
-                     HHS    = us.dat$HHS,
-                     yr_wk  = us.dat$yr_wk,
-                     DAY    = us.dat$DAY,
-                     date   = us.dat$collection_date,
-                     # nt_id  = us.dat$primary_nt_id,
-                     # csid   = us.dat$csid,
-                     covv_accession_id = us.dat$covv_accession_id,
-                     # ID number just to help keep track of individual sequences
-                     myID = 1:nrow(us.dat),
-                     # SUBM_DT = us.dat$covv_subm_date,
-                     # CDC_DT  = us.dat$contractor_receive_date_to_cdc,
-                     # AGE     = us.dat$age_group,
-                     LAB     = toupper(us.dat$source),
-                     SGTF_UPSAMPLING = (us.dat$contractor_targeted_sequencing %in% "Screened for S dropout"),
-                     # SOURCE  = us.dat$source,
-                     VARIANT = us.dat$lineage,
-                     S_MUT   = us.dat$s_mut)
+svy.dat = data.table::data.table(
+  STUSAB = us.dat$primary_state_abv,
+  HHS    = us.dat$HHS,
+  yr_wk  = us.dat$yr_wk,
+  DAY    = us.dat$DAY,
+  date   = us.dat$collection_date,
+  # nt_id  = us.dat$primary_nt_id,
+  # csid   = us.dat$csid,
+  covv_accession_id = us.dat$covv_accession_id,
+  # ID number just to help keep track of individual sequences
+  myID = 1:nrow(us.dat),
+  # SUBM_DT = us.dat$covv_subm_date,
+  # CDC_DT  = us.dat$contractor_receive_date_to_cdc,
+  # AGE     = us.dat$age_group,
+  LAB     = toupper(us.dat$source),
+  SGTF_UPSAMPLING = (us.dat$contractor_targeted_sequencing %in% "Screened for S dropout"),
+  # SOURCE  = us.dat$source,
+  VARIANT = us.dat$lineage,
+  S_MUT   = us.dat$s_mut
+)
 
 # replace NAs with "other
-svy.dat$LAB[is.na(svy.dat$LAB)] = "OTHER"
+# svy.dat$LAB[is.na(svy.dat$LAB)] = "OTHER"
+svy.dat[ is.na(LAB), LAB := "OTHER"]
 
 # add a column for number of weeks since start of 2020
-svy.dat$week = as.numeric(as.Date(svy.dat$yr_wk) - week0day1)/7
+# svy.dat$week = as.numeric(as.Date(svy.dat$yr_wk) - week0day1)/7
+svy.dat[, 'week' := as.numeric(as.Date(svy.dat$yr_wk) - week0day1)/7]
 
 # merge in state population data
 svy.dat = merge(x = svy.dat,
-                y = data.frame(STUSAB = toupper(pops$STUSAB),
-                               state_population = pops$Total.),
+                y = data.table::data.table(
+                  STUSAB = toupper(pops$STUSAB),
+                  state_population = pops$Total.
+                ),
                 all.x = TRUE)#merge in state population
 
 # Cleaning state tagged sequences-----------------------------------------------
 # unique(svy.dat$LAB)
 
 # add in a column so count occurrences using aggregate (could also use table or xtab)
-svy.dat$count = 1
+# svy.dat$count = 1
 # print("Unique labs include:")
 # aggregate(count ~ LAB, data = svy.dat, FUN = sum)
 
@@ -978,7 +1076,8 @@ svy.dat$count = 1
 # table(svy.dat$VARIANT[grep(pattern = '(B\\.1\\.1\\.529)|(BA\\.[0-9])', x = svy.dat$VARIANT)])
 
 #clean LAB names
-svy.dat$LAB2 = as.character(svy.dat$LAB)
+# svy.dat$LAB2 = as.character(svy.dat$LAB)
+svy.dat[, 'LAB2' := as.character(LAB)]
 
 # get a vector of unique lab names
 unique_labs <- unique(svy.dat$LAB)
@@ -990,7 +1089,9 @@ MD_labs_to_agg <- grep(pattern = "(Maryland)|(MD)",
                        value = TRUE)
 labnames_df_md <- data.frame(old_name = MD_labs_to_agg,
                              new_name = "MD-DPH")
-svy.dat[svy.dat$LAB %in% MD_labs_to_agg,"LAB2"] <- "MD-DPH"
+# svy.dat[svy.dat$LAB %in% MD_labs_to_agg,"LAB2"] <- "MD-DPH"
+svy.dat[ LAB %in% MD_labs_to_agg, "LAB2" := "MD-DPH"]
+
 # Aggregate New Jersey lab names
 NJ_labs_to_agg <- grep(pattern = "(New Jersey)|(NJ)",
                        x = unique_labs,
@@ -998,7 +1099,9 @@ NJ_labs_to_agg <- grep(pattern = "(New Jersey)|(NJ)",
                        value = TRUE)
 labnames_df_nj <- data.frame(old_name = NJ_labs_to_agg,
                              new_name = "NJ-DPH")
-svy.dat[svy.dat$LAB %in% NJ_labs_to_agg,"LAB2"] <- "NJ-DPH"
+#svy.dat[svy.dat$LAB %in% NJ_labs_to_agg,"LAB2"] <- "NJ-DPH"
+svy.dat[ LAB %in% NJ_labs_to_agg, "LAB2" := "NJ-DPH"]
+
 # Aggregate Texas lab names
 TX_labs_to_agg <- grep(pattern = "(Texas)|(TX)",
                        x = unique_labs,
@@ -1006,7 +1109,9 @@ TX_labs_to_agg <- grep(pattern = "(Texas)|(TX)",
                        ignore.case = T)
 labnames_df_tx <- data.frame(old_name = TX_labs_to_agg,
                              new_name = "TX-DPH")
-svy.dat[svy.dat$LAB %in% TX_labs_to_agg,"LAB2"] <- "TX-DPH"
+# svy.dat[svy.dat$LAB %in% TX_labs_to_agg,"LAB2"] <- "TX-DPH"
+svy.dat[ LAB %in% TX_labs_to_agg, "LAB2" := "TX-DPH"]
+
 # Aggregate CDC lab names
 CDC_labs_to_agg <- grep(pattern = "Centers for Disease Control and Prevention",
                         x = unique_labs,
@@ -1014,7 +1119,9 @@ CDC_labs_to_agg <- grep(pattern = "Centers for Disease Control and Prevention",
                         value = TRUE)
 labnames_df_cdc <- data.frame(old_name = CDC_labs_to_agg,
                               new_name = "CDC")
-svy.dat[svy.dat$LAB %in% CDC_labs_to_agg,"LAB2"] <- "CDC"
+#svy.dat[svy.dat$LAB %in% CDC_labs_to_agg,"LAB2"] <- "CDC"
+svy.dat[ LAB %in% CDC_labs_to_agg, "LAB2" := "CDC"]
+
 # Aggregate LSU lab names
 LSU_labs_to_agg <- grep(pattern = "LSU",
                         x = unique_labs,
@@ -1022,7 +1129,9 @@ LSU_labs_to_agg <- grep(pattern = "LSU",
                         value = T)
 labnames_df_lsu <- data.frame(old_name = LSU_labs_to_agg,
                               new_name = "LSU LAB")
-svy.dat[svy.dat$LAB %in% LSU_labs_to_agg,"LAB2"] <- "LSU LAB"
+#svy.dat[svy.dat$LAB %in% LSU_labs_to_agg,"LAB2"] <- "LSU LAB"
+svy.dat[LAB %in% LSU_labs_to_agg, "LAB2" := "LSU LAB"]
+
 # Aggregate Orange County lab names
 OC_labs_to_agg <- grep(pattern = "Orange",
                        x = unique_labs,
@@ -1030,7 +1139,9 @@ OC_labs_to_agg <- grep(pattern = "Orange",
                        value = T)
 labnames_df_oc <- data.frame(old_name = OC_labs_to_agg,
                              new_name = "Orange County PHL")
-svy.dat[svy.dat$LAB %in% OC_labs_to_agg,"LAB2"] <- "Orange County PHL"
+#svy.dat[svy.dat$LAB %in% OC_labs_to_agg,"LAB2"] <- "Orange County PHL"
+svy.dat[LAB %in% OC_labs_to_agg, "LAB2" := "Orange County PHL"]
+
 # Aggregate Lauring Lab names
 LL_labs_to_agg <- grep(pattern = "LAURING LAB",
                        x = unique_labs,
@@ -1038,7 +1149,9 @@ LL_labs_to_agg <- grep(pattern = "LAURING LAB",
                        value = T)
 labnames_df_ll <- data.frame(old_name = LL_labs_to_agg,
                              new_name = "LAURING LAB, UNIVERSITY OF MICHIGAN")
-svy.dat[svy.dat$LAB %in% LL_labs_to_agg,"LAB2"] <- "LAURING LAB, UNIVERSITY OF MICHIGAN"
+#svy.dat[svy.dat$LAB %in% LL_labs_to_agg,"LAB2"] <- "LAURING LAB, UNIVERSITY OF MICHIGAN"
+svy.dat[LAB %in% LL_labs_to_agg, "LAB2" := "LAURING LAB, UNIVERSITY OF MICHIGAN"]
+
 # Aggregate Helix lab names
 HE_labs_to_agg <- grep(pattern = "HELIX",
                        x = unique_labs,
@@ -1046,7 +1159,9 @@ HE_labs_to_agg <- grep(pattern = "HELIX",
                        value = T)
 labnames_df_he <- data.frame(old_name = HE_labs_to_agg,
                              new_name = "HELIX")
-svy.dat[svy.dat$LAB %in% HE_labs_to_agg,"LAB2"] <- "HELIX"
+#svy.dat[svy.dat$LAB %in% HE_labs_to_agg,"LAB2"] <- "HELIX"
+svy.dat[LAB %in% HE_labs_to_agg, "LAB2" := "HELIX"]
+
 # Aggregate South Dakota lab names
 SD_labs_to_agg <- grep(pattern = "SOUTH DAKOTA",
                        x = unique_labs,
@@ -1054,7 +1169,9 @@ SD_labs_to_agg <- grep(pattern = "SOUTH DAKOTA",
                        value = T)
 labnames_df_sd <- data.frame(old_name = SD_labs_to_agg,
                              new_name = "SD-DPH")
-svy.dat[svy.dat$LAB %in% SD_labs_to_agg,"LAB2"] <- "SD-DPH"
+#svy.dat[svy.dat$LAB %in% SD_labs_to_agg,"LAB2"] <- "SD-DPH"
+svy.dat[LAB %in% SD_labs_to_agg, "LAB2" := "SD-DPH"]
+
 # Aggregate Mounes lab names
 OM_labs_to_agg <- grep(pattern = "MOUNES",
                        x = unique_labs,
@@ -1062,7 +1179,9 @@ OM_labs_to_agg <- grep(pattern = "MOUNES",
                        value = T)
 labnames_df_om <- data.frame(old_name = OM_labs_to_agg,
                              new_name = "OMEGA DIAGNOSTICS AT MOUNES")
-svy.dat[svy.dat$LAB %in% OM_labs_to_agg,"LAB2"] <- "OMEGA DIAGNOSTICS AT MOUNES"
+# svy.dat[svy.dat$LAB %in% OM_labs_to_agg,"LAB2"] <- "OMEGA DIAGNOSTICS AT MOUNES"
+svy.dat[LAB %in% OM_labs_to_agg, "LAB2" := "OMEGA DIAGNOSTICS AT MOUNES"]
+
 # Aggregate Minnesota lab names
 MN_labs_to_agg <- grep(pattern = "Minnesota department of health",
                        x = unique_labs,
@@ -1070,7 +1189,9 @@ MN_labs_to_agg <- grep(pattern = "Minnesota department of health",
                        value = T)
 labnames_df_mn <- data.frame(old_name = MN_labs_to_agg,
                              new_name = "MN-DPH")
-svy.dat[svy.dat$LAB %in% MN_labs_to_agg,"LAB2"] <- "MN-DPH"
+#svy.dat[svy.dat$LAB %in% MN_labs_to_agg,"LAB2"] <- "MN-DPH"
+svy.dat[LAB %in% MN_labs_to_agg, "LAB2" := "MN-DPH"]
+
 # Aggregate Sonoma lab names
 SO_labs_to_agg <- grep(pattern = "Sonoma",
                        x = unique_labs,
@@ -1078,7 +1199,8 @@ SO_labs_to_agg <- grep(pattern = "Sonoma",
                        value = T)
 labnames_df_so <- data.frame(old_name = SO_labs_to_agg,
                              new_name = "SONOMA COUNTY PHL")
-svy.dat[svy.dat$LAB %in% SO_labs_to_agg,"LAB2"] <- "SONOMA COUNTY PHL"
+#svy.dat[svy.dat$LAB %in% SO_labs_to_agg,"LAB2"] <- "SONOMA COUNTY PHL"
+svy.dat[LAB %in% SO_labs_to_agg, "LAB2" := "SONOMA COUNTY PHL"]
 
 # Aggregate NC labs 
 NC_labs_to_agg <- grep(pattern = "(INFECTIOUS DISEASES,  NC SLPH COVID-19 RESPONSE TEAM)|(INFECTIOUS DISEASES,  NORTH CAROLINA STATE LABORATORY OF PUBLIC HEALTH COVID-19 RESPONSE TEAM)",
@@ -1087,7 +1209,8 @@ NC_labs_to_agg <- grep(pattern = "(INFECTIOUS DISEASES,  NC SLPH COVID-19 RESPON
                        value = T)
 labnames_df_nc <- data.frame(old_name = NC_labs_to_agg,
                              new_name = "INFECTIOUS DISEASES, NC SLPH COVID-19 RESPONSE TEAM")
-svy.dat[svy.dat$LAB %in% NC_labs_to_agg,"LAB2"] <- labnames_df_nc$new_name[1]
+# svy.dat[svy.dat$LAB %in% NC_labs_to_agg,"LAB2"] <- labnames_df_nc$new_name[1]
+svy.dat[LAB %in% NC_labs_to_agg, "LAB2" := labnames_df_nc$new_name[1]]
 
 # Aggregate other NC labs 
 NC2_labs_to_agg <- unique_labs[grepl(pattern = "NORTH CAROLINA STATE LABORATORY OF PUBLIC HEALTH",
@@ -1098,7 +1221,8 @@ NC2_labs_to_agg <- unique_labs[grepl(pattern = "NORTH CAROLINA STATE LABORATORY 
                                         ignore.case = T)]
 labnames_df_nc2 <- data.frame(old_name = NC2_labs_to_agg,
                               new_name = "NCSLPH")
-svy.dat[svy.dat$LAB %in% NC2_labs_to_agg,"LAB2"] <- labnames_df_nc2$new_name[1]
+#svy.dat[svy.dat$LAB %in% NC2_labs_to_agg,"LAB2"] <- labnames_df_nc2$new_name[1]
+svy.dat[LAB %in% NC2_labs_to_agg, "LAB2" := labnames_df_nc2$new_name[1]]
 
 # Aggregate UNMC labs
 UNMC_labs_to_agg <- grep(pattern = '^UNMC COVID.*RESPONSE TEAM', 
@@ -1107,7 +1231,8 @@ UNMC_labs_to_agg <- grep(pattern = '^UNMC COVID.*RESPONSE TEAM',
                           value = T)
 labnames_df_unmc <- data.frame(old_name = UNMC_labs_to_agg,
                                new_name = 'UNMC COVID-19 RESPONSE TEAM')
-svy.dat[svy.dat$LAB %in% UNMC_labs_to_agg, 'LAB2'] <- labnames_df_unmc$new_name[1]
+#svy.dat[svy.dat$LAB %in% UNMC_labs_to_agg, 'LAB2'] <- labnames_df_unmc$new_name[1]
+svy.dat[LAB %in% UNMC_labs_to_agg, 'LAB2' := labnames_df_unmc$new_name[1]]
 
 # Aggregate COUNTY OF SAN LUIS OBISPO labs
 SLO_labs_to_agg <- grep(pattern = 'COUNTY OF SAN LUIS OBISPO', 
@@ -1116,7 +1241,8 @@ SLO_labs_to_agg <- grep(pattern = 'COUNTY OF SAN LUIS OBISPO',
                          value = T)
 labnames_df_slo <- data.frame(old_name = SLO_labs_to_agg,
                                new_name = 'COUNTY OF SAN LUIS OBISPO PHL')
-svy.dat[svy.dat$LAB %in% SLO_labs_to_agg, 'LAB2'] <- labnames_df_slo$new_name[1]
+#svy.dat[svy.dat$LAB %in% SLO_labs_to_agg, 'LAB2'] <- labnames_df_slo$new_name[1]
+svy.dat[LAB %in% SLO_labs_to_agg, 'LAB2' := labnames_df_slo$new_name[1]]
 
 # Aggregate SAN JOAQUIN COUNTY PUBLIC HEALTH labs
 SJ_labs_to_agg <- grep(pattern = 'SAN JOAQUIN COUNTY PUBLIC HEALTH', 
@@ -1125,7 +1251,8 @@ SJ_labs_to_agg <- grep(pattern = 'SAN JOAQUIN COUNTY PUBLIC HEALTH',
                          value = T)
 labnames_df_sj <- data.frame(old_name = SJ_labs_to_agg,
                                new_name = 'SAN JOAQUIN COUNTY PHL')
-svy.dat[svy.dat$LAB %in% SJ_labs_to_agg, 'LAB2'] <- labnames_df_sj$new_name[1]
+#svy.dat[svy.dat$LAB %in% SJ_labs_to_agg, 'LAB2'] <- labnames_df_sj$new_name[1]
+svy.dat[LAB %in% SJ_labs_to_agg, 'LAB2' := labnames_df_sj$new_name[1]]
 
 # added 2022-02-17
 # Aggregate Suman Das labs
@@ -1135,7 +1262,8 @@ SDL_labs_to_agg <- grep(pattern = 'SUMAN DAS LAB',
                          value = T)
 labnames_df_sdl <- data.frame(old_name = SDL_labs_to_agg,
                                new_name = 'DR. SUMAN DAS LAB - VANDERBILT UNIVERSITY MEDICAL CENTER')
-svy.dat[svy.dat$LAB %in% SDL_labs_to_agg, 'LAB2'] <- labnames_df_sdl$new_name[1]
+#svy.dat[svy.dat$LAB %in% SDL_labs_to_agg, 'LAB2'] <- labnames_df_sdl$new_name[1]
+svy.dat[LAB %in% SDL_labs_to_agg, 'LAB2' := labnames_df_sdl$new_name[1]]
 
 
 
@@ -1222,25 +1350,33 @@ write.csv(x = labnames_df,
           row.names = F)
 
 # Get counts of samples by lab
-check_count <- aggregate(formula = count ~ LAB2,
-                         data = svy.dat,
-                         FUN = sum)
-
+# check_count <- aggregate(formula = count ~ LAB2,
+#                          data = svy.dat,
+#                          FUN = sum)
+check_count <- as.data.frame(table(svy.dat$LAB2))
+names(check_count) <- c('LAB2', 'count')
+saveRDS(object = check_count, 
+        file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_sequence_counts_by_lab", custom_tag, ".RDS"))
 # print a list of cleaned lab names to the console
 # check_count
 
+
 # print a list of the newly added lab names to aid in checking for typos 
-print('\nnewly added lab names:')
-recent_lab_names <- sort(unique(svy.dat$LAB2[svy.dat$week == max(svy.dat$week)]))
-older_lab_names  <- sort(unique(svy.dat$LAB2[svy.dat$week != max(svy.dat$week)]))
-new_lab_names <- recent_lab_names[ recent_lab_names %notin% older_lab_names ]
-if( length(new_lab_names) > 0) print(new_lab_names) else print('No new lab names in the most recent week of data')
+# NOTE! This doesn't work if new labs add data for past weeks in addition to current weeks. We'll need to load in a prior dataset & compare names that way.
+# Steps to improve: 1) find previous version of "sequence_counts_by_lab" file; 2) load it in; 3) compare current lab names to previous lab names (setdiff()); 4) print new lab names to console.
+# print('\nnewly added lab names:')
+# recent_lab_names <- sort(unique(svy.dat$LAB2[svy.dat$week == max(svy.dat$week)]))
+# older_lab_names  <- sort(unique(svy.dat$LAB2[svy.dat$week != max(svy.dat$week)]))
+# new_lab_names <- recent_lab_names[ recent_lab_names %notin% older_lab_names ]
+# if( length(new_lab_names) > 0) print(new_lab_names) else print('No new lab names in the most recent week of data')
+
 
 # check which state-level sources have fewer than 100 samples
 low_lab <- check_count$LAB2[ check_count$count < 100 ]
 
 # Drop sequences from sources with less than 100 samples or were listed as CDC sequenced
-svy.dat <- svy.dat[svy.dat$LAB2 %notin% c("CDC",low_lab), ]
+#svy.dat <- svy.dat[svy.dat$LAB2 %notin% c("CDC",low_lab), ]
+svy.dat <- svy.dat[LAB2 %notin% c("CDC",low_lab), ]
 
 print('table of omicron sequences from labs with > 100 sequences:')
 table(svy.dat$VARIANT[grep('(B\\.1\\.1\\.529)|(BA\\.[0-9])', x = svy.dat$VARIANT)])
@@ -1269,16 +1405,23 @@ table(svy.dat$VARIANT[ svy.dat$LAB2 != 'OTHER'][grep('(B\\.1\\.1\\.529)|(BA\\.[0
 # sgtf_weights merged in to enable alternate weighting (2021-03-19)
 svy.dat = merge(x = svy.dat,
                 y = test_tallies_wk[, c("STUSAB", "yr_wk", "POSITIVE", "TOTAL")],
-                all.x = TRUE)
+                all.x = TRUE,
+                by = c('STUSAB', 'yr_wk'))
 
 # add in grouped test tallies
 {
-  test_tallies_gp$POSITIVE_gp     = test_tallies_gp$POSITIVE
-  test_tallies_gp$TOTAL_gp        = test_tallies_gp$TOTAL
+  # test_tallies_gp$POSITIVE_gp     = test_tallies_gp$POSITIVE
+  # test_tallies_gp$TOTAL_gp        = test_tallies_gp$TOTAL
+  data.table::setnames(x = test_tallies_gp, 
+                       old = c('TOTAL', 'POSITIVE'),
+                       new = c('TOTAL_gp', 'POSITIVE_gp'))
   
-  svy.dat$group = svy.dat$yr_wk
-  svy.dat$group[ svy.dat$yr_wk %in% final_3_wks] <- final_3_wks[1]
-  svy.dat$group[ svy.dat$yr_wk %in% previous_2_wks] <- previous_2_wks[1]
+  # svy.dat$group = svy.dat$yr_wk
+  # svy.dat$group[ svy.dat$yr_wk %in% final_3_wks] <- final_3_wks[1]
+  # svy.dat$group[ svy.dat$yr_wk %in% previous_2_wks] <- previous_2_wks[1]
+  svy.dat[, group := yr_wk]
+  svy.dat[ yr_wk %in% final_3_wks, group := final_3_wks[1]]
+  svy.dat[ yr_wk %in% previous_2_wks, group := previous_2_wks[1]]
   
   svy.dat = merge(x = svy.dat,
                   y = test_tallies_gp[, c("STUSAB", 
@@ -1286,80 +1429,54 @@ svy.dat = merge(x = svy.dat,
                                           "group_population",
                                           "POSITIVE_gp", 
                                           "TOTAL_gp")],
-                  all.x = TRUE)
+                  all.x = TRUE, 
+                  by = c('STUSAB', 'group'))
 }
 
-# summarize daily testing data and save to file
-if(FALSE){
-  # Aggregate tests by state & week for weighting
-  tests_dy = expand.grid(STUSAB           = unique(tests$STUSAB),
-                         collection_date  = unique(tests$collection_date),
-                         stringsAsFactors = FALSE)
-  
-  # calculate the number of positive tests & total tests for each week & state
-  for (cc in c("POSITIVE", "TOTAL")) {
-    # calculate number of tests
-    tests_dy = merge(x = tests_dy,
-                     y = data.frame(xtabs(formula = tests[, cc] ~ STUSAB + collection_date,
-                                          data = tests,
-                                          subset = TRUE)), # "subset" totally unnecessary, but it keeps Rstudio from complaining
-                     all.x = TRUE)
-    
-    # rename the newly created column
-    names(tests_dy) = gsub(pattern = "[Ff]req",
-                           replacement = cc,
-                           x = names(tests_dy))
-  }
-  
-  tests_dy$date = tests_dy$collection_date
-  tests_dy$TOTAL_daily = tests_dy$TOTAL
-  tests_dy$POSITIVE_daily = tests_dy$POSITIVE
-  
-  
-  # merge in HHS data and state populations
-  # TO USE THESE IN WEIGHTING, MAY NEED TO ADJUST POPULATIONS!!
-  test_tallies_dly = merge(x = merge(x = tests_dy,
-                                     y = hhs,
-                                     all.x = TRUE),
-                           y = data.frame(STUSAB = toupper(pops$STUSAB),
-                                          state_population = pops$Total.),
-                           all.x = TRUE)
-  
+# save aggregated testing data to file
+if(TRUE){
   saveRDS(list('tests_daily'  = test_tallies_dly,
+               'tests_group'  = test_tallies_gp,
                'tests_weekly' = test_tallies_wk,
-               'tests_group'  = test_tallies_gp), 
+               'tests_fortnight' = test_tallies_fn,
+               'tests_4weeks' = tests_state_bins_list), 
           file = paste0(script.basename, 
-                        "/data/testing_data_", 
-                        data_date, 
-                        custom_tag, 
-                        ".RDS"))
+                        "/data/backup_", 
+                        data_date, "/", 
+                        data_date, "_tests_aggregated", 
+                        custom_tag, ".RDS"))
 }
 
 # Add in HHS region data
 # (used for states missing testing data (OH), using the region level incidence)
 svy.dat = merge(x = svy.dat,
                 y = incidence_by_region[, c("HHS", "yr_wk", "HHS_INCIDENCE")],
-                all.x = TRUE)
+                all.x = TRUE, 
+                by = c("HHS", "yr_wk"))
 incidence_by_region_gp$yr_wk = incidence_by_region_gp$group
 svy.dat = merge(x = svy.dat,
                 y = incidence_by_region_gp[, c("HHS", "yr_wk", "HHS_INCIDENCE_gp")],
-                all.x = TRUE)
+                all.x = TRUE,
+                by = c("HHS", "yr_wk"))
 
 # Add in columns that were previously calculated in "weekly_variant_report_nowcast.R" -----
 # so that they're calculated once instead of many times
 
 # Define "source" as "LAB2"; (used for survey design weights)
-svy.dat$SOURCE = svy.dat$LAB2
+#svy.dat$SOURCE = svy.dat$LAB2
+svy.dat[, 'SOURCE' := LAB2]
 
 # create a variable for aggregating counts of different groupings of samples
-# svy.dat$count = 1
+# Note: it would be better to update the counting methods in weekly_variant_report_nowcast.R, but for now it uses the "count" column & "aggregate()"
+svy.dat[, 'count' := 1]
 
 # calculate final date of 2-week bins for each observation
-svy.dat$FORTNIGHT_END = as.character(week0day1 + svy.dat$week%/%2 * 14 + 13)
+# svy.dat$FORTNIGHT_END = as.character(week0day1 + svy.dat$week%/%2 * 14 + 13)
+svy.dat[, 'FORTNIGHT_END' := as.character(week0day1 + week %/% 2 * 14 + 13)]
 
 # add the current week to the source data
-svy.dat$current_week = current_week
-
+#svy.dat$current_week = current_week
+svy.dat[, 'current_week' := current_week]
 
 
 # save the data to file
