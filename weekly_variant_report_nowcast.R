@@ -141,7 +141,11 @@ options(survey.adjust.domain.lonely = T,
     save_datasets_to_file = TRUE
   }
 
-
+  # Option to calculate the number of confirmed cases attributable to each variant
+  # This is done by simplying multiplying the proportions estimated in this script
+  # by the number of confirmed positive cases from ICATT testing data.
+  calc_confirmed_infections <- TRUE
+  
   # Option to just fit the nowcast model and avoid the slower parts of the script
   # (this is only valid if the run number == 2)
   # this can be removed eventually. It's here to make it easier to make updates to the Nowcast model.
@@ -843,6 +847,49 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
                               "CI_width",
                               "nchs_flag",
                               "nchs_flag_wodf")]
+    
+    # optionally calculate the number of infections attributable to each variant
+    if (calc_confirmed_infections){
+      test_filepath <- paste0(script.basename, 
+                         "/data/backup_", 
+                         data_date, "/", 
+                         data_date, "_tests_aggregated", 
+                         custom_tag, ".RDS")
+      
+      if (file.exists(test_filepath)){
+        test_list <- readRDS(file = test_filepath)
+      
+        # get the fortnightly test tallies & aggregate them by fn across USA
+        tests_fn_us <- test_list$tests_fortnight[,
+                                                  .('total_test_positives' = sum(POSITIVE, na.rm = T)), 
+                                                  by = 'fortnight_end'][,'HHS' := 'USA']
+        # aggregate fortnightly tests by HHS region
+        tests_fn_hhs <- test_list$tests_fortnight[,
+                                                  .('total_test_positives' = sum(POSITIVE, na.rm = T)), 
+                                                  by = c('fortnight_end', 'HHS')]
+        
+        # merge the positive test results in with the variant proportion estimates
+        all.ftnt2 <- merge(
+          x = all.ftnt2, 
+          y = rbind(tests_fn_us,
+                    tests_fn_hhs), 
+          by.x = c("USA_or_HHSRegion",
+                   "Fortnight_ending"), 
+          by.y = c('HHS',
+                   'fortnight_end'),
+          all.x = TRUE)
+        
+        # calculate case totals for each variant
+        all.ftnt2$cases    <- all.ftnt2$total_test_positives * all.ftnt2$Share
+        all.ftnt2$cases_lo <- all.ftnt2$total_test_positives * all.ftnt2$Share_lo
+        all.ftnt2$cases_hi <- all.ftnt2$total_test_positives * all.ftnt2$Share_hi
+      } else {
+        print(paste0('File ', 
+                     test_filepath, 
+                     ' not found. Not calculating number of infections attributable to each variant for fortnights.'))
+      }
+      
+    }
 
     # re-order results by HHS region [so that "other" variants are not listed seperately]
     all.ftnt2 <- all.ftnt2[order(all.ftnt2$USA_or_HHSRegion),]
@@ -1063,6 +1110,49 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
                              "count_LT20",
                              "count_LT10")]
 
+    # optionally calculate the number of infections attributable to each variant
+    if (calc_confirmed_infections){
+      test_filepath <- paste0(script.basename, 
+                              "/data/backup_", 
+                              data_date, "/", 
+                              data_date, "_tests_aggregated", 
+                              custom_tag, ".RDS")
+      
+      if (file.exists(test_filepath)){
+        test_list <- readRDS(file = test_filepath)
+        
+        # get the fortnightly test tallies & aggregate them by fn across USA
+        tests_wk_us <- test_list$tests_weekly[,
+                                              .('total_test_positives' = sum(POSITIVE, na.rm = T)), 
+                                              by = 'yr_wk'][,'HHS' := 'USA']
+        # aggregate fortnightly tests by HHS region
+        tests_wk_hhs <- test_list$tests_weekly[,
+                                               .('total_test_positives' = sum(POSITIVE, na.rm = T)), 
+                                               by = c('yr_wk', 'HHS')]
+        
+        # merge the positive test results in with the variant proportion estimates
+        all.wkly2 <- merge(
+          x = all.wkly2, 
+          y = rbind(tests_wk_us,
+                    tests_wk_hhs)[,'WEEK_END' := as.Date(yr_wk) + 6][, 'yr_wk' := NULL], 
+          by.x = c("USA_or_HHSRegion",
+                   "WEEK_END"), 
+          by.y = c('HHS',
+                   'WEEK_END'),
+          all.x = TRUE)
+        
+        # calculate case totals for each variant
+        all.wkly2$cases    <- all.wkly2$total_test_positives * all.wkly2$Share
+        all.wkly2$cases_lo <- all.wkly2$total_test_positives * all.wkly2$Share_lo
+        all.wkly2$cases_hi <- all.wkly2$total_test_positives * all.wkly2$Share_hi
+      } else {
+        print(paste0('File ', 
+                     test_filepath, 
+                     ' not found. Not calculating number of infections attributable to each variant for fortnights.'))
+      }
+      
+    }
+    
     # sort by HHS region
     all.wkly2 <- all.wkly2[order(all.wkly2$USA_or_HHSRegion),]
 
@@ -2000,6 +2090,49 @@ if ( grepl("Run2",tag) ){
                          'doubling_time_lo',
                          'doubling_time_hi')]
 
+  # optionally calculate the number of infections attributable to each variant
+  if (calc_confirmed_infections){
+    test_filepath <- paste0(script.basename, 
+                            "/data/backup_", 
+                            data_date, "/", 
+                            data_date, "_tests_aggregated", 
+                            custom_tag, ".RDS")
+    
+    if (file.exists(test_filepath)){
+      test_list <- readRDS(file = test_filepath)
+      
+      # get the fortnightly test tallies & aggregate them by fn across USA
+      tests_fn_us <- test_list$tests_fortnight[,
+                                               .('total_test_positives' = sum(POSITIVE, na.rm = T)), 
+                                               by = 'fortnight_end'][,'HHS' := 'USA']
+      # aggregate fortnightly tests by HHS region
+      tests_fn_hhs <- test_list$tests_fortnight[,
+                                                .('total_test_positives' = sum(POSITIVE, na.rm = T)), 
+                                                by = c('fortnight_end', 'HHS')]
+      
+      # merge the positive test results in with the variant proportion estimates
+      proj.res <- merge(
+        x = proj.res, 
+        y = rbind(tests_fn_us,
+                  tests_fn_hhs), 
+        by.x = c("USA_or_HHSRegion",
+                 "Fortnight_ending"), 
+        by.y = c('HHS',
+                 'fortnight_end'),
+        all.x = TRUE)
+      
+      # calculate case totals for each variant
+      proj.res$cases    <- proj.res$total_test_positives * proj.res$Share
+      proj.res$cases_lo <- proj.res$total_test_positives * proj.res$Share_lo
+      proj.res$cases_hi <- proj.res$total_test_positives * proj.res$Share_hi
+    } else {
+      print(paste0('File ', 
+                   test_filepath, 
+                   ' not found. Not calculating number of infections attributable to each variant for fortnights.'))
+    }
+  }
+  
+  
   # Format output for the run 1 lineage list
   # only include Variants that are NOT in the list provided (to avoid duplicates)
   run_1 = proj.res[proj.res$Variant %notin% c(AY_agg,
@@ -2176,6 +2309,75 @@ if ( grepl("Run2",tag) ){
                          'week_start',
                          'model_week')]
 
+  # optionally calculate the number of infections attributable to each variant
+  if (calc_confirmed_infections){
+    test_filepath <- paste0(script.basename, 
+                            "/data/backup_", 
+                            data_date, "/", 
+                            data_date, "_tests_aggregated", 
+                            custom_tag, ".RDS")
+    
+    if (file.exists(test_filepath)){
+      test_list <- readRDS(file = test_filepath)
+      
+      # get the daily test tallies & aggregate them by fn across USA
+      tests_dy_us <- test_list$tests_daily[,
+                                            .('total_test_positives_daily' = sum(POSITIVE_daily, na.rm = T)), 
+                                            by = 'date'][,'HHS' := 'USA']
+      # aggregate daily tests by HHS region
+      tests_dy_hhs <- test_list$tests_daily[,
+                                             .('total_test_positives_daily' = sum(POSITIVE_daily, na.rm = T)), 
+                                             by = c('date', 'HHS')]
+      
+      # get the weekly test tallies & aggregate them by fn across USA
+      tests_wk_us <- test_list$tests_weekly[,
+                                            .('total_test_positives_weekly' = sum(POSITIVE, na.rm = T)), 
+                                            by = 'yr_wk'][,'HHS' := 'USA']
+      # aggregate weekly tests by HHS region
+      tests_wk_hhs <- test_list$tests_weekly[,
+                                             .('total_test_positives_weekly' = sum(POSITIVE, na.rm = T)), 
+                                             by = c('yr_wk', 'HHS')]
+      
+      
+      # merge the daily positive test results in with the variant proportion estimates
+      proj.res <- merge(
+        x = proj.res, 
+        y = rbind(tests_dy_us,
+                  tests_dy_hhs), 
+        by.x = c("USA_or_HHSRegion",
+                 "date"), 
+        by.y = c('HHS',
+                 'date'),
+        all.x = TRUE)
+      
+      
+      # merge the positive test results in with the variant proportion estimates
+      proj.res <- merge(
+        x = proj.res, 
+        y = rbind(tests_wk_us,
+                  tests_wk_hhs)[,'Week_ending' := as.Date(yr_wk) + 6][, 'yr_wk' := NULL], 
+        by.x = c("USA_or_HHSRegion",
+                 "Week_ending"), 
+        by.y = c('HHS',
+                 'Week_ending'),
+        all.x = TRUE)
+      
+      # calculate case totals for each variant
+      proj.res$cases_daily    <- proj.res$total_test_positives_daily * proj.res$Share
+      proj.res$cases_lo_daily <- proj.res$total_test_positives_daily * proj.res$Share_lo
+      proj.res$cases_hi_daily <- proj.res$total_test_positives_daily * proj.res$Share_hi
+      
+      proj.res$cases_weekly    <- proj.res$total_test_positives_weekly * proj.res$Share
+      proj.res$cases_lo_weekly <- proj.res$total_test_positives_weekly * proj.res$Share_lo
+      proj.res$cases_hi_weekly <- proj.res$total_test_positives_weekly * proj.res$Share_hi
+    } else {
+      print(paste0('File ', 
+                   test_filepath, 
+                   ' not found. Not calculating number of infections attributable to each variant for fortnights.'))
+    }
+    
+  }
+  
   # Format output for the run 1 lineage list
   # only include variants that are NOT in the list provided
   run_1 = proj.res[proj.res$Variant %notin% c(AY_agg,
@@ -2189,7 +2391,7 @@ if ( grepl("Run2",tag) ){
   run_1[run_1$Variant == "Other Aggregated", "Variant"] <- "Other"
 
   # save the weekly results to file
-  write.csv(x = run_1[ run_1$model_week %% 1 == 0 ,],
+  write.csv(x = run_1[ run_1$model_week %% 1 == 0 , !names(run_1) %in% c('total_test_positives_daily', 'cases_daily', 'cases_lo_daily', 'cases_hi_daily')],
             file = paste0(script.basename,
                           "/results/updated_nowcast_weekly_",
                           data_date,
@@ -2197,7 +2399,7 @@ if ( grepl("Run2",tag) ){
                           ".csv"),
             row.names = FALSE)
   # save the daily results to file
-  write.csv(x = run_1,
+  write.csv(x = run_1[,!names(run_1) %in% c('total_test_positives_weekly', 'cases_weekly', 'cases_lo_weekly', 'cases_hi_weekly')],
             file = paste0(script.basename,
                           "/results/updated_nowcast_weekly_",
                           data_date,
@@ -2218,7 +2420,7 @@ if ( grepl("Run2",tag) ){
   run_2[run_2$Variant=="Other Aggregated", "Variant"] <- "Other"
 
   # save the weekly results to file
-  write.csv(x = run_2[run_2$model_week %% 1 == 0 ,],
+  write.csv(x = run_2[run_2$model_week %% 1 == 0 ,!names(run_2) %in% c('total_test_positives_daily', 'cases_daily', 'cases_lo_daily', 'cases_hi_daily')],
             file = paste0(script.basename,
                           "/results/updated_nowcast_weekly_",
                           data_date,
@@ -2226,7 +2428,7 @@ if ( grepl("Run2",tag) ){
                           ".csv"),
             row.names = FALSE)
   # save the daily results to file
-  write.csv(x = run_2,
+  write.csv(x = run_2[,!names(run_2) %in% c('total_test_positives_weekly', 'cases_weekly', 'cases_lo_weekly', 'cases_hi_weekly')],
             file = paste0(script.basename,
                           "/results/updated_nowcast_weekly_",
                           data_date,
@@ -2428,6 +2630,53 @@ if ( grepl("Run3", tag) ){
                                    "nchs_flag",
                                    "nchs_flag_wodf")]
 
+  
+  # optionally calculate the number of infections attributable to each variant
+  if (calc_confirmed_infections){
+    test_filepath <- paste0(script.basename, 
+                            "/data/backup_", 
+                            data_date, "/", 
+                            data_date, "_tests_aggregated", 
+                            custom_tag, ".RDS")
+    
+    if (file.exists(test_filepath)){
+      test_list <- readRDS(file = test_filepath)
+      
+      # data_weeks <- as.numeric(state_time_end - week0day1) %/% 7
+      
+      aso_list <- lapply(X = state_time_end, FUN = function(ste){
+        
+        # get the tests for the given 4-week period
+        tests_state <- test_list$tests_4weeks[ names(test_list$tests_4weeks) == ste ][[1]]
+        
+        data.table::setnames(x = tests_state,
+                             old = c('STUSAB', 'POSITIVE'),
+                             new = c('State', 'total_test_positives'))
+        
+        # merge the positive test results in with the variant proportion estimates
+        merge(
+          x = all.state.out[ all.state.out$Roll_Fourweek_ending == ste, ], 
+          y = tests_state[, 'TOTAL' := NULL], 
+          by = c("State"), 
+          all.x = TRUE)
+      })
+      
+      # combine the elements in the list
+      all.state.out <- do.call(rbind, aso_list)
+      
+      # calculate case totals for each variant
+      all.state.out$cases    <- all.state.out$total_test_positives * all.state.out$Share
+      all.state.out$cases_lo <- all.state.out$total_test_positives * all.state.out$Share_lo
+      all.state.out$cases_hi <- all.state.out$total_test_positives * all.state.out$Share_hi
+    } else {
+      print(paste0('File ', 
+                   test_filepath, 
+                   ' not found. Not calculating number of infections attributable to each variant for fortnights.'))
+    }
+    
+  }
+  
+  
   # write results to file
   write.csv(x = all.state.out,
             file = paste0(script.basename,
