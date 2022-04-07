@@ -1265,6 +1265,24 @@ labnames_df_sdl <- data.frame(old_name = SDL_labs_to_agg,
 #svy.dat[svy.dat$LAB %in% SDL_labs_to_agg, 'LAB2'] <- labnames_df_sdl$new_name[1]
 svy.dat[LAB %in% SDL_labs_to_agg, 'LAB2' := labnames_df_sdl$new_name[1]]
 
+# added 2022-04-07
+# Aggregate Boise VA
+BVA_labs_to_agg <- grep(pattern = 'BOISE VA MEDICAL CENTER', 
+                         x = unique_labs, 
+                         ignore.case = T, 
+                         value = T)
+labnames_df_bva <- data.frame(old_name = BVA_labs_to_agg,
+                               new_name = 'BOISE VA MEDICAL CENTER')
+svy.dat[LAB %in% BVA_labs_to_agg, 'LAB2' := labnames_df_bva$new_name[1]]
+
+# Aggregate Indiana State DoH
+IN_labs_to_agg <- grep(pattern = 'IN.*STATE DEPARTMENT OF HEALTH LABORATORY SERVICES', 
+                         x = unique_labs, 
+                         ignore.case = T, 
+                         value = T)
+labnames_df_in <- data.frame(old_name = IN_labs_to_agg,
+                             new_name = 'INDIANA STATE DEPARTMENT OF HEALTH LABORATORY SERVICES')
+svy.dat[LAB %in% IN_labs_to_agg, 'LAB2' := labnames_df_in$new_name[1]]
 
 
 # Other labs that might be duplicates, but that I have not combined:
@@ -1294,7 +1312,9 @@ labnames_df <- rbind(
   labnames_df_unmc,
   labnames_df_slo,
   labnames_df_sj,
-  labnames_df_sdl
+  labnames_df_sdl,
+  labnames_df_bva,
+  labnames_df_in
 )
 
 # print the list of lab names that were changed to the console
@@ -1362,6 +1382,14 @@ saveRDS(object = check_count,
 
 
 # print a list of the newly added lab names to aid in checking for typos 
+# look for the check_count data from 7 days prior to get names that were just added this week. 
+if(file.exists(paste0(script.basename, "/data/backup_", data_date - 7, "/", data_date - 7, "_sequence_counts_by_lab", custom_tag, ".RDS"))){
+  last_week_counts <- readRDS(paste0(script.basename, "/data/backup_", data_date - 7, "/", data_date - 7, "_sequence_counts_by_lab", custom_tag, ".RDS"))
+
+  print('\nnewly added lab names:')
+  print(setdiff(check_count$LAB2, last_week_counts$LAB2))
+}
+
 # NOTE! This doesn't work if new labs add data for past weeks in addition to current weeks. We'll need to load in a prior dataset & compare names that way.
 # Steps to improve: 1) find previous version of "sequence_counts_by_lab" file; 2) load it in; 3) compare current lab names to previous lab names (setdiff()); 4) print new lab names to console.
 # print('\nnewly added lab names:')

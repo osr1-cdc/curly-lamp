@@ -165,8 +165,8 @@ options(survey.adjust.domain.lonely = T,
   # THIS WILL LIKELY NEED TO BE REPLACED IN THE FUTURE, BUT IT'S HERE TO AVOID
   # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
   force_aggregate_omicron <- TRUE
-  # list omicron sublineages that will not be aggregated (if they are also in voc)
-  force_aggregate_omicron_except <- c("BA.2", 'BA.1', 'BA.3')
+  # list omicron sublineages that will not be aggregated (if they are also in voc) (these are the only Omicron sublineages that will be permitted)
+  force_aggregate_omicron_except <- c('BA.1', 'BA.1.1', 'BA.2', 'BA.3')
 
   # force-aggregate Delta sublineages
   # this option will force any/all Delta sublineages that show up in the vocs to be
@@ -291,7 +291,7 @@ if (custom_lineages == TRUE) {
 
 # force-aggregate omicron
 # (even if BA.1 is listed in voc2, this will force all BA sublineages of Omicron
-#  to have the same VARIANT name (B.1.1.529))
+#  to have the same VARIANT name (B.1.1.529)) (unless explicitly excluded in "force_aggregate_omicron_except")
 if ( force_aggregate_omicron & ('B.1.1.529' %in% voc) ){
 
   # omicron sub-lineages to exclude/aggregate
@@ -508,9 +508,19 @@ B621=sort(unique(src.dat$VARIANT)[grep("B\\.1\\.621\\.",unique(src.dat$VARIANT))
 B621=B621[which(B621 %notin% voc)] #vector of the B621s to aggregate
 B429=sort(unique(src.dat$VARIANT)[grep("B\\.1\\.429",unique(src.dat$VARIANT))])
 B429=B429[which(B429 %notin% voc)] #vector of the B429s to aggregate
-# omicrons
-B529=sort(unique(src.dat$VARIANT)[grep("(B\\.1\\.1\\.529)|(BA\\.[0-9])",unique(src.dat$VARIANT))])
-B529=B529[which(B529 %notin% voc)] #vector of the B529s to aggregate
+# omicrons [including lots of sublineages]
+# aggregate the BA sublineages [NOTE! this *WILL* aggregate all BA.1.1.x sub-sublineages into BA.1.1 *even* if BA.1.1.x is listed in voc.]
+if('BA.1' %in% voc) B529.BA1 <- sort(grep("(BA\\.1)(?!(\\.1$)|(\\.1\\.))",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA1 <- NULL
+if('BA.1.1' %in% voc) B529.BA1.1 <- sort(grep("(BA\\.1\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))     else B529.BA1.1 <- NULL
+if('BA.2' %in% voc) B529.BA2 <- sort(grep("(BA\\.2)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))             else B529.BA2 <- NULL
+if('BA.3' %in% voc) B529.BA3 <- sort(grep("(BA\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))             else B529.BA3 <- NULL
+if('BA.4' %in% voc) B529.BA4 <- sort(grep("(BA\\.4)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))             else B529.BA4 <- NULL
+if('BA.5' %in% voc) B529.BA5 <- sort(grep("(BA\\.5)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))             else B529.BA5 <- NULL
+# safety check: make sure that no variants are in the multiple sublineage groups 
+if(any(duplicated(c(B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5)))) errorCondition(message = paste0(c(B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5)[duplicate(c(B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5))], ' appear in multiple BA sublineage groups. Check B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5.'))
+B529=sort(grep("(B\\.1\\.1\\.529)|(BA\\.[0-9])",unique(src.dat$VARIANT), value = T))
+B529=B529[ B529 %notin% c(voc, B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5) ] #vector of the B529s to aggregate
+
 
 # Aggregate sublineages to the parent lineage
 if(P.1_agg==TRUE)     {src.dat[src.dat$VARIANT %in% P1,  "VARIANT"]    <- "P.1"}
@@ -519,8 +529,15 @@ if(B.1.621_agg==TRUE) {src.dat[src.dat$VARIANT %in% B621,"VARIANT"]    <- 'B.1.6
 if(Q.1_3_agg==TRUE)   {src.dat[src.dat$VARIANT %in% Q,   "VARIANT"]    <- "B.1.1.7"}
 if(AY_agg==TRUE)      {src.dat[src.dat$VARIANT %in% AY,  "VARIANT"]    <- "B.1.617.2"}
 if(B429_7_agg==TRUE)  {src.dat[src.dat$VARIANT %in% B429,"VARIANT"]    <- "B.1.427"}
-if(B.1.1.529_agg==TRUE)  {src.dat[src.dat$VARIANT %in% B529,"VARIANT"] <- "B.1.1.529"}
-
+if(B.1.1.529_agg==TRUE)  {
+   src.dat[src.dat$VARIANT %in% B529,"VARIANT"] <- "B.1.1.529"
+   src.dat[src.dat$VARIANT %in% B529.BA1,"VARIANT"] <- "BA.1"
+   src.dat[src.dat$VARIANT %in% B529.BA1.1,"VARIANT"] <- "BA.1.1"
+   src.dat[src.dat$VARIANT %in% B529.BA2,"VARIANT"] <- "BA.2"
+   src.dat[src.dat$VARIANT %in% B529.BA3,"VARIANT"] <- "BA.3"
+   src.dat[src.dat$VARIANT %in% B529.BA4,"VARIANT"] <- "BA.4"
+   src.dat[src.dat$VARIANT %in% B529.BA5,"VARIANT"] <- "BA.5"
+}
 
 # create another column for the varients of interest
 # this is only used to get (unweighted) counts of the sequences by lineage (used in all runs)
