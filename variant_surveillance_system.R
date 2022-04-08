@@ -581,6 +581,14 @@ saveRDS(pops,
 # abbreviation is incorrect, or the collection data is prior to October 2019.
 # An HHS Region variable is merged in.
 
+
+## exclude duplicates from each table
+dat      = distinct(dat)
+pangolin = distinct(pangolin)
+baseline = distinct(baseline)
+tests    = distinct(tests)
+pops     = distinct(pops)
+
 ## Some general parameters:
 # start day is the first Sunday of 2020
 week0day1 = as.Date("2020-01-05")
@@ -624,11 +632,6 @@ us.dat = subset(x = dat,
 # Subset to exclude faulty state abbreviations
 us.dat = subset(x = us.dat,
                 nchar(primary_state_abv) == 2)
-
-## exclude duplicates from each table
-us.dat   = distinct(us.dat)
-pangolin = distinct(pangolin)
-baseline = distinct(baseline)
 
 ## Disambiguate and remove unreasonable dates
 # convert collection date to "date" format
