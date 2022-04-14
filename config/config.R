@@ -86,8 +86,8 @@ voc2_additional = c(#"AY.1", "AY.2",
                     "BA.1",
                     "BA.1.1",
                     "BA.2",
-                    "BA.2.12",
-                    "BA.2.12.1",
+                    # "BA.2.12",
+                    # "BA.2.12.1",
                     # "BA.3",
                     "B.1.617.2", # Delta
                     "B.1.1.529" # Omicron
@@ -217,3 +217,11 @@ display_option = c("top7", "voc")[1]
 
 # number of weeks (up to current_week) to include in plots
 display_lookback = 8
+
+# start time to filter out old data that isn't actually used for any estimates
+# start time will be model_weeks before time_end
+time_start <- time_end - model_weeks*7 + 1 # +1 to start on Monday
+# number of weeks to produce "weighted"/"thencast" estimates
+weighted_weeks <- 12
+# start-time for the weighted estimates
+time_start_weights <- time_end - 6 - weighted_weeks*7

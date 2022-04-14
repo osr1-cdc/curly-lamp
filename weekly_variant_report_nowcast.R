@@ -166,7 +166,7 @@ options(survey.adjust.domain.lonely = T,
   # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
   force_aggregate_omicron <- TRUE
   # list omicron sublineages that will not be aggregated (if they are also in voc) (these are the only Omicron sublineages that will be permitted)
-  force_aggregate_omicron_except <- c('BA.1', 'BA.2', 'BA.2.12', 'BA.2.12.1', 'BA.3', 'BA.1.1')
+  force_aggregate_omicron_except <- c('BA.1', 'BA.2', 'BA.3', 'BA.1.1') # 'BA.2.12', 'BA.2.12.1', 
 
   # force-aggregate Delta sublineages
   # this option will force any/all Delta sublineages that show up in the vocs to be
@@ -183,6 +183,8 @@ options(survey.adjust.domain.lonely = T,
   # variant "B" most likely indicates trouble sequencing, rather than an actual variant, so don't split it out.
   # this also prevents "B" from being included in the Nowcast model.
   force_aggregate_B <- TRUE
+  # same for "B.1"
+  force_aggregate_B.1 <- TRUE
 
   # rescale the weights that are used in the multinomial Nowcast model.
   # this can help avoid numerical overflow when trying to calculate prediction intervals.
@@ -230,6 +232,9 @@ source(paste0(script.basename, "/weekly_variant_report_functions.R"))
 # (filtered genomic surveillance data)
 load(paste0(script.basename, "/data/svydat_", data_date, custom_tag, ".RData"))
 
+# filter out data that's older than we actually use
+svy.dat <- subset(svy.dat,
+                  yr_wk >= time_start)
 
 # create a tag for the filenames to differentiate results from different runs
 tag <- paste0("_",state_source,"_Run", opts$run_number, reduced_voc_tag, custom_tag)
@@ -317,6 +322,11 @@ if (force_aggregate_delta){
 if (force_aggregate_B & ('B' %in% voc)) {
   voc <- voc[ voc %notin% 'B' ]
 }
+# force-aggregate B.1 into "Other"
+if (force_aggregate_B.1 & ('B.1' %in% voc)) {
+   voc <- voc[ voc %notin% 'B.1' ]
+}
+
 
 ############# REMOVE specified labs
 if (remove_utahphl){
@@ -682,7 +692,7 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
   # - data since May 8, 2021
   # - older than "time_end"
   dat2 <- subset(x = src.dat,
-                 as.Date(FORTNIGHT_END) >= as.Date("2021-05-08") &
+                 as.Date(FORTNIGHT_END) >= (time_start_weights - 7*((as.numeric(time_end+1 - time_start_weights)/7) %%2)) & # this is an ugly way to make sure the start date is a multiple of 2 weeks.
                    as.Date(FORTNIGHT_END) <= time_end)
 
   # get the relevant fortnights from the data
@@ -931,7 +941,7 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
     # subset data to only include data since 2 May, 2021
     # and (end of week) older than "time_end"
     dat2 <- subset(src.dat,
-                   as.Date(yr_wk) >= as.Date("2021-05-02") &
+                   as.Date(yr_wk) >= time_start_weights &
                      (as.Date(yr_wk) + 6) <= time_end)
 
     # add a column for the date of the final day of each week
@@ -1247,8 +1257,9 @@ if ( grepl("Run2",tag) ){
     # these will be included in results
     model_vars = us_rank[us_rank %in% c(us_rank[1:n_top], voc)]
 
-    # optionally make sure B is not in the model_vars
-    if (force_aggregate_B) model_vars <- model_vars[model_vars %notin% 'B']
+    # optionally make sure B and B.1 are not in the model_vars
+    if (force_aggregate_B)   model_vars <- model_vars[model_vars %notin% 'B']
+    if (force_aggregate_B.1) model_vars <- model_vars[model_vars %notin% 'B.1']
   }
 
   ### add variant ranks to src.dat ----
@@ -1997,58 +2008,64 @@ if ( grepl("Run2",tag) ){
   row.names(agg_var_mat) <-c("Delta Aggregated", "Omicron Aggregated", "Other Aggregated")
   # add rows to agg_var_mat for each BA subvariant in run1_lineages
   {
-    # get the BA subvariants that are in run1_lineages, and therefore might need their own aggregations
-    #  (e.g. aggregate BA.2.12 into BA.2 if both are in voc2, but only BA.2 is in voc1)
-    BAs_in_r1l <- BA_vars[BA_vars %in% run1_lineages]
-    for( ll in BAs_in_r1l){
-      # first get the BA_vars that should be aggregated into this "ll" instead of parent omicron
-      # grep(pattern = ll, x = BA_vars) # this won't work in all cases. I'll have to use a piece-wise/messy "solution"
-      if (ll == 'BA.1'){
-         # this always excludes BA.1.1
-         # if voc1 includes BA.1, but not BA.1.1, then this is going to result in BA.1.1 aggregated into parent omicron, NOT BA.1
-         ll_agg <- grep("(BA\\.1)(?!(\\.1$)|(\\.1\\.))",BA_vars, perl = T, value = T)
-      }
-      if (ll == 'BA.1.1'){
-         ll_agg <- grep("(BA\\.1\\.1)(?![0-9])",BA_vars, perl = T, value = T)
-      }
-      if (ll == 'BA.2') {
-         # this will always aggregate BA.2.12 into BA.2
-         if( length(grep("(BA\\.2)(?![0-9])",run1_lineages, perl = T, value = T)) == 1 ){
-            ll_agg <- grep("(BA\\.2)(?![0-9])",BA_vars, perl = T, value = T)
-         }
-         # this will keep BA.2.12 seperate ONLY if BA.2.12 is *ALSO* listed in run1_lineages
-         if( length(grep("(BA\\.2\\.12)",run1_lineages, perl = T, value = T)) == 1 ){
-            ll_agg <- grep("(BA\\.2)(?!([0-9])|(\\.12))",BA_vars, perl = T, value = T)
-         }
-      }
-       if(ll == 'BA.2.12') {
-          ll_agg <- grep("(BA\\.2\\.12)(?![0-9])",BA_vars, perl = T, value = T)
-       }
-       if (ll == 'BA.3') {
-         ll_agg <- grep("(BA\\.3)(?![0-9])",BA_vars, perl = T, value = T)
-      }
-      if (ll == 'BA.4') {
-         ll_agg <- grep("(BA\\.4)(?![0-9])",BA_vars, perl = T, value = T)
-      }
-      if(ll == 'BA.5') {
-         ll_agg <- grep("(BA\\.5)(?![0-9])",BA_vars, perl = T, value = T)
-      }
+     # get the BA subvariants that are in run1_lineages, and therefore might need their own aggregations
+     #  (e.g. aggregate BA.2.12 into BA.2 if both are in voc2, but only BA.2 is in voc1)
+     BAs_in_r1l <- BA_vars[BA_vars %in% run1_lineages]
+     for( ll in BAs_in_r1l){
+        if(exists('ll_agg')) rm(ll_agg)
+        # first get the BA_vars that should be aggregated into this "ll" instead of parent omicron
+        # grep(pattern = ll, x = BA_vars) # this won't work in all cases. I'll have to use a piece-wise/messy "solution"
+        if (ll == 'BA.1'){
+           # this always excludes BA.1.1
+           # if voc1 includes BA.1, but not BA.1.1, then this is going to result in BA.1.1 aggregated into parent omicron, NOT BA.1
+           ll_agg <- grep("(BA\\.1)(?!(\\.1$)|(\\.1\\.))",BA_vars, perl = T, value = T)
+        }
+        if (ll == 'BA.1.1'){
+           ll_agg <- grep("(BA\\.1\\.1)(?![0-9])",BA_vars, perl = T, value = T)
+        }
+        if (ll == 'BA.2') {
+           # this will always aggregate BA.2.12 into BA.2
+           if( length(grep("(BA\\.2)(?![0-9])",run1_lineages, perl = T, value = T)) == 1 ){
+              ll_agg <- grep("(BA\\.2)(?![0-9])",BA_vars, perl = T, value = T)
+           }
+           # this will keep BA.2.12 seperate ONLY if BA.2.12 is *ALSO* listed in run1_lineages
+           if( length(grep("(BA\\.2\\.12)",run1_lineages, perl = T, value = T)) == 1 ){
+              ll_agg <- grep("(BA\\.2)(?!([0-9])|(\\.12))",BA_vars, perl = T, value = T)
+           }
+        }
+        if(ll == 'BA.2.12') {
+           ll_agg <- grep("(BA\\.2\\.12)(?![0-9])",BA_vars, perl = T, value = T)
+        }
+        if (ll == 'BA.3') {
+           ll_agg <- grep("(BA\\.3)(?![0-9])",BA_vars, perl = T, value = T)
+        }
+        if (ll == 'BA.4') {
+           ll_agg <- grep("(BA\\.4)(?![0-9])",BA_vars, perl = T, value = T)
+        }
+        if(ll == 'BA.5') {
+           ll_agg <- grep("(BA\\.5)(?![0-9])",BA_vars, perl = T, value = T)
+        }
 
-       # add a row onto the agg_var_mat for this subvariant
-       if(exists('ll_agg')){
-          extra_row <- ifelse(colnames(agg_var_mat) %in% ll_agg,1,0)
+        # add a row onto the agg_var_mat for this subvariant
+        if(exists('ll_agg')){
+           # if ll_agg contains subvariants of ll, then add a new row to agg_var_mat
+           # if ll_agg only contains ll, don't add a new row
+           if(any(ll_agg != ll)){
+              # create an extra row for the agg_var_mat
+              extra_row <- ifelse(colnames(agg_var_mat) %in% ll_agg,1,0)
 
-          # add the new row onto the aggregation matrix
-          agg_var_mat <- rbind(
-             agg_var_mat,
-             extra_row
-          )
-          row.names(agg_var_mat)[nrow(agg_var_mat)] <- paste(ll, 'Aggregated')
+              # add the new row onto the aggregation matrix
+              agg_var_mat <- rbind(
+                 agg_var_mat,
+                 extra_row
+              )
+              row.names(agg_var_mat)[nrow(agg_var_mat)] <- paste(ll, 'Aggregated')
 
-          # remove aggregation indices from "Omicron Aggregated" if they're in the new row
-          om_row <- which(row.names(agg_var_mat) == 'Omicron Aggregated')
-          agg_var_mat[om_row,which(agg_var_mat[ om_row,] == 1 & extra_row == 1)] <- 0
-       }
+              # remove aggregation indices from "Omicron Aggregated" if they're in the new row
+              om_row <- which(row.names(agg_var_mat) == 'Omicron Aggregated')
+              agg_var_mat[om_row,which(agg_var_mat[ om_row,] == 1 & extra_row == 1)] <- 0
+           }
+        }
     }
      # print a warning if any columns have totals > 1
      if(any(colSums(agg_var_mat)>1)) warning(paste0('agg_var_mat not correctly specified. Some variants are aggregated more than once.', agg_var_mat))
@@ -2214,13 +2231,8 @@ if ( grepl("Run2",tag) ){
 
 
   # Format output for the run 1 lineage list
-  # only include Variants that are NOT in the list provided (to avoid duplicates)
-  run_1 = proj.res[proj.res$Variant %notin% c(AY_agg,
-                                              "B.1.617.2",
-                                              BA_agg,
-                                              'B.1.1.529',
-                                              Other_agg,
-                                              "Other"),]
+  # only include Variants that are NOT aggregated into a larger group
+  run_1 = proj.res[proj.res$Variant %notin% colnames(agg_var_mat)[colSums(agg_var_mat)>0],]
 
   # change the name of "Other Aggregated" to "Other" to match other output files
   run_1[run_1$Variant == "Other Aggregated","Variant"] <- "Other"
@@ -2460,12 +2472,7 @@ if ( grepl("Run2",tag) ){
 
   # Format output for the run 1 lineage list
   # only include variants that are NOT in the list provided
-  run_1 = proj.res[proj.res$Variant %notin% c(AY_agg,
-                                              "B.1.617.2",
-                                              BA_agg,
-                                              'B.1.1.529',
-                                              Other_agg,
-                                              "Other"),]
+  run_1 = proj.res[proj.res$Variant %notin% colnames(agg_var_mat)[colSums(agg_var_mat)>0],]
 
   # change the name of "Other Aggregated" to "Other" to match other output files
   run_1[run_1$Variant == "Other Aggregated", "Variant"] <- "Other"
