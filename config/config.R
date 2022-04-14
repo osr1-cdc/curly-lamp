@@ -59,7 +59,7 @@ custom_lineage_names <- c("BA.1+")
 # Set voc's for Run1
 voc1 = c(# "AY.1", "AY.2",
          # "BA.1",
-         "BA.1.1",
+         # "BA.1.1",
          "BA.2",
          "B.1.617.2", # Delta
          "B.1.1.529") # Omicron
@@ -84,7 +84,7 @@ voc2_manual = c(NA)
 # (this will not have any effect if "voc2_manual" is used)
 voc2_additional = c(#"AY.1", "AY.2",
                     "BA.1",
-                    "BA.1.1",
+                    # "BA.1.1",
                     "BA.2",
                     # "BA.2.12",
                     # "BA.2.12.1",
