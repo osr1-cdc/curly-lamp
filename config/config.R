@@ -37,7 +37,7 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 data_date <- Sys.Date()
-data_date <- as.Date('2022-04-07')
+# data_date <- as.Date('2022-04-07')
 # I think this needs to be a date on which data were frozen in the CDP database,
 # which is often Thursdays.
 
@@ -59,17 +59,17 @@ custom_lineage_names <- c("BA.1+")
 # Set voc's for Run1
 voc1 = c(# "AY.1", "AY.2",
          # "BA.1",
-         # "BA.1.1",
+         "BA.1.1",
          "BA.2",
          "B.1.617.2", # Delta
          "B.1.1.529") # Omicron
 # define an alternate set of vocs
-# (the reason for including two sets instead of just redefining the first set is 
-#  to make it easier to run both sets simultaneously just changing an option 
+# (the reason for including two sets instead of just redefining the first set is
+#  to make it easier to run both sets simultaneously just changing an option
 #  passed to weekly_variant_report_nowcast.R)
 voc1_reduced = c(
-  'B.1.1.529', # Omicron 
-  'B.1.617.2'  # Delta 
+  'B.1.1.529', # Omicron
+  'B.1.617.2'  # Delta
 )
 
 # Set voc's for Run2
@@ -84,12 +84,14 @@ voc2_manual = c(NA)
 # (this will not have any effect if "voc2_manual" is used)
 voc2_additional = c(#"AY.1", "AY.2",
                     "BA.1",
-                    # "BA.1.1",
+                    "BA.1.1",
                     "BA.2",
+                    "BA.2.12",
+                    "BA.2.12.1",
                     # "BA.3",
-                    "B.1.617.2", # Delta 
+                    "B.1.617.2", # Delta
                     "B.1.1.529" # Omicron
-                    ) 
+                    )
 # voc2_custom = c(voc2,
 #                 custom_lineage_names)
 
@@ -106,12 +108,12 @@ voc3 = c("B.1.1.7",   # Alpha  # and Q.1 to 8*
          "B.1.427",   # Epsilon  # B.1.427 & B.1.429 are aggregated on line 137 of "weekly_variant_report_nowcast.R"
          "B.1.525",   # Eta
          "B.1.526",   # Iota
-         "B.1.617.1", # Kappa 
+         "B.1.617.1", # Kappa
          "B.1.617.3", # (unnamed)
-         "P.2",       # Zeta 
+         "P.2",       # Zeta
          "B.1.621",   # Mu
          "B.1.1.529", # Omicron # and BA.*
-         "BA.2") 
+         "BA.2")
 # define an alternate set of vocs
 voc3_reduced = voc1_reduced
 
@@ -138,7 +140,7 @@ ci.type <- "KG"
 # set end date for national and regional survey estimates
 # this is generally the end of the previous week.
 time_end <- data_date - as.numeric(format(data_date, '%w')) - 1
-# time_end <- as.Date('2021-12-11') # VERY little data for this past week. Not worth including. 
+# time_end <- as.Date('2021-12-11') # VERY little data for this past week. Not worth including.
 # otherwise, set manually:
 # time_end <- as.Date("2021-10-30")
 
@@ -197,7 +199,7 @@ n_top = 10
 n_recent_weeks = 7
 
 # Multinomial model includes current week + model_weeks weeks of previous data
-model_weeks = 21 # early on the model ended up including 1 more week than was set here. Now it includes the number set here. 
+model_weeks = 21 # early on the model ended up including 1 more week than was set here. Now it includes the number set here.
 
 # Criterion for inclusion in model (i.e to be included in model, weighted share
 # must be at least 0.01 in the n_recent_weeks)

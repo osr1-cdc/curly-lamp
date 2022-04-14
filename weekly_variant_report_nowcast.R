@@ -145,7 +145,7 @@ options(survey.adjust.domain.lonely = T,
   # This is done by simplying multiplying the proportions estimated in this script
   # by the number of confirmed positive cases from ICATT testing data.
   calc_confirmed_infections <- TRUE
-  
+
   # Option to just fit the nowcast model and avoid the slower parts of the script
   # (this is only valid if the run number == 2)
   # this can be removed eventually. It's here to make it easier to make updates to the Nowcast model.
@@ -160,13 +160,13 @@ options(survey.adjust.domain.lonely = T,
   # splitting omicron into multiple sublineages.
   # if 'B.1.1.529' is listed in the vocs, then force-aggregate omicron sublineages
   # even if sublineages are also included in the vocs. To avoid aggregating a
-  # specific sublineage, include the sublineage in both "voc" and 
-  # "force_aggregate_omicron_except". 
+  # specific sublineage, include the sublineage in both "voc" and
+  # "force_aggregate_omicron_except".
   # THIS WILL LIKELY NEED TO BE REPLACED IN THE FUTURE, BUT IT'S HERE TO AVOID
   # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
   force_aggregate_omicron <- TRUE
   # list omicron sublineages that will not be aggregated (if they are also in voc) (these are the only Omicron sublineages that will be permitted)
-  force_aggregate_omicron_except <- c('BA.1', 'BA.2', 'BA.3') # , 'BA.1.1')
+  force_aggregate_omicron_except <- c('BA.1', 'BA.2', 'BA.2.12', 'BA.2.12.1', 'BA.3', 'BA.1.1')
 
   # force-aggregate Delta sublineages
   # this option will force any/all Delta sublineages that show up in the vocs to be
@@ -174,14 +174,14 @@ options(survey.adjust.domain.lonely = T,
   # Nowcast estimates of the BA.2 sublineage.
   # Another option would be to use the "voc_manual" setting in config/config.R to prevent
   # AY sublineages from being split out from Delta. The difference between using "voc_manual"
-  # and using "force_aggregate_delta" is that using "voc_manual" requires one to look up 
-  # all other lineages > 1% for inclusion. 
+  # and using "force_aggregate_delta" is that using "voc_manual" requires one to look up
+  # all other lineages > 1% for inclusion.
   # another option to try to control this problem is to set "n_top" to a low number.
   force_aggregate_delta <- FALSE
 
   # force-aggregate "B" into "other"
   # variant "B" most likely indicates trouble sequencing, rather than an actual variant, so don't split it out.
-  # this also prevents "B" from being included in the Nowcast model. 
+  # this also prevents "B" from being included in the Nowcast model.
   force_aggregate_B <- TRUE
 
   # rescale the weights that are used in the multinomial Nowcast model.
@@ -516,7 +516,7 @@ if('BA.2' %in% voc) B529.BA2 <- sort(grep("(BA\\.2)(?![0-9])",unique(src.dat$VAR
 if('BA.3' %in% voc) B529.BA3 <- sort(grep("(BA\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))             else B529.BA3 <- NULL
 if('BA.4' %in% voc) B529.BA4 <- sort(grep("(BA\\.4)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))             else B529.BA4 <- NULL
 if('BA.5' %in% voc) B529.BA5 <- sort(grep("(BA\\.5)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))             else B529.BA5 <- NULL
-# safety check: make sure that no variants are in the multiple sublineage groups 
+# safety check: make sure that no variants are in the multiple sublineage groups
 if(any(duplicated(c(B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5)))) errorCondition(message = paste0(c(B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5)[duplicate(c(B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5))], ' appear in multiple BA sublineage groups. Check B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5.'))
 B529=sort(grep("(B\\.1\\.1\\.529)|(BA\\.[0-9])",unique(src.dat$VARIANT), value = T))
 B529=B529[ B529 %notin% c(voc, B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5) ] #vector of the B529s to aggregate
@@ -530,13 +530,13 @@ if(Q.1_3_agg==TRUE)   {src.dat[src.dat$VARIANT %in% Q,   "VARIANT"]    <- "B.1.1
 if(AY_agg==TRUE)      {src.dat[src.dat$VARIANT %in% AY,  "VARIANT"]    <- "B.1.617.2"}
 if(B429_7_agg==TRUE)  {src.dat[src.dat$VARIANT %in% B429,"VARIANT"]    <- "B.1.427"}
 if(B.1.1.529_agg==TRUE)  {
-   src.dat[src.dat$VARIANT %in% B529,"VARIANT"] <- "B.1.1.529"
-   src.dat[src.dat$VARIANT %in% B529.BA1,"VARIANT"] <- "BA.1"
-   src.dat[src.dat$VARIANT %in% B529.BA1.1,"VARIANT"] <- "BA.1.1"
-   src.dat[src.dat$VARIANT %in% B529.BA2,"VARIANT"] <- "BA.2"
-   src.dat[src.dat$VARIANT %in% B529.BA3,"VARIANT"] <- "BA.3"
-   src.dat[src.dat$VARIANT %in% B529.BA4,"VARIANT"] <- "BA.4"
-   src.dat[src.dat$VARIANT %in% B529.BA5,"VARIANT"] <- "BA.5"
+   src.dat[src.dat$VARIANT %in% B529[B529 %notin% voc],"VARIANT"] <- "B.1.1.529"
+   src.dat[src.dat$VARIANT %in% B529.BA1[B529.BA1 %notin% voc],"VARIANT"] <- "BA.1"
+   src.dat[src.dat$VARIANT %in% B529.BA1.1[B529.BA1.1 %notin% voc],"VARIANT"] <- "BA.1.1"
+   src.dat[src.dat$VARIANT %in% B529.BA2[B529.BA2 %notin% voc],"VARIANT"] <- "BA.2"
+   src.dat[src.dat$VARIANT %in% B529.BA3[B529.BA3 %notin% voc],"VARIANT"] <- "BA.3"
+   src.dat[src.dat$VARIANT %in% B529.BA4[B529.BA4 %notin% voc],"VARIANT"] <- "BA.4"
+   src.dat[src.dat$VARIANT %in% B529.BA5[B529.BA5 %notin% voc],"VARIANT"] <- "BA.5"
 }
 
 # create another column for the varients of interest
@@ -864,48 +864,48 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
                               "CI_width",
                               "nchs_flag",
                               "nchs_flag_wodf")]
-    
+
     # optionally calculate the number of infections attributable to each variant
     if (calc_confirmed_infections){
-      test_filepath <- paste0(script.basename, 
-                         "/data/backup_", 
-                         data_date, "/", 
-                         data_date, "_tests_aggregated", 
+      test_filepath <- paste0(script.basename,
+                         "/data/backup_",
+                         data_date, "/",
+                         data_date, "_tests_aggregated",
                          custom_tag, ".RDS")
-      
+
       if (file.exists(test_filepath)){
         test_list <- readRDS(file = test_filepath)
-      
+
         # get the fortnightly test tallies & aggregate them by fn across USA
         tests_fn_us <- test_list$tests_fortnight[,
-                                                  .('total_test_positives' = sum(POSITIVE, na.rm = T)), 
+                                                  .('total_test_positives' = sum(POSITIVE, na.rm = T)),
                                                   by = 'fortnight_end'][,'HHS' := 'USA']
         # aggregate fortnightly tests by HHS region
         tests_fn_hhs <- test_list$tests_fortnight[,
-                                                  .('total_test_positives' = sum(POSITIVE, na.rm = T)), 
+                                                  .('total_test_positives' = sum(POSITIVE, na.rm = T)),
                                                   by = c('fortnight_end', 'HHS')]
-        
+
         # merge the positive test results in with the variant proportion estimates
         all.ftnt2 <- merge(
-          x = all.ftnt2, 
+          x = all.ftnt2,
           y = rbind(tests_fn_us,
-                    tests_fn_hhs), 
+                    tests_fn_hhs),
           by.x = c("USA_or_HHSRegion",
-                   "Fortnight_ending"), 
+                   "Fortnight_ending"),
           by.y = c('HHS',
                    'fortnight_end'),
           all.x = TRUE)
-        
+
         # calculate case totals for each variant
         all.ftnt2$cases    <- all.ftnt2$total_test_positives * all.ftnt2$Share
         all.ftnt2$cases_lo <- all.ftnt2$total_test_positives * all.ftnt2$Share_lo
         all.ftnt2$cases_hi <- all.ftnt2$total_test_positives * all.ftnt2$Share_hi
       } else {
-        print(paste0('File ', 
-                     test_filepath, 
+        print(paste0('File ',
+                     test_filepath,
                      ' not found. Not calculating number of infections attributable to each variant for fortnights.'))
       }
-      
+
     }
 
     # re-order results by HHS region [so that "other" variants are not listed seperately]
@@ -1129,47 +1129,47 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
 
     # optionally calculate the number of infections attributable to each variant
     if (calc_confirmed_infections){
-      test_filepath <- paste0(script.basename, 
-                              "/data/backup_", 
-                              data_date, "/", 
-                              data_date, "_tests_aggregated", 
+      test_filepath <- paste0(script.basename,
+                              "/data/backup_",
+                              data_date, "/",
+                              data_date, "_tests_aggregated",
                               custom_tag, ".RDS")
-      
+
       if (file.exists(test_filepath)){
         test_list <- readRDS(file = test_filepath)
-        
+
         # get the fortnightly test tallies & aggregate them by fn across USA
         tests_wk_us <- test_list$tests_weekly[,
-                                              .('total_test_positives' = sum(POSITIVE, na.rm = T)), 
+                                              .('total_test_positives' = sum(POSITIVE, na.rm = T)),
                                               by = 'yr_wk'][,'HHS' := 'USA']
         # aggregate fortnightly tests by HHS region
         tests_wk_hhs <- test_list$tests_weekly[,
-                                               .('total_test_positives' = sum(POSITIVE, na.rm = T)), 
+                                               .('total_test_positives' = sum(POSITIVE, na.rm = T)),
                                                by = c('yr_wk', 'HHS')]
-        
+
         # merge the positive test results in with the variant proportion estimates
         all.wkly2 <- merge(
-          x = all.wkly2, 
+          x = all.wkly2,
           y = rbind(tests_wk_us,
-                    tests_wk_hhs)[,'WEEK_END' := as.Date(yr_wk) + 6][, 'yr_wk' := NULL], 
+                    tests_wk_hhs)[,'WEEK_END' := as.Date(yr_wk) + 6][, 'yr_wk' := NULL],
           by.x = c("USA_or_HHSRegion",
-                   "WEEK_END"), 
+                   "WEEK_END"),
           by.y = c('HHS',
                    'WEEK_END'),
           all.x = TRUE)
-        
+
         # calculate case totals for each variant
         all.wkly2$cases    <- all.wkly2$total_test_positives * all.wkly2$Share
         all.wkly2$cases_lo <- all.wkly2$total_test_positives * all.wkly2$Share_lo
         all.wkly2$cases_hi <- all.wkly2$total_test_positives * all.wkly2$Share_hi
       } else {
-        print(paste0('File ', 
-                     test_filepath, 
+        print(paste0('File ',
+                     test_filepath,
                      ' not found. Not calculating number of infections attributable to each variant for fortnights.'))
       }
-      
+
     }
-    
+
     # sort by HHS region
     all.wkly2 <- all.wkly2[order(all.wkly2$USA_or_HHSRegion),]
 
@@ -1293,6 +1293,8 @@ if ( grepl("Run2",tag) ){
 
   # optionally save src.moddat that's been prepped for analysis
   if(save_datasets_to_file){
+
+    # consider saving a list of everything that is needed to fit the nowcast model: list(src.moddat, mysvy, model_vars)
     saveRDS(object = src.moddat,
             file = paste0(script.basename,
                           '/results/src.moddat_', # save to results instead of 'data' folder
@@ -1971,7 +1973,9 @@ if ( grepl("Run2",tag) ){
   # (i.e. not listed in run1_lineages)
   AY_agg = AY_vars[AY_vars %notin% run1_lineages]
   # this returns all "BA" variants to be aggregated for Run 1 results
+  # Note: this assumes that all BA subvariants will be aggregated into parent Omicron. That's no longer the case, so below I'm adding code to deal with BA subvariants that need their own aggregations.
   BA_agg = BA_vars[BA_vars %notin% run1_lineages]
+   # some of these should be aggregated into parent omicron; others should be aggregated into some BA sublineage
 
   # all other variants to be aggregated (used for Run 1 & Run 2 results)
   Other_agg = model_vars[model_vars %notin% voc]
@@ -1991,6 +1995,65 @@ if ( grepl("Run2",tag) ){
   agg_var_mat[2,] <- ifelse(colnames(agg_var_mat) %in% c("B.1.1.529", BA_agg),1,0)
   agg_var_mat[3,] <- ifelse(colnames(agg_var_mat) %in% c(Other_agg, "Other"),1,0)
   row.names(agg_var_mat) <-c("Delta Aggregated", "Omicron Aggregated", "Other Aggregated")
+  # add rows to agg_var_mat for each BA subvariant in run1_lineages
+  {
+    # get the BA subvariants that are in run1_lineages, and therefore might need their own aggregations
+    #  (e.g. aggregate BA.2.12 into BA.2 if both are in voc2, but only BA.2 is in voc1)
+    BAs_in_r1l <- BA_vars[BA_vars %in% run1_lineages]
+    for( ll in BAs_in_r1l){
+      # first get the BA_vars that should be aggregated into this "ll" instead of parent omicron
+      # grep(pattern = ll, x = BA_vars) # this won't work in all cases. I'll have to use a piece-wise/messy "solution"
+      if (ll == 'BA.1'){
+         # this always excludes BA.1.1
+         # if voc1 includes BA.1, but not BA.1.1, then this is going to result in BA.1.1 aggregated into parent omicron, NOT BA.1
+         ll_agg <- grep("(BA\\.1)(?!(\\.1$)|(\\.1\\.))",BA_vars, perl = T, value = T)
+      }
+      if (ll == 'BA.1.1'){
+         ll_agg <- grep("(BA\\.1\\.1)(?![0-9])",BA_vars, perl = T, value = T)
+      }
+      if (ll == 'BA.2') {
+         # this will always aggregate BA.2.12 into BA.2
+         if( length(grep("(BA\\.2)(?![0-9])",run1_lineages, perl = T, value = T)) == 1 ){
+            ll_agg <- grep("(BA\\.2)(?![0-9])",BA_vars, perl = T, value = T)
+         }
+         # this will keep BA.2.12 seperate ONLY if BA.2.12 is *ALSO* listed in run1_lineages
+         if( length(grep("(BA\\.2\\.12)",run1_lineages, perl = T, value = T)) == 1 ){
+            ll_agg <- grep("(BA\\.2)(?!([0-9])|(\\.12))",BA_vars, perl = T, value = T)
+         }
+      }
+       if(ll == 'BA.2.12') {
+          ll_agg <- grep("(BA\\.2\\.12)(?![0-9])",BA_vars, perl = T, value = T)
+       }
+       if (ll == 'BA.3') {
+         ll_agg <- grep("(BA\\.3)(?![0-9])",BA_vars, perl = T, value = T)
+      }
+      if (ll == 'BA.4') {
+         ll_agg <- grep("(BA\\.4)(?![0-9])",BA_vars, perl = T, value = T)
+      }
+      if(ll == 'BA.5') {
+         ll_agg <- grep("(BA\\.5)(?![0-9])",BA_vars, perl = T, value = T)
+      }
+
+       # add a row onto the agg_var_mat for this subvariant
+       if(exists('ll_agg')){
+          extra_row <- ifelse(colnames(agg_var_mat) %in% ll_agg,1,0)
+
+          # add the new row onto the aggregation matrix
+          agg_var_mat <- rbind(
+             agg_var_mat,
+             extra_row
+          )
+          row.names(agg_var_mat)[nrow(agg_var_mat)] <- paste(ll, 'Aggregated')
+
+          # remove aggregation indices from "Omicron Aggregated" if they're in the new row
+          om_row <- which(row.names(agg_var_mat) == 'Omicron Aggregated')
+          agg_var_mat[om_row,which(agg_var_mat[ om_row,] == 1 & extra_row == 1)] <- 0
+       }
+    }
+     # print a warning if any columns have totals > 1
+     if(any(colSums(agg_var_mat)>1)) warning(paste0('agg_var_mat not correctly specified. Some variants are aggregated more than once.', agg_var_mat))
+  }
+
 
   ### Fortnightly estimates -----
   #define fortnights and regions to get nowcasts for
@@ -2109,47 +2172,47 @@ if ( grepl("Run2",tag) ){
 
   # optionally calculate the number of infections attributable to each variant
   if (calc_confirmed_infections){
-    test_filepath <- paste0(script.basename, 
-                            "/data/backup_", 
-                            data_date, "/", 
-                            data_date, "_tests_aggregated", 
+    test_filepath <- paste0(script.basename,
+                            "/data/backup_",
+                            data_date, "/",
+                            data_date, "_tests_aggregated",
                             custom_tag, ".RDS")
-    
+
     if (file.exists(test_filepath)){
       test_list <- readRDS(file = test_filepath)
-      
+
       # get the fortnightly test tallies & aggregate them by fn across USA
       tests_fn_us <- test_list$tests_fortnight[,
-                                               .('total_test_positives' = sum(POSITIVE, na.rm = T)), 
+                                               .('total_test_positives' = sum(POSITIVE, na.rm = T)),
                                                by = 'fortnight_end'][,'HHS' := 'USA']
       # aggregate fortnightly tests by HHS region
       tests_fn_hhs <- test_list$tests_fortnight[,
-                                                .('total_test_positives' = sum(POSITIVE, na.rm = T)), 
+                                                .('total_test_positives' = sum(POSITIVE, na.rm = T)),
                                                 by = c('fortnight_end', 'HHS')]
-      
+
       # merge the positive test results in with the variant proportion estimates
       proj.res <- merge(
-        x = proj.res, 
+        x = proj.res,
         y = rbind(tests_fn_us,
-                  tests_fn_hhs), 
+                  tests_fn_hhs),
         by.x = c("USA_or_HHSRegion",
-                 "Fortnight_ending"), 
+                 "Fortnight_ending"),
         by.y = c('HHS',
                  'fortnight_end'),
         all.x = TRUE)
-      
+
       # calculate case totals for each variant
       proj.res$cases    <- proj.res$total_test_positives * proj.res$Share
       proj.res$cases_lo <- proj.res$total_test_positives * proj.res$Share_lo
       proj.res$cases_hi <- proj.res$total_test_positives * proj.res$Share_hi
     } else {
-      print(paste0('File ', 
-                   test_filepath, 
+      print(paste0('File ',
+                   test_filepath,
                    ' not found. Not calculating number of infections attributable to each variant for fortnights.'))
     }
   }
-  
-  
+
+
   # Format output for the run 1 lineage list
   # only include Variants that are NOT in the list provided (to avoid duplicates)
   run_1 = proj.res[proj.res$Variant %notin% c(AY_agg,
@@ -2328,73 +2391,73 @@ if ( grepl("Run2",tag) ){
 
   # optionally calculate the number of infections attributable to each variant
   if (calc_confirmed_infections){
-    test_filepath <- paste0(script.basename, 
-                            "/data/backup_", 
-                            data_date, "/", 
-                            data_date, "_tests_aggregated", 
+    test_filepath <- paste0(script.basename,
+                            "/data/backup_",
+                            data_date, "/",
+                            data_date, "_tests_aggregated",
                             custom_tag, ".RDS")
-    
+
     if (file.exists(test_filepath)){
       test_list <- readRDS(file = test_filepath)
-      
+
       # get the daily test tallies & aggregate them by fn across USA
       tests_dy_us <- test_list$tests_daily[,
-                                            .('total_test_positives_daily' = sum(POSITIVE_daily, na.rm = T)), 
+                                            .('total_test_positives_daily' = sum(POSITIVE_daily, na.rm = T)),
                                             by = 'date'][,'HHS' := 'USA']
       # aggregate daily tests by HHS region
       tests_dy_hhs <- test_list$tests_daily[,
-                                             .('total_test_positives_daily' = sum(POSITIVE_daily, na.rm = T)), 
+                                             .('total_test_positives_daily' = sum(POSITIVE_daily, na.rm = T)),
                                              by = c('date', 'HHS')]
-      
+
       # get the weekly test tallies & aggregate them by fn across USA
       tests_wk_us <- test_list$tests_weekly[,
-                                            .('total_test_positives_weekly' = sum(POSITIVE, na.rm = T)), 
+                                            .('total_test_positives_weekly' = sum(POSITIVE, na.rm = T)),
                                             by = 'yr_wk'][,'HHS' := 'USA']
       # aggregate weekly tests by HHS region
       tests_wk_hhs <- test_list$tests_weekly[,
-                                             .('total_test_positives_weekly' = sum(POSITIVE, na.rm = T)), 
+                                             .('total_test_positives_weekly' = sum(POSITIVE, na.rm = T)),
                                              by = c('yr_wk', 'HHS')]
-      
-      
+
+
       # merge the daily positive test results in with the variant proportion estimates
       proj.res <- merge(
-        x = proj.res, 
+        x = proj.res,
         y = rbind(tests_dy_us,
-                  tests_dy_hhs), 
+                  tests_dy_hhs),
         by.x = c("USA_or_HHSRegion",
-                 "date"), 
+                 "date"),
         by.y = c('HHS',
                  'date'),
         all.x = TRUE)
-      
-      
+
+
       # merge the positive test results in with the variant proportion estimates
       proj.res <- merge(
-        x = proj.res, 
+        x = proj.res,
         y = rbind(tests_wk_us,
-                  tests_wk_hhs)[,'Week_ending' := as.Date(yr_wk) + 6][, 'yr_wk' := NULL], 
+                  tests_wk_hhs)[,'Week_ending' := as.Date(yr_wk) + 6][, 'yr_wk' := NULL],
         by.x = c("USA_or_HHSRegion",
-                 "Week_ending"), 
+                 "Week_ending"),
         by.y = c('HHS',
                  'Week_ending'),
         all.x = TRUE)
-      
+
       # calculate case totals for each variant
       proj.res$cases_daily    <- proj.res$total_test_positives_daily * proj.res$Share
       proj.res$cases_lo_daily <- proj.res$total_test_positives_daily * proj.res$Share_lo
       proj.res$cases_hi_daily <- proj.res$total_test_positives_daily * proj.res$Share_hi
-      
+
       proj.res$cases_weekly    <- proj.res$total_test_positives_weekly * proj.res$Share
       proj.res$cases_lo_weekly <- proj.res$total_test_positives_weekly * proj.res$Share_lo
       proj.res$cases_hi_weekly <- proj.res$total_test_positives_weekly * proj.res$Share_hi
     } else {
-      print(paste0('File ', 
-                   test_filepath, 
+      print(paste0('File ',
+                   test_filepath,
                    ' not found. Not calculating number of infections attributable to each variant for weeks.'))
     }
-    
+
   }
-  
+
   # Format output for the run 1 lineage list
   # only include variants that are NOT in the list provided
   run_1 = proj.res[proj.res$Variant %notin% c(AY_agg,
@@ -2647,53 +2710,53 @@ if ( grepl("Run3", tag) ){
                                    "nchs_flag",
                                    "nchs_flag_wodf")]
 
-  
+
   # optionally calculate the number of infections attributable to each variant
   if (calc_confirmed_infections){
-    test_filepath <- paste0(script.basename, 
-                            "/data/backup_", 
-                            data_date, "/", 
-                            data_date, "_tests_aggregated", 
+    test_filepath <- paste0(script.basename,
+                            "/data/backup_",
+                            data_date, "/",
+                            data_date, "_tests_aggregated",
                             custom_tag, ".RDS")
-    
+
     if (file.exists(test_filepath)){
       test_list <- readRDS(file = test_filepath)
-      
+
       # data_weeks <- as.numeric(state_time_end - week0day1) %/% 7
-      
+
       aso_list <- lapply(X = state_time_end, FUN = function(ste){
-        
+
         # get the tests for the given 4-week period
         tests_state <- test_list$tests_4weeks[ names(test_list$tests_4weeks) == ste ][[1]]
-        
+
         data.table::setnames(x = tests_state,
                              old = c('STUSAB', 'POSITIVE'),
                              new = c('State', 'total_test_positives'))
-        
+
         # merge the positive test results in with the variant proportion estimates
         merge(
-          x = all.state.out[ all.state.out$Roll_Fourweek_ending == ste, ], 
-          y = tests_state[, 'TOTAL' := NULL], 
-          by = c("State"), 
+          x = all.state.out[ all.state.out$Roll_Fourweek_ending == ste, ],
+          y = tests_state[, 'TOTAL' := NULL],
+          by = c("State"),
           all.x = TRUE)
       })
-      
+
       # combine the elements in the list
       all.state.out <- do.call(rbind, aso_list)
-      
+
       # calculate case totals for each variant
       all.state.out$cases    <- all.state.out$total_test_positives * all.state.out$Share
       all.state.out$cases_lo <- all.state.out$total_test_positives * all.state.out$Share_lo
       all.state.out$cases_hi <- all.state.out$total_test_positives * all.state.out$Share_hi
     } else {
-      print(paste0('File ', 
-                   test_filepath, 
+      print(paste0('File ',
+                   test_filepath,
                    ' not found. Not calculating number of infections attributable to each variant for fortnights.'))
     }
-    
+
   }
-  
-  
+
+
   # write results to file
   write.csv(x = all.state.out,
             file = paste0(script.basename,
