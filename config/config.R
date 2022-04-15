@@ -37,7 +37,7 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 data_date <- Sys.Date()
-# data_date <- as.Date('2022-04-07')
+data_date <- as.Date('2022-04-14')
 # I think this needs to be a date on which data were frozen in the CDP database,
 # which is often Thursdays.
 
@@ -59,7 +59,7 @@ custom_lineage_names <- c("BA.1+")
 # Set voc's for Run1
 voc1 = c(# "AY.1", "AY.2",
          # "BA.1",
-         # "BA.1.1",
+         "BA.1.1",
          "BA.2",
          "BA.2.12.1",
          "B.1.617.2", # Delta
@@ -85,7 +85,7 @@ voc2_manual = c(NA)
 # (this will not have any effect if "voc2_manual" is used)
 voc2_additional = c(#"AY.1", "AY.2",
                     "BA.1",
-                    # "BA.1.1",
+                    "BA.1.1",
                     "BA.2",
                     # "BA.2.12",
                     "BA.2.12.1",
@@ -114,7 +114,8 @@ voc3 = c("B.1.1.7",   # Alpha  # and Q.1 to 8*
          "P.2",       # Zeta
          "B.1.621",   # Mu
          "B.1.1.529", # Omicron # and BA.*
-         "BA.2")
+         "BA.2",
+         "BA.2.12.1")
 # define an alternate set of vocs
 voc3_reduced = voc1_reduced
 
