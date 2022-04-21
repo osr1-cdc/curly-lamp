@@ -166,7 +166,7 @@ options(survey.adjust.domain.lonely = T,
   # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
   force_aggregate_omicron <- TRUE
   # list omicron sublineages that will not be aggregated (if they are also in voc) (these are the only Omicron sublineages that will be permitted)
-  force_aggregate_omicron_except <- c('BA.1', 'BA.2', 'BA.3', 'BA.2.12.1') # 'BA.2.12', 'BA.1.1'
+  force_aggregate_omicron_except <- c('BA.1', 'BA.2', 'BA.3', 'BA.2.12.1', 'BA.1.1') # 'BA.2.12', 'BA.1.1'
 
   # force-aggregate Delta sublineages
   # this option will force any/all Delta sublineages that show up in the vocs to be
@@ -232,9 +232,10 @@ source(paste0(script.basename, "/weekly_variant_report_functions.R"))
 # (filtered genomic surveillance data)
 load(paste0(script.basename, "/data/svydat_", data_date, custom_tag, ".RData"))
 
-# filter out data that's older than we actually use
-svy.dat <- subset(svy.dat,
-                  yr_wk >= time_start)
+# # filter out data that's older than we actually use
+# # NOTE: this will prevent calculation of # of old sequences removed b/c of invalid lab name, invalid variant name, invalid weight
+# svy.dat <- subset(svy.dat,
+#                   yr_wk >= time_start)
 
 # create a tag for the filenames to differentiate results from different runs
 tag <- paste0("_",state_source,"_Run", opts$run_number, reduced_voc_tag, custom_tag)
@@ -351,11 +352,48 @@ for (vv in factor_columns) svy.dat[, vv] = as.character(svy.dat[, vv])
 # subset the survey data based on whether or not state-tagged data should be included
 if(state_source == "state_tag_included"){
 
-  # only include samples where both the lab and the variant are defined
-  src.dat = subset(x = svy.dat,
-                   SOURCE != "OTHER" &
-                     !is.na(VARIANT) &
-                     VARIANT != "None")
+   # index of sequences to be excluded b/c of invalid lab name
+   # NOTE! This does not include labs that are explicity excluded above by "remove_utahphl" and "remove_broad"
+   invalid_labname <- svy.dat$SOURCE == 'OTHER'
+   # index of sequences to be excluded b/c of invalid variant name
+   invalid_variant <- is.na(svy.dat$VARIANT) | svy.dat$VARIANT == "None"
+
+   # count sequences that are excluded by week
+   if(file.exists(paste0(script.basename, "/data/backup_",data_date, "/dropped_sequence_counts_", data_date, custom_tag, "_v1.csv"))){
+      # read in the counts of dropped sequences
+      dropped_sequences <- as.data.table(read.csv(file = paste0(script.basename, "/data/backup_",data_date, "/dropped_sequence_counts_", data_date, custom_tag, "_v1.csv")))[,'week' := as.Date(week)]
+
+      # invalid lab names
+      iln_by_wk <- svy.dat[ invalid_labname, .(count = .N), by = yr_wk]
+      iln_by_wk[,'yr_wk' := as.Date(yr_wk)]
+      # merge in the counts of invalid lab names
+      if(nrow(iln_by_wk) > 0)
+         dropped_sequences <- rbind(
+            dropped_sequences[!(week %in% iln_by_wk$yr_wk & reason == 'n_dropped_invalid_lab_name')],
+            iln_by_wk[, .('week' = yr_wk, 'reason' = 'n_dropped_invalid_lab_name', 'count' = count)]
+         )
+      # fill in 0's for rows that didn't have any sequences dropped
+      dropped_sequences[is.na(count) & reason == 'n_dropped_invalid_lab_name', 'count' := 0]
+
+
+
+      # invalid variant names
+      iv_by_wk <- svy.dat[ invalid_variant, .(count = .N), by = yr_wk]
+      iv_by_wk[,'yr_wk' := as.Date(yr_wk)]
+      # merge in the counts of invalid variant name
+      if(nrow(iv_by_wk) > 0)
+         dropped_sequences <- rbind(
+            dropped_sequences[!(week %in% iv_by_wk$yr_wk & reason == 'n_dropped_invalid_variant_name')],
+            iv_by_wk[, .('week' = yr_wk, 'reason' = 'n_dropped_invalid_variant_name', 'count' = count)]
+         )
+      # fill in 0's for rows that didn't have any sequences dropped
+      dropped_sequences[is.na(count) & reason == 'n_dropped_invalid_variant_name', 'count' := 0]
+   }
+   # only include samples where both the lab and the variant are defined
+   src.dat = subset(x = svy.dat,
+                   !invalid_labname & # SOURCE != "OTHER"
+                     !invalid_variant & # !is.na(VARIANT) & VARIANT != "None"
+                      yr_wk >= time_start) # filter out old sequences to speed everything up
 } else {
   # only include samples from these labs (i.e. no state-tagged data)
   src.dat = subset(x = svy.dat,
@@ -492,11 +530,35 @@ if(nrow(inf_weights)>0){
 }
 
 # Remove NA and INF weights
+{
+   # index of sequences to be excluded b/c of invalid weights
+   invalid_weight <- is.na(src.dat$SIMPLE_ADJ_WT) | is.infinite(src.dat$SIMPLE_ADJ_WT)
+
+   # count sequences excluded b/c of invalid weights
+   if(exists('dropped_sequences')){
+      iw_by_wk <- src.dat[ invalid_weight, .(count = .N), by = yr_wk]
+      # merge in the counts of invalid weights
+      if(nrow(iw_by_wk) > 0){
+         iw_by_wk[,'yr_wk' := as.Date(yr_wk)]
+
+         dropped_sequences <- rbind(
+            dropped_sequences[!(week %in% iw_by_wk$yr_wk & reason == 'n_dropped_invalid_weight')],
+            iw_by_wk[, .('week' = yr_wk, 'reason' = 'n_dropped_invalid_weight', 'count' = count)]
+         )
+      }
+
+      # fill in 0's for rows that didn't have any sequences dropped
+      dropped_sequences[week %in% as.Date(unique(src.dat$yr_wk)) & is.na(count) & reason == 'n_dropped_invalid_weight', 'count' := 0]
+
+      # save the dropped_sequence data.table again
+      write.csv(x = dropped_sequences[order(week, count, decreasing = T)],
+                file = paste0(script.basename, "/data/backup_",data_date, "/dropped_sequence_counts_", data_date, custom_tag, ".csv"),
+                row.names = F)
+   }
+}
+# remove sequences excluded b/c of invalid weights
 src.dat = subset(x = src.dat,
-                 !is.na(SIMPLE_ADJ_WT) &
-                   SIMPLE_ADJ_WT < Inf)
-
-
+                 !invalid_weight)
 
 ### aggregate sublineages ------------------------------------------------------
 # make sure "VARIANT" is a character (rather than factor)

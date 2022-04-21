@@ -581,9 +581,74 @@ saveRDS(pops,
 # abbreviation is incorrect, or the collection data is prior to October 2019.
 # An HHS Region variable is merged in.
 
+# Keep track of why sequences are dropped from the analysis
+{
+   # get number of duplicate rows by week from dat
+   dat.dt <- as.data.table(dat) # much faster as a data.table
+   # add in a column for week
+   dat.dt[, 'date' := as.Date(primary_collection_date)]
+   dat.dt[is.na(date), 'date' := as.Date(primary_collection_date_dt)] # fill in missing values
+   dat.dt[, 'week' := (date - as.numeric(strftime(date, format="%w")))]
+
+   # get counts of original sequences by week
+   cnt_by_wk <- dat.dt[, .('count' = .N), by = 'week']
+
+   # get counts of duplicated entries by week
+   dups_by_wk <- dat.dt[
+      duplicated(dat.dt, by = names(dat.dt)), # filter only duplicated rows
+      ][,
+        .('count' = .N), # count number of rows by week
+        by = 'week']
+
+   # weeks in the analysis
+   wks <- seq(from = week0day1,
+              to = data_date - as.numeric(format(data_date, '%w')),
+              by = 7)
+   # weeks that are in the data
+   datwks <- unique(dat.dt$week)
+   # combine all the weeks
+   allwks <- sort(unique(c(wks, datwks)))
+
+   # long data.table to hold results
+   dropped_sequences <- as.data.table(
+      expand.grid(
+         'week'   = allwks,
+         'reason' = c('n_original',
+                      'n_dropped_duplicates',
+                      'n_dropped_not_human',
+                      'n_dropped_not_US',
+                      'n_dropped_invalid_state',
+                      'n_dropped_invalid_date',
+                      'n_dropped_CDC_lab',
+                      'n_dropped_labs_100_seqs',
+                      'n_dropped_invalid_lab_name',
+                      'n_dropped_invalid_variant_name',
+                      'n_dropped_invalid_weight'
+         )
+      )
+   )
+
+   # merge in the total sequence counts
+   dropped_sequences <- merge(
+      x = dropped_sequences,
+      y = cnt_by_wk[, .('week' = week, 'count' = count, 'reason' = 'n_original')],
+      by = c('week', 'reason'),
+      all.x = TRUE
+   )
+   # fill in 0's for rows that didn't have any sequences dropped
+   dropped_sequences[is.na(count) & reason == 'n_original', 'count' := 0]
+
+   # merge in the counts of dropped sequences
+   dropped_sequences <- rbind(
+      dropped_sequences[!(week %in% dups_by_wk$week & reason == 'n_dropped_duplicates')],
+      dups_by_wk[, .('week' = week, 'reason' = 'n_dropped_duplicates', 'count' = count)]
+   )
+   # fill in 0's for rows that didn't have any sequences dropped
+   dropped_sequences[is.na(count) & reason == 'n_dropped_duplicates', 'count' := 0]
+}
 
 ## exclude duplicates from each table
-dat      = distinct(dat)
+dat      = distinct(dat.dt) # use the data.table version to speed up calculation of why sequences are being dropped
 pangolin = distinct(pangolin)
 baseline = distinct(baseline)
 tests    = distinct(tests)
@@ -626,12 +691,54 @@ hhs$HHS = sapply(X = hhs$STUSAB, FUN = grep, HHS_reg)
 
 # U.S., legitimately coded states, human host
 # (dat may already be subset to US, but retained for backward compatibility)
+{
+   # count sequences being dropped by week
+   prim_country_US <- dat$primary_country %in% c("United States", "USA")
+   prim_host_human <- dat$primary_host == "Human"
+
+   # counts of non-US sequences by week
+   nonUS_by_wk <- dat[ (!prim_country_US) | is.na(prim_country_US), .('count' = .N), by = 'week']
+   # merge in the counts of non-US sequences
+   if(nrow(nonUS_by_wk) > 0)
+      dropped_sequences <- rbind(
+         dropped_sequences[!(week %in% nonUS_by_wk$week & reason == 'n_dropped_not_US')],
+         nonUS_by_wk[, .('week' = week, 'reason' = 'n_dropped_not_US', 'count' = count)]
+      )
+   # fill in 0's for rows that didn't have any sequences dropped
+   dropped_sequences[is.na(count) & reason == 'n_dropped_not_US', 'count' := 0]
+
+   # counts of non-human sequences by week
+   nonhuman_by_wk <- dat[ (!prim_host_human) | is.na(prim_host_human), .('count' = .N), by = 'week']
+   # merge in the counts of non-US sequences
+   if(nrow(nonhuman_by_wk) > 0)
+      dropped_sequences <- rbind(
+         dropped_sequences[!(week %in% nonhuman_by_wk$week & reason == 'n_dropped_not_human')],
+         nonhuman_by_wk[, .('week' = week, 'reason' = 'n_dropped_not_human', 'count' = count)]
+      )
+   # fill in 0's for rows that didn't have any sequences dropped
+   dropped_sequences[is.na(count) & reason == 'n_dropped_not_human', 'count' := 0]
+}
 us.dat = subset(x = dat,
-                primary_country %in% c("United States", "USA") &
-                  primary_host == "Human")
+                prim_country_US & prim_host_human)
+
 # Subset to exclude faulty state abbreviations
+{
+   # get counts of faulty state abbreviations by week
+   valid_state_abb <- nchar(us.dat$primary_state_abv) == 2
+
+   # counts of faulty state abbreviations by week
+   fs_by_wk <- us.dat[ (!valid_state_abb) | is.na(valid_state_abb), .('count' = .N), by = 'week']
+   # merge in the counts of faulty state abbreviations
+   if(nrow(fs_by_wk) > 0)
+      dropped_sequences <- rbind(
+         dropped_sequences[!(week %in% fs_by_wk$week & reason == 'n_dropped_invalid_state')],
+         fs_by_wk[, .('week' = week, 'reason' = 'n_dropped_invalid_state', 'count' = count)]
+      )
+   # fill in 0's for rows that didn't have any sequences dropped
+   dropped_sequences[is.na(count) & reason == 'n_dropped_invalid_state', 'count' := 0]
+}
 us.dat = subset(x = us.dat,
-                nchar(primary_state_abv) == 2)
+                valid_state_abb)
 
 ## Disambiguate and remove unreasonable dates
 # convert collection date to "date" format
@@ -650,14 +757,27 @@ if ("contractor_receive_date_to_cdc" %in% names(us.dat)) {
   us.dat$contractor_receive_date_to_cdc = as.Date(us.dat$contractor_receive_date_to_cdc)
 }
 
-# Add a column for the date of the first day of the week
+# Add a column for the date of the first day of the week [should be the same as "week" calculated above]
 us.dat$yr_wk = as.character(us.dat$collection_date - as.numeric(strftime(us.dat$collection_date, format="%w")))
 # Add a column for the # of days since the start date (first Sunday of 2020)
 us.dat$DAY = as.numeric(us.dat$collection_date - week0day1)
 
 # exclude unreasonably early dates
+{
+   valid_dates <- us.dat$collection_date >= as.Date("2019-10-01")
+   # counts of invalid dates by week
+   id_by_wk <- us.dat[ (!valid_dates) | is.na(valid_dates), .('count' = .N), by = 'week']
+   # merge in the counts of faulty state abbreviations
+   if(nrow(id_by_wk) > 0)
+      dropped_sequences <- rbind(
+         dropped_sequences[!(week %in% id_by_wk$week & reason == 'n_dropped_invalid_date')],
+         id_by_wk[, .('week' = week, 'reason' = 'n_dropped_invalid_date', 'count' = count)]
+      )
+   # fill in 0's for rows that didn't have any sequences dropped
+   dropped_sequences[is.na(count) & reason == 'n_dropped_invalid_date', 'count' := 0]
+}
 us.dat = subset(x = us.dat,
-                collection_date >= as.Date("2019-10-01"))
+                valid_dates)
 
 # merge Pangolin lineage into us.dat
 us.dat = merge(x = us.dat,
@@ -1055,6 +1175,7 @@ svy.dat = data.table::data.table(
 # svy.dat$LAB[is.na(svy.dat$LAB)] = "OTHER"
 svy.dat[ is.na(LAB), LAB := "OTHER"]
 
+# redefine "week" field
 # add a column for number of weeks since start of 2020
 # svy.dat$week = as.numeric(as.Date(svy.dat$yr_wk) - week0day1)/7
 svy.dat[, 'week' := as.numeric(as.Date(svy.dat$yr_wk) - week0day1)/7]
@@ -1509,7 +1630,42 @@ low_lab <- check_count$LAB2[ check_count$count < 100 ]
 
 # Drop sequences from sources with less than 100 samples or were listed as CDC sequenced
 #svy.dat <- svy.dat[svy.dat$LAB2 %notin% c("CDC",low_lab), ]
+{
+   # sequences that were from "CDC"
+   cdc_seqs <- svy.dat$LAB2 == 'CDC'
+   # sequences from labs with few samples
+   low_lab_seqs <- svy.dat$LAB2 %in% low_lab
+
+   # counts of CDC sequences by week
+   cdc_by_wk <- us.dat[ cdc_seqs, .('count' = .N), by = 'yr_wk']
+   cdc_by_wk[, 'yr_wk' := as.Date(yr_wk)]
+   # merge in the counts of CDC sequences by week
+   if(nrow(cdc_by_wk) > 0)
+      dropped_sequences <- rbind(
+         dropped_sequences[!(week %in% cdc_by_wk$yr_wk & reason == 'n_dropped_CDC_lab')],
+         cdc_by_wk[, .('week' = yr_wk, 'reason' = 'n_dropped_CDC_lab', 'count' = count)]
+      )
+   # fill in 0's for rows that didn't have any sequences dropped
+   dropped_sequences[is.na(count) & reason == 'n_dropped_CDC_lab', 'count' := 0]
+
+   # counts of low lab sequences by week
+   low_by_wk <- us.dat[ low_lab_seqs, .('count' = .N), by = 'yr_wk']
+   low_by_wk[, 'yr_wk' := as.Date(yr_wk)]
+   # merge in the counts of low lab sequences by week
+   if(nrow(low_by_wk) > 0)
+      dropped_sequences <- rbind(
+         dropped_sequences[!(week %in% low_by_wk$yr_wk & reason == 'n_dropped_labs_100_seqs')],
+         low_by_wk[, .('week' = yr_wk, 'reason' = 'n_dropped_labs_100_seqs', 'count' = count)]
+      )
+   # fill in 0's for rows that didn't have any sequences dropped
+   dropped_sequences[is.na(count) & reason == 'n_dropped_labs_100_seqs', 'count' := 0]
+}
 svy.dat <- svy.dat[LAB2 %notin% c("CDC",low_lab), ]
+
+# save the dropped_sequences counts b/c that's all that's calculated in this script
+write.csv(x = dropped_sequences,
+          file = paste0(script.basename, "/data/backup_",data_date, "/dropped_sequence_counts_", data_date, custom_tag, "_v1.csv"),
+          row.names = F)
 
 # print('table of omicron sequences from labs with > 100 sequences:')
 # table(svy.dat$VARIANT[grep('(B\\.1\\.1\\.529)|(BA\\.[0-9])', x = svy.dat$VARIANT)])
