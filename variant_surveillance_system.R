@@ -1408,6 +1408,24 @@ labnames_df_in <- data.frame(old_name = IN_labs_to_agg,
                              new_name = 'INDIANA STATE DEPARTMENT OF HEALTH LABORATORY SERVICES')
 svy.dat[LAB %in% IN_labs_to_agg, 'LAB2' := labnames_df_in$new_name[1]]
 
+# added 2022-04-28 (Wake Forest & Michigan)
+# Aggregate Wake Forest names
+WF_labs_to_agg <- grep(pattern = 'WAKE FOREST',
+                         x = unique_labs,
+                         ignore.case = T,
+                         value = T)
+labnames_df_wf <- data.frame(old_name = WF_labs_to_agg,
+                             new_name = "WAKE FOREST SCHOOL OF MEDICINE, INTERNAL MEDICINE")
+svy.dat[LAB %in% WF_labs_to_agg, 'LAB2' := labnames_df_wf$new_name[1]]
+
+# aggregate Michigan DoHHS
+MI_labs_to_agg <- grep(pattern = 'MICHIGAN DEPARTMENT',
+                         x = unique_labs,
+                         ignore.case = T,
+                         value = T)
+labnames_df_mi <- data.frame(old_name = MI_labs_to_agg,
+                             new_name = "MICHIGAN DEPARTMENT OF HEALTH AND HUMAN SERVICES")
+svy.dat[LAB %in% MI_labs_to_agg, 'LAB2' := labnames_df_mi$new_name[1]]
 
 # Other labs that might be duplicates, but that I have not combined:
 # 1. "INFECTIOUS DISEASE PROGRAM, BROAD INSTITUTE OF HARVARD AND MIT"
@@ -1416,6 +1434,14 @@ svy.dat[LAB %in% IN_labs_to_agg, 'LAB2' := labnames_df_in$new_name[1]]
 # 2. "RIPHL AT RUSH UNIVERSITY MEDICAL CENTER"
 # 2. "RUSH UNIVERSITY MEDICAL CENTER"
 # 2. "RHODE ISLAND STATE HEALTH LABORATORY"
+
+# 3. "WADSWORTH CENTER, NEW YORK STATE DEPARTMENT OF HEALTH"
+# 3. "NEW YORK CITY PUBLIC HEALTH LABORATORY"
+
+# 4. "MASS GENERAL BRIGHAM"
+# 4. "MASSACHUSETTS GENERAL HOSPITAL"
+
+
 
 # create a dataframe of all the lab names that were changed
 labnames_df <- rbind(
@@ -1438,7 +1464,9 @@ labnames_df <- rbind(
   labnames_df_sj,
   labnames_df_sdl,
   labnames_df_bva,
-  labnames_df_in
+  labnames_df_in,
+  labnames_df_wf,
+  labnames_df_mi
 )
 
 # print the list of lab names that were changed to the console
@@ -1490,7 +1518,7 @@ print(sort(unique_labs[unique_labs %notin% labnames_df$old_name]))
 
 # save the list of lab names that were changed to file
 write.csv(x = labnames_df,
-          file = paste0('./data/lab_name_updates_', data_date, '.csv'),
+          file = paste0(script.basename, '/data/backup_', data_date, '/lab_name_updates_', data_date, '.csv'),
           row.names = F)
 
 # Get counts of samples by lab
@@ -1575,7 +1603,7 @@ saveRDS(object = check_count,
          temp[, 'new_date':= data_date]
          temp[, 'old_date':= regmatches(previous_file,regexpr('[0-9]{4}-[0-9]{2}-[0-9]{2}',previous_file))]
          print('sequences were lost from these lab-week combinations:')
-         print(temp)
+         print(temp[order(yr_wk),], nrow=500) # nrow is a data.table-specific argument
          write.csv(x = temp,
                    file = paste0(script.basename,
                                  "/data/backup_",
@@ -1589,7 +1617,7 @@ saveRDS(object = check_count,
       temp <- cbw[ yr_wk <= (data_date - 8*7) & N_net > 0]
       if(nrow(temp)> 0){
          print('sequences were added to these old lab-week combinations:')
-         print(temp)
+         print(temp[order(yr_wk)], nrow=500) # nrow is a data.table-specific argument
          write.csv(x = temp,
                    file = paste0(script.basename,
                                  "/data/backup_",

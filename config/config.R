@@ -37,9 +37,8 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 data_date <- Sys.Date()
-data_date <- as.Date('2022-04-21')
-# I think this needs to be a date on which data were frozen in the CDP database,
-# which is often Thursdays.
+# data_date <- as.Date('2022-04-21')
+# This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script. 
@@ -60,7 +59,7 @@ custom_lineage_names <- c("BA.1+")
 # Set voc's for Run1
 voc1 = c(# "AY.1", "AY.2",
          # "BA.1",
-         # "BA.1.1",
+         "BA.1.1",
          "BA.2",
          "BA.2.12.1",
          "B.1.617.2", # Delta
@@ -86,7 +85,7 @@ voc2_manual = c(NA)
 # (this will not have any effect if "voc2_manual" is used)
 voc2_additional = c(#"AY.1", "AY.2",
                     "BA.1",
-                    # "BA.1.1",
+                    "BA.1.1",
                     "BA.2",
                     # "BA.2.12",
                     "BA.2.12.1",
@@ -221,10 +220,12 @@ display_option = c("top7", "voc")[1]
 # number of weeks (up to current_week) to include in plots
 display_lookback = 8
 
-# start time to filter out old data (but this isn't actually used for any estimates; just to speed up processing of the overall dataset)
-# number of weeks to produce "weighted"/"thencast" estimates
+# define a start time to filter out old data 
+# (this is intended to speed up processing of the overall dataset)
+# number of weeks to produce "weighted"/"thencast" estimates 
 weighted_weeks <- 12
-# start-time for the weighted estimates (this speeds up calculations by only calculating weighted variant proportions for the most recent "weighted_weeks")
+# start-time for the weighted estimates 
+# (this speeds up calculations by only calculating weighted variant proportions for the most recent "weighted_weeks")
 # time_start_weights <- time_end - 6 - weighted_weeks*7
 time_start_weights <- as.Date('2021-05-02') # keep using week of (2021-05-02 to 2021-05-08) for consistency
 # start time will be the earlier of: 1) time_start_weights; 2) "model_weeks" before time_end
