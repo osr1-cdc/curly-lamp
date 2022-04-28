@@ -1435,11 +1435,12 @@ svy.dat[LAB %in% MI_labs_to_agg, 'LAB2' := labnames_df_mi$new_name[1]]
 # 2. "RUSH UNIVERSITY MEDICAL CENTER"
 # 2. "RHODE ISLAND STATE HEALTH LABORATORY"
 
-# 3. "WADSWORTH CENTER, NEW YORK STATE DEPARTMENT OF HEALTH"
-# 3. "NEW YORK CITY PUBLIC HEALTH LABORATORY"
+# 3. "MASS GENERAL BRIGHAM"
+# 3. "MASSACHUSETTS GENERAL HOSPITAL"
 
-# 4. "MASS GENERAL BRIGHAM"
-# 4. "MASSACHUSETTS GENERAL HOSPITAL"
+# These definitely are not the same lab
+# "WADSWORTH CENTER, NEW YORK STATE DEPARTMENT OF HEALTH"
+# "NEW YORK CITY PUBLIC HEALTH LABORATORY"
 
 
 
@@ -1608,7 +1609,7 @@ saveRDS(object = check_count,
                    file = paste0(script.basename,
                                  "/data/backup_",
                                  data_date, "/", data_date,
-                                 "_lost_sequences_",
+                                 "_lost_sequences",
                                  custom_tag, ".csv"),
                    row.names = F)
       }
@@ -1622,7 +1623,7 @@ saveRDS(object = check_count,
                    file = paste0(script.basename,
                                  "/data/backup_",
                                  data_date, "/", data_date,
-                                 "_old_sequence_additions_",
+                                 "_old_sequence_additions",
                                  custom_tag, ".csv"),
                    row.names = F)
       }
