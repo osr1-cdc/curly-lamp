@@ -1427,6 +1427,17 @@ labnames_df_mi <- data.frame(old_name = MI_labs_to_agg,
                              new_name = "MICHIGAN DEPARTMENT OF HEALTH AND HUMAN SERVICES")
 svy.dat[LAB %in% MI_labs_to_agg, 'LAB2' := labnames_df_mi$new_name[1]]
 
+# added 2022-05-12 (Connecticut)
+# Aggregate Connecticut names
+CT_labs_to_agg <- grep(pattern = '(CT)|(Connecticut) department of public health',
+                         x = unique_labs,
+                         ignore.case = T,
+                         value = T)
+labnames_df_ct <- data.frame(old_name = CT_labs_to_agg,
+                             new_name = "CT DPH")
+svy.dat[LAB %in% CT_labs_to_agg, 'LAB2' := labnames_df_ct$new_name[1]]
+
+
 # Other labs that might be duplicates, but that I have not combined:
 # 1. "INFECTIOUS DISEASE PROGRAM, BROAD INSTITUTE OF HARVARD AND MIT"
 # 1. "BROAD INSTITUTE"
@@ -1438,11 +1449,16 @@ svy.dat[LAB %in% MI_labs_to_agg, 'LAB2' := labnames_df_mi$new_name[1]]
 # 3. "MASS GENERAL BRIGHAM"
 # 3. "MASSACHUSETTS GENERAL HOSPITAL"
 
+# CONNECTICUT DEPARTMENT OF PUBLIC HEALTH
+# CT DEPARTMENT OF PUBLIC HEALTH
+
+# "OREGON SARS-COV-2 GENOME SEQUENCING CENTER"
+# "OREGON STATE PUBLIC HEALTH LABORATORY"
+
+
 # These definitely are not the same lab
 # "WADSWORTH CENTER, NEW YORK STATE DEPARTMENT OF HEALTH"
 # "NEW YORK CITY PUBLIC HEALTH LABORATORY"
-
-
 
 # create a dataframe of all the lab names that were changed
 labnames_df <- rbind(
@@ -1467,7 +1483,8 @@ labnames_df <- rbind(
   labnames_df_bva,
   labnames_df_in,
   labnames_df_wf,
-  labnames_df_mi
+  labnames_df_mi,
+  labnames_df_ct
 )
 
 # print the list of lab names that were changed to the console
