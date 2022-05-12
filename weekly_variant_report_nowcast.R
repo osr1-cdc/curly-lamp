@@ -149,7 +149,7 @@ options(survey.adjust.domain.lonely = T,
   # Option to just fit the nowcast model and avoid the slower parts of the script
   # (this is only valid if the run number == 2)
   # this can be removed eventually. It's here to make it easier to make updates to the Nowcast model.
-  nowcast_only = TRUE
+  nowcast_only = FALSE
 
   # This is an option that probably won't be used, but I don't want to delete it yet
   # so it's hiding here just in case I want to use it again.
@@ -166,7 +166,7 @@ options(survey.adjust.domain.lonely = T,
   # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
   force_aggregate_omicron <- TRUE
   # list omicron sublineages that will not be aggregated (if they are also in voc) (these are the only Omicron sublineages that will be permitted)
-  force_aggregate_omicron_except <- c('BA.1', 'BA.2', 'BA.3', 'BA.2.12.1', 'BA.1.1') # 'BA.2.12', 'BA.1.1'
+  force_aggregate_omicron_except <- c('BA.1', 'BA.2', 'BA.3', 'BA.2.12.1') # 'BA.2.12', 'BA.1.1'
 
   # force-aggregate Delta sublineages
   # this option will force any/all Delta sublineages that show up in the vocs to be
