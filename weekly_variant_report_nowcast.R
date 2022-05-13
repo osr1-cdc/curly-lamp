@@ -166,7 +166,7 @@ options(survey.adjust.domain.lonely = T,
   # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
   force_aggregate_omicron <- TRUE
   # list omicron sublineages that will not be aggregated (if they are also in voc) (these are the only Omicron sublineages that will be permitted)
-  force_aggregate_omicron_except <- c('BA.1', 'BA.2', 'BA.3', 'BA.2.12.1') # 'BA.2.12', 'BA.1.1'
+  force_aggregate_omicron_except <- c('BA.1', 'BA.2', 'BA.3', 'BA.2.12.1', 'BA.1.1') # 'BA.2.12', 'BA.1.1'
 
   # force-aggregate Delta sublineages
   # this option will force any/all Delta sublineages that show up in the vocs to be
@@ -681,22 +681,33 @@ if(trim_weights){
 # the reason for this is b/c large values of "week" were causing non-invertible hessians in the nowcast model.
 # could scale "week" using mean and SD. This is just another option.
 # NOTE! When switching to this method, I also switched to fitting the model to
-#       20 weeks instead of 21 weeks.
+#       20 weeks instead of 21 weeks. (then when switching back to 21 weeks, it screwed up this method a little)
 # maximum week (not maximum "model_week") included in the model
 model_week_max = as.numeric(as.Date(time_end) - week0day1) %/% 7
+### SHOULD THIS BE BASED ON TIME_END OR ON DATA_DATE???
+
 # first week (not first "model_week") included in the model
 model_week_min = model_week_max - model_weeks
 # a midpoint week that will be used to center week values
 # this is also the maximum value of "model_week"
 model_week_mid = round(model_weeks/2) # center it around 0 instead of using 1:model_weeks
 # create a dataframe of old and new values to help visualize things
-model_week_df = data.frame(week = 1:model_weeks + model_week_min,
+model_week_df = data.frame(week       = 1:model_weeks + model_week_min,
                            model_week = 1:model_weeks - model_week_mid,
                            week_start = (1:model_weeks + model_week_min)*7 + as.Date(week0day1),
                            week_mid   = (1:model_weeks + model_week_min)*7 + as.Date(week0day1) + 3,
                            week_end   = (1:model_weeks + model_week_min)*7 + as.Date(week0day1) + 6)
 # add the new model_week info to the dataframe
 src.dat$model_week = src.dat$week - model_week_min - model_week_mid
+
+# data week (this might be the same as the last week in "model_week_df", or it might be 1 week after; it depends on "time_end")
+data_week_df = data.frame(
+   week       = current_week, # "current_week" is defined in config.R: as.numeric(data_date - week0day1) %/% 7
+   model_week = current_week - model_week_min - model_week_mid,
+   week_start = (data_date - as.numeric(format(data_date, '%w'))),
+   week_mid   = (data_date - as.numeric(format(data_date, '%w'))) + 3,
+   week_end   = (data_date - as.numeric(format(data_date, '%w'))) + 6
+)
 
 # a function to convert dates to model_week
 # (used in making predictions with Nowcast model)
@@ -708,6 +719,8 @@ date_to_model_week = function(date){
   week = as.numeric(as.Date(date) - (week0day1+3)) / 7
   return(week - model_week_min - model_week_mid)
 }
+
+
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # Background
@@ -1338,7 +1351,7 @@ if ( grepl("Run2",tag) ){
 
   ### subset src.dat (only include the weeks that are in the multinomial model) ----
   src.moddat = subset(src.dat,
-                      model_week %in% ((1:model_weeks)-model_week_mid))
+                      model_week %in% ((1:model_weeks)-model_week_mid)) # same as model_week_df$model_week
   # this filter now incorporates time_end; the previous filter (week >= max(week) - model_weeks) did not.
 
   # scale the data weights to help avoid numerical overflow in the multinomial model
@@ -1445,7 +1458,8 @@ if ( grepl("Run2",tag) ){
   # (only used for barplot below)
   bp_us = xtabs(formula = NORM_WTS ~ model_week + VARIANT,
                 data = src.dat,
-                subset = src.dat$model_week %in% ((model_week_mid - display_lookback + 1):model_week_mid))
+                subset = src.dat$model_week %in% ((data_week_df$model_week - 2 - display_lookback + 1):(data_week_df$model_week - 2))) #  ((model_week_mid - display_lookback + 1):model_week_mid))
+  # DOUBLE-CHECK THAT THIS ALWAYS WORKS!
 
   # Normalize values to proportions
   bp_us = prop.table(bp_us, 1)
@@ -1456,7 +1470,8 @@ if ( grepl("Run2",tag) ){
   # give the table prettier column names
   # rownames(bp_us) = week_label(as.numeric(rownames(bp_us)) - current_week)
   rownames(bp_us) = format(
-    x = ((as.numeric(rownames(bp_us)) + model_week_mid) + model_week_min) * 7 + as.Date(week0day1),
+    x = ((as.numeric(rownames(bp_us)) + data_week_df$model_week - 2) + model_week_min) * 7 + as.Date(week0day1),
+    # x = ((as.numeric(rownames(bp_us)) + model_week_mid) + model_week_min) * 7 + as.Date(week0day1), # DOUBLE-CHECK THAT THIS IS ALWAYS GIVING THE CORRECT WEEKS
     format = '%m-%d'
   )
 
@@ -1483,7 +1498,7 @@ if ( grepl("Run2",tag) ){
   text(x = bp,
        y = 3 + colSums(100 * t(tail(bp_us, 12))),
        labels = with(subset(src.dat,
-                            week < current_week &
+                            week < current_week - 1 &
                               week >= current_week - display_lookback),
                      table(week)),
        cex = 0.7)
@@ -1491,10 +1506,12 @@ if ( grepl("Run2",tag) ){
 
 
   ### barplot of model-predicted data (national) ----
+  # note: the x-axis labels are at the week midpoint, but labeled with week starting date
+
   # create a dataframe for predictions for each week
   pred_us.df = expand.grid(model_week = seq(from = -display_lookback,
-                                            to = 2,
-                                            by = (1/7)) + (model_weeks - model_week_mid))
+                                            to = 2, # go 2 weeks into the future
+                                            by = (1/7)) + data_week_df$model_week)
 
   #add a column for (predicted) each variant proportion for each timepoint
   pred_us.df = cbind(pred_us.df,
@@ -1523,7 +1540,7 @@ if ( grepl("Run2",tag) ){
                ylim = 110 * 0:1,
                col = col.dk,
                names.arg = ifelse(test = pred_us.df$model_week %% 1 == 0,
-                                  yes = format(((pred_us.df$model_week + model_week_mid) + model_week_min) * 7 + as.Date(week0day1), format = '%m-%d'),
+                                  yes = format(((pred_us.df$model_week + (data_week_df$model_week - 2)) + model_week_min) * 7 + as.Date(week0day1), format = '%m-%d'),
                                   no = NA),
                legend.text = display_vars,
                args.legend = list(x = "topleft",
@@ -1534,36 +1551,53 @@ if ( grepl("Run2",tag) ){
   # pc = unlist(100 * subset(pred_us.df,
   #                          week==current_week)[, 1+display_indices])
   pc = unlist(100 * subset(pred_us.df,
-                           model_week == model_week_mid)[, 1+display_indices])
+                           model_week == data_week_df$model_week)[, 1+display_indices])
 
   # define a y-value for the text to be added to the plot
   y = cumsum(pc) - pc/2
 
+  # define x-values for grey boxes signifying that recent data is likely incomplete
+  # x = bp[which(pred_us.df$week %in% (current_week + c(-2, 0, 2)))]
+  x <- bp[which(pred_us.df$model_week %in% (data_week_df$model_week + c(-2, 0, 2)))]
+
   # add text to the plot
-  text(x = 1.02 * tail(bp, 1),
+  text(x = x[2], # 1.02 * tail(bp, 1),
        y = y,
        labels = round(pc, 1),
        cex = 0.7,
        xpd = TRUE,
-       adj = c(0, 0.5))
-
-  # define x-values for grey boxes signifying that recent data is likely incomplete
-  # x = bp[which(pred_us.df$week %in% (current_week + c(-2, 0, 2)))]
-  x = bp[which(pred_us.df$model_week %in% (model_week_mid + c(-2, 0, 2)))]
+       adj = c(0.5, 0.5))
 
   # add grey rectangles to plot
-  rect(xleft   = x[1],
+  rect(xleft   = x[1] + (x[2]-x[1])*.25, # shift it over by 1/2 week so that it is centered on individual weeks
        ybottom = 0,
-       xright  = x[2],
+       xright  = x[2] + (x[3]-x[2])*.25,
        ytop    = 100,
        border  = NA,
        col = "#00000020")
-  rect(xleft   = x[2],
+  # abline(v = x[2],
+  #        lty = 2, color = 'grey20')
+
+  # add text to the plot
+  text(x = mean(c(x[1], x[2])) + (x[2]-x[1])*.25,
+       y = 101,
+       labels = 'Nowcast',
+       cex = 0.7,
+       xpd = TRUE,
+       adj = c(0.5, 0))
+   rect(xleft   = x[2] + (x[3]-x[2])*.25,
        ybottom = 0,
        xright  = x[3],
        ytop    = 100,
        border  = NA,
        col = "#00000040")
+   # add text to the plot
+   text(x = mean(c(x[2], x[3]))+ (x[2]-x[1])*.125,
+        y = 101,
+        labels = 'Future',
+        cex = 0.7,
+        xpd = TRUE,
+        adj = c(0.5, 0))
   if (fig_gen_run) dev.off()
 
   ### WoW growth rate vs. transmission ----
@@ -1575,7 +1609,7 @@ if ( grepl("Run2",tag) ){
   # Get the SE of the national estimate
   us.summary = se.multinom(mlm   = svymlm_us$mlm,
                            newdata_1row = data.frame(
-                             model_week = model_week_mid,
+                             model_week = data_week_df$model_week, # formerly "model_week_mid", but that doesn't always work
                              HHS = "USA"))
 
   # calculate the SE of the estimated growth rate
@@ -1607,6 +1641,33 @@ if ( grepl("Run2",tag) ){
   doubling_time_lo = log(2)/gr_lo_link * 7
   doubling_time_hi = log(2)/gr_hi_link * 7
 
+  # create a dataframe of variant shares & growth rates
+  gr_tab = data.frame(variant          = c(model_vars, "OTHER"),
+                      variant_share    = (100 * us.summary$p_i),
+                      variant_share_lo = 100 * (us.summary$p_i - 1.96 * us.summary$se.p_i),
+                      variant_share_hi = 100 * (us.summary$p_i + 1.96 * us.summary$se.p_i),
+                      growth_rate      = gr,
+                      growth_rate_lo   = gr_lo,
+                      growth_rate_hi   = gr_hi,
+                      doubling_time    = doubling_time,
+                      doubling_time_lo = doubling_time_lo,
+                      doubling_time_hi = doubling_time_hi,
+                      model_week       = data_week_df$model_week)
+
+  # merge in date
+  gr_tab <- merge(gr_tab,
+                  data_week_df,
+                  by = 'model_week')
+
+  # save growth rates to file
+  write.csv(x = gr_tab,
+            file = paste0(script.basename,
+                          "/results/wow_growth_variant_share",
+                          data_date,
+                          tag,
+                          ".csv"),
+            row.names = FALSE)
+
 
   if (fig_gen_run) png(filename = paste0(stub, "growthrate_US", tag, ".png"),
                        width = 8,
@@ -1619,14 +1680,18 @@ if ( grepl("Run2",tag) ){
   orpar <- par()
   par(mar = c(5.1, 4.1, 4.1, 4.1))
 
-  # plot "nowcast" groth rates by variant
-  plot(x = 100 * us.summary$p_i,
-       y = gr,
+  # filter out extremely rare variants from the plot
+  gtp <- subset(gr_tab,
+                variant_share >= 0.01) # this is already a percent, so this is filtering out variants with less than 1/1000 of a percent (not 1 percent)
+
+   # plot "nowcast" groth rates by variant
+  plot(x = gtp$variant_share,
+       y = gtp$growth_rate,
        log = "x",
        type = "n",
-       ylim = range(gr + 1.96 * se.gr, gr - 1.96 * se.gr),
+       ylim = range(gtp$growth_rate_lo, gtp$growth_rate_hi),
        xaxt = "n",
-       xlim = c(0.0005,110),
+       xlim = c(0.005,110),
        xlab = "Nowcast Estimated Proportion (%)",
        ylab = "Week over week growth rate (%)",
        main = "Nationwide")
@@ -1652,25 +1717,25 @@ if ( grepl("Run2",tag) ){
          col = "grey65")
 
   # add lines for each variant
-  for (vv in seq(model_vars)) {
+  for (vv in 1:nrow(gtp)) {
 
     # vertical lines for uncertainty in growth rate
-    lines(x = 100 * rep(us.summary$p_i[vv], 2),
-          y = gr[vv] + 1.96 * c(1,-1) * se.gr[vv],
+    lines(x = rep(gtp$variant_share[vv], 2),
+          y = gtp[vv,c('growth_rate_lo', 'growth_rate_hi')],
           col = "blue",
           lwd = 2)
 
     # horizontal lines for uncertainty in variant proportion
-    lines(x = pmax(0.0001, 100 * us.summary$p_i[vv] + 196 * c(1,-1) * us.summary$se.p_i[vv]),
-          y = rep(gr[vv], 2),
+    lines(x = pmax(0.0001, gtp[vv, c('variant_share_lo', 'variant_share_hi')]),
+          y = rep(gtp$growth_rate[vv], 2),
           col = "blue",
           lwd = 2)
   }
 
   # add the name of each variant
-  text(x = 100 * us.summary$p_i,
-       y = gr,
-       labels = c(model_vars,""),
+  text(x = gtp$variant_share,
+       y = gtp$growth_rate,
+       labels = gtp$variant,
        cex = 0.85,
        col = "grey25",
        adj = 1.15)
@@ -1690,31 +1755,6 @@ if ( grepl("Run2",tag) ){
 
   if (fig_gen_run)  dev.off()
 
-  # create a dataframe of variant shares & growth rates
-  gr_tab = data.frame(variant          = c(model_vars, "OTHER"),
-                      variant_share    = (100 * us.summary$p_i),
-                      growth_rate      = gr,
-                      growth_rate_lo   = gr_lo,
-                      growth_rate_hi   = gr_hi,
-                      doubling_time    = doubling_time,
-                      doubling_time_lo = doubling_time_lo,
-                      doubling_time_hi = doubling_time_hi,
-                      model_week       = model_week_mid)
-
-  # merge in date
-  gr_tab <- merge(gr_tab,
-                  model_week_df,
-                  by = 'model_week')
-
-  # save growth rates to file
-  write.csv(x = gr_tab,
-            file = paste0(script.basename,
-                          "/results/wow_growth_variant_share",
-                          data_date,
-                          tag,
-                          ".csv"),
-            row.names = FALSE)
-
 
   ### regional barplots (weighted) ----
 
@@ -1728,7 +1768,8 @@ if ( grepl("Run2",tag) ){
   # (just used for barplots)
   bp_hhs = xtabs(formula = NORM_WTS ~ HHS + model_week + VARIANT,
                  data = src.dat,
-                 subset = src.dat$model_week %in% ((model_week_mid - display_lookback + 1):model_week_mid))
+                 subset = src.dat$model_week %in% ((data_week_df$model_week - 2 - display_lookback + 1):(data_week_df$model_week - 2))) # ((model_week_mid - display_lookback + 1):model_week_mid))
+  # DOUBLE-CHECK THIS USE OF MODEL_WEEK_MID
 
   # subset the weights to only include the variants to be displayed
   bp_hhs = prop.table(bp_hhs, 1:2)[,, display_vars]
@@ -1736,7 +1777,8 @@ if ( grepl("Run2",tag) ){
   # give the table prettier column names (week start date instead of model_week)
   # dimnames(bp_hhs)[[2]] = week_label(as.numeric(dimnames(bp_hhs)[[2]]) - current_week)
   dimnames(bp_hhs)[[2]] = format(
-    x = ((as.numeric(dimnames(bp_hhs)[[2]]) + model_week_mid) + model_week_min) * 7 + as.Date(week0day1),
+     x = ((as.numeric(dimnames(bp_hhs)[[2]]) + data_week_df$model_week - 2) + model_week_min) * 7 + as.Date(week0day1),
+     # x = ((as.numeric(dimnames(bp_hhs)[[2]]) + model_week_mid) + model_week_min) * 7 + as.Date(week0day1),
     format = '%m-%d'
   )
 
@@ -1772,7 +1814,8 @@ if ( grepl("Run2",tag) ){
     text(x = bp,
          y = 3 + colSums(100 * t(tail(bp_hhs[hhs,,], 12))),
          labels = with(subset(src.dat,
-                              week < current_week &
+                              HHS == hhs &
+                              week < current_week - 1 &
                                 week >= current_week - display_lookback),
                        table(week)),
          cex = 0.7)
@@ -1782,8 +1825,8 @@ if ( grepl("Run2",tag) ){
 
     # create a dataframe for predictions for each week & HHS region
     pred_hhs.df = expand.grid(model_week = seq(from = -display_lookback,
-                                               to = 2,
-                                               by = (1/7)) + (model_weeks - model_week_mid), #  + current_week,
+                                               to = 2, # go 2 weeks into the future
+                                               by = (1/7)) + data_week_df$model_week, # (model_weeks - model_week_mid), #  + current_week,
                               HHS = sort(unique(src.moddat$HHS)))
 
     # predict a sequence's clade (ID'd by rank abundance) given only time & hhs region
@@ -1822,7 +1865,7 @@ if ( grepl("Run2",tag) ){
                  #                    week_label(pred.df$week - current_week),
                  #                    NA),
                  names.arg = ifelse(pred.df$model_week %% 1 == 0,
-                                    format(((pred.df$model_week + model_week_mid) + model_week_min) * 7 + as.Date(week0day1), format = '%m-%d'),
+                                    format(((pred.df$model_week + (data_week_df$model_week - 2)) + model_week_min) * 7 + as.Date(week0day1), format = '%m-%d'),
                                     NA),
                  legend.text = display_vars,
                  args.legend = list(x = "topleft",
@@ -1831,36 +1874,50 @@ if ( grepl("Run2",tag) ){
 
     # predicted percent contributions of some variants for the current week
     # pc = unlist(100 * subset(pred.df, week==current_week)[, 1+display_indices])
-    pc = unlist(100 * subset(pred.df, model_week==model_week_mid)[, 1+display_indices])
+    pc = unlist(100 * subset(pred.df, model_week == data_week_df$model_week)[, 1+display_indices])
 
     # define a y-value for the text on the plot
     y = cumsum(pc) - pc/2
 
+    # define x-values for grey boxes signifying that recent data is likely incomplete
+    # x = bp[which(pred.df$week %in% (current_week + c(-2, 0, 2)))]
+    x = bp[which(pred.df$model_week %in% (data_week_df$model_week + c(-2, 0, 2)))]
+
     # add text to the plot
-    text(x = 1.02 * tail(bp, 1),
+    text(x = x[2], # 1.02 * tail(bp, 1),
          y = y,
          labels = round(pc, 1),
          cex = 0.7,
          xpd = TRUE,
-         adj = c(0, 0.5))
-
-    # define x-values for grey boxes signifying that recent data is likely incomplete
-    # x = bp[which(pred.df$week %in% (current_week + c(-2, 0, 2)))]
-    x = bp[which(pred.df$model_week %in% (model_week_mid + c(-2, 0, 2)))]
+         adj = c(0.5, 0.5))
 
     # add boxes/rectangles to the plot
-    rect(xleft = x[1],
+    rect(xleft   = x[1] + (x[2]-x[1])*.25, # shift it over by 1/2 week so that it is centered on individual weeks
          ybottom = 0,
-         xright = x[2],
+         xright  = x[2] + (x[3]-x[2])*.25,
          ytop = 100,
          border = NA,
          col = "#00000020")
-    rect(xleft = x[2],
+    # add text to the plot
+    text(x = mean(c(x[1], x[2])) + (x[2]-x[1])*.25,
+         y = 101,
+         labels = 'Nowcast',
+         cex = 0.7,
+         xpd = TRUE,
+         adj = c(0.5, 0))
+    rect(xleft   = x[2] + (x[3]-x[2])*.25,
          ybottom = 0,
          xright = x[3],
          ytop = 100,
          border = NA,
          col = "#00000040")
+    # add text to the plot
+    text(x = mean(c(x[2], x[3]))+ (x[2]-x[1])*.125,
+         y = 101,
+         labels = 'Future',
+         cex = 0.7,
+         xpd = TRUE,
+         adj = c(0.5, 0))
     if (fig_gen_run) dev.off()
 
 
@@ -1869,7 +1926,7 @@ if ( grepl("Run2",tag) ){
     # get the SE for the given model, week, and HHS region
     hhs.summary = se.multinom(mlm = svymlm_hhs$mlm,
                               newdata_1row = data.frame(
-                                model_week = model_week_mid,
+                                model_week = data_week_df$model_week, # model_week_mid,
                                 HHS = hhs
                               ),
                               composite_variant = NULL)
@@ -1901,6 +1958,8 @@ if ( grepl("Run2",tag) ){
     # create a dataframe of variant shares & growth rates
     gr_tab_hhs = data.frame(variant          = c(model_vars, "OTHER"),
                             variant_share    = (100 * hhs.summary$p_i),
+                            variant_share_lo = 100 * (hhs.summary$p_i - 1.96 * hhs.summary$se.p_i),
+                            variant_share_hi = 100 * (hhs.summary$p_i + 1.96 * hhs.summary$se.p_i),
                             growth_rate      = gr,
                             growth_rate_lo   = gr_lo,
                             growth_rate_hi   = gr_hi,
@@ -1908,12 +1967,12 @@ if ( grepl("Run2",tag) ){
                             doubling_time_lo = doubling_time_lo,
                             doubling_time_hi = doubling_time_hi,
                             region           = hhs,
-                            model_week       = model_week_mid
+                            model_week       = data_week_df$model_week
     )
 
     # merge in date
     gr_tab_hhs <- merge(gr_tab_hhs,
-                        model_week_df,
+                        data_week_df,
                         by = 'model_week')
 
     # combine national and regional growth rates
@@ -1932,15 +1991,18 @@ if ( grepl("Run2",tag) ){
     orpar <- par()
     par(mar = c(5.1, 4.1, 4.1, 4.1))
 
+    # filter out variants with proportions less than 0.01%
+    gtphhs <- subset(gr_tab_hhs,
+                     variant_share >= 0.01)
+
     # plot "nowcast" growth rates by variant
-    plot(x = 100 * hhs.summary$p_i,
-         y = gr,
+    plot(x = 100 * gtphhs$variant_share,
+         y = gtphhs$growth_rate,
          log = "x",
          type = "n",
-         ylim = c(min(range(gr + 1.96 * se.gr, gr - 1.96 * se.gr)[1], -75),
-                  max(range(gr + 1.96 * se.gr, gr - 1.96 * se.gr)[2], 100)),
+         ylim = range(gtphhs$growth_rate_lo, gtphhs$growth_rate_hi),
          xaxt = "n",
-         xlim = c(0.0005,110),
+         xlim = c(0.01,110),
          xlab = "Weighted share (%)",
          ylab = "Week over week growth rate (%)",
          main = paste("HHS Region", hhs))
@@ -1958,37 +2020,37 @@ if ( grepl("Run2",tag) ){
 
     # add an x-axis
     axis(side = 1,
-         at     = c(0.001, 0.01, 0.1, 1, 10, 100),
-         labels = c(0.001, 0.01, 0.1, 1, 10, 100))
+         at     = c(0.01, 0.1, 1, 10, 100),
+         labels = c(0.01, 0.1, 1, 10, 100))
 
     # add a horizontal line at 0
     abline(h = 0,
            col = "grey65")
 
     # add lines for each variant
-    for (vv in seq(model_vars)) {
+    for (vv in 1:nrow(gtphhs)) {
       # vertical lines for uncertainty in growth rate
-      lines(x = 100 * rep(hhs.summary$p_i[vv], 2),
-            y = gr[vv] + 1.96 * c(1,-1) * se.gr[vv],
+      lines(x = rep(gtphhs$variant_share[vv], 2),
+            y = gtphhs[vv, c('growth_rate_lo', 'growth_rate_hi')],
             col = "blue",
             lwd = 2)
 
       # horizontal lines for uncertainty in variant proportions
-      lines(x = pmax(0.0001, 100 * hhs.summary$p_i[vv] + 1.96 * c(1,-1) * hhs.summary$se.p_i[vv]),
-            y = rep(gr[vv], 2),
+      lines(x = gtphhs[vv, c("variant_share_lo", "variant_share_hi")],
+            y = rep(gtphhs$growth_rate[vv], 2),
             col = "blue",
             lwd = 2)
     }
 
 
     # identify variants with share > 1% or growth rate > 0%
-    labels = unique(c(which(100 * hhs.summary$p_i>1),
+    labels = unique(c(which(100 * gtphhs$variant_share>1),
                       which(gr > 1)))
 
     # label variants
-    text(x = 100 * hhs.summary$p_i,
-         y = gr,
-         labels = c(model_vars,""),
+    text(x = gtphhs$variant_share,
+         y = gtphhs$growth_rate,
+         labels = gtphhs$variant,
          cex = 0.85,
          col = "grey25",
          adj = 1.15)
@@ -2166,6 +2228,7 @@ if ( grepl("Run2",tag) ){
       wk = as.numeric(as.Date(ftn, origin="1970-01-01") - week0day1) %/% 7
       # convert week to model_week
       wk = wk - model_week_min - model_week_mid
+      # same as date_to_model_week(ftn - 3)
 
       # get the estimates (and SE) for the given place & time
       ests = se.multinom(mlm = mlm,
