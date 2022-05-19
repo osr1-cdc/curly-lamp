@@ -62,6 +62,8 @@ voc1 = c(# "AY.1", "AY.2",
          "BA.1.1",
          "BA.2",
          "BA.2.12.1",
+         # 'BA.4',
+         # 'BA.5',
          "B.1.617.2", # Delta
          "B.1.1.529") # Omicron
 # define an alternate set of vocs
@@ -90,6 +92,8 @@ voc2_additional = c(#"AY.1", "AY.2",
                     # "BA.2.12",
                     "BA.2.12.1",
                     # "BA.3",
+                    'BA.4',
+                    'BA.5',
                     "B.1.617.2", # Delta
                     "B.1.1.529" # Omicron
                     )

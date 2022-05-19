@@ -142,6 +142,29 @@ node = "10"
 
 # Import Data ------------------------------------------------------------------
 
+# If the data was already pulled and you want to just use that data instead of re-pulling it, set here. 
+# This is useful if you aggregate some lab names at the end of this code and then want to re-run the
+# script after changing which labs get aggregated. 
+use_previously_imported_data <- TRUE
+
+# use previously pulled data if it exists
+if(use_previously_imported_data &
+    file.exists(paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_data", custom_tag, ".RDS")) & 
+    file.exists(paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pangolin", custom_tag, ".RDS")) & 
+    file.exists(paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_baseline", custom_tag, ".RDS")) & 
+    file.exists(paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_tests", custom_tag, ".RDS")) & 
+    file.exists(paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pops", custom_tag, ".RDS"))){
+      
+  print('Reading in previously pulled data')
+  dat <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_data", custom_tag, ".RDS"))
+  pangolin <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pangolin", custom_tag, ".RDS"))
+  baseline <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_baseline", custom_tag, ".RDS"))
+  tests <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_tests", custom_tag, ".RDS"))
+  pops <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pops", custom_tag, ".RDS"))
+
+} else {
+
+print('Pulling data from CDP')
 ## Get the sequence data
 impala_classpath <- list.files(path = jdbc_driver,
                                pattern = "\\.jar$",
@@ -562,7 +585,7 @@ saveRDS(tests,
 saveRDS(pops,
   file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pops", custom_tag, ".RDS")
 )
-
+}
 # Data Cleaning ----------------------------------------------------------------
 
 # Things that this code filters on: [as of 2022-01-19]
@@ -1437,6 +1460,18 @@ labnames_df_ct <- data.frame(old_name = CT_labs_to_agg,
                              new_name = "CT DPH")
 svy.dat[LAB %in% CT_labs_to_agg, 'LAB2' := labnames_df_ct$new_name[1]]
 
+# added 2022-05-19 (Bushman)
+# Aggregate Bushman lab 
+# "THE BUSHMAN LAB, SCHOOL OF MEDICINE, UNIVERSITY OF PENNSYLVANIA"
+# "BUSHMAN"
+BU_labs_to_agg <- grep(pattern = '(^BUSHMAN$)|(THE BUSHMAN LAB)',
+                         x = unique_labs,
+                         ignore.case = T,
+                         value = T)
+labnames_df_bu <- data.frame(old_name = BU_labs_to_agg,
+                             new_name = "THE BUSHMAN LAB, UPENN")
+svy.dat[LAB %in% BU_labs_to_agg, 'LAB2' := labnames_df_bu$new_name[1]]
+
 
 # Other labs that might be duplicates, but that I have not combined:
 # 1. "INFECTIOUS DISEASE PROGRAM, BROAD INSTITUTE OF HARVARD AND MIT"
@@ -1449,11 +1484,8 @@ svy.dat[LAB %in% CT_labs_to_agg, 'LAB2' := labnames_df_ct$new_name[1]]
 # 3. "MASS GENERAL BRIGHAM"
 # 3. "MASSACHUSETTS GENERAL HOSPITAL"
 
-# CONNECTICUT DEPARTMENT OF PUBLIC HEALTH
-# CT DEPARTMENT OF PUBLIC HEALTH
-
-# "OREGON SARS-COV-2 GENOME SEQUENCING CENTER"
-# "OREGON STATE PUBLIC HEALTH LABORATORY"
+# 4. "OREGON SARS-COV-2 GENOME SEQUENCING CENTER"
+# 4. "OREGON STATE PUBLIC HEALTH LABORATORY"
 
 
 # These definitely are not the same lab
@@ -1484,7 +1516,8 @@ labnames_df <- rbind(
   labnames_df_in,
   labnames_df_wf,
   labnames_df_mi,
-  labnames_df_ct
+  labnames_df_ct,
+  labnames_df_bu
 )
 
 # print the list of lab names that were changed to the console
