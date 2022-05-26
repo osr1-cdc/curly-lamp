@@ -161,7 +161,7 @@ if(use_previously_imported_data &
   baseline <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_baseline", custom_tag, ".RDS"))
   tests <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_tests", custom_tag, ".RDS"))
   pops <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pops", custom_tag, ".RDS"))
-
+  print('Finished reading in data.')
 } else {
 
 print('Pulling data from CDP')
@@ -585,6 +585,7 @@ saveRDS(tests,
 saveRDS(pops,
   file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pops", custom_tag, ".RDS")
 )
+print('Finished reading in data.')
 }
 # Data Cleaning ----------------------------------------------------------------
 
@@ -1230,7 +1231,7 @@ svy.dat[, 'LAB2' := as.character(LAB)]
 unique_labs <- unique(svy.dat$LAB)
 
 # Aggregate Maryland lab names
-MD_labs_to_agg <- grep(pattern = "(Maryland)|(MD)",
+MD_labs_to_agg <- grep(pattern = "(MARYLAND DEPARTMENT OF HEALTH)|(MD PHL)",
                        x = unique_labs,
                        ignore.case = T,
                        value = TRUE)
@@ -1240,7 +1241,7 @@ labnames_df_md <- data.frame(old_name = MD_labs_to_agg,
 svy.dat[ LAB %in% MD_labs_to_agg, "LAB2" := "MD-DPH"]
 
 # Aggregate New Jersey lab names
-NJ_labs_to_agg <- grep(pattern = "(New Jersey)|(NJ)",
+NJ_labs_to_agg <- grep(pattern = "(New Jersey.+Public Health)|(NJ.PHEL)|(NJ.+Public Health)",
                        x = unique_labs,
                        ignore.case = T,
                        value = TRUE)
@@ -1250,7 +1251,7 @@ labnames_df_nj <- data.frame(old_name = NJ_labs_to_agg,
 svy.dat[ LAB %in% NJ_labs_to_agg, "LAB2" := "NJ-DPH"]
 
 # Aggregate Texas lab names
-TX_labs_to_agg <- grep(pattern = "(Texas)|(TX)",
+TX_labs_to_agg <- grep(pattern = "(Texas Department of state health)|(TXDSHS)",
                        x = unique_labs,
                        value = TRUE,
                        ignore.case = T)
@@ -1270,17 +1271,18 @@ labnames_df_cdc <- data.frame(old_name = CDC_labs_to_agg,
 svy.dat[ LAB %in% CDC_labs_to_agg, "LAB2" := "CDC"]
 
 # Aggregate LSU lab names
-LSU_labs_to_agg <- grep(pattern = "LSU",
-                        x = unique_labs,
-                        ignore.case = T,
-                        value = T)
-labnames_df_lsu <- data.frame(old_name = LSU_labs_to_agg,
-                              new_name = "LSU LAB")
-#svy.dat[svy.dat$LAB %in% LSU_labs_to_agg,"LAB2"] <- "LSU LAB"
-svy.dat[LAB %in% LSU_labs_to_agg, "LAB2" := "LSU LAB"]
+# As of 2022-05-26 this only returns "LSUHS EMERGING VIRAL THREAT LABORATORY", so I [Philip Shirk] removed it.
+# LSU_labs_to_agg <- grep(pattern = "LSU",
+#                         x = unique_labs,
+#                         ignore.case = T,
+#                         value = T)
+# labnames_df_lsu <- data.frame(old_name = LSU_labs_to_agg,
+#                               new_name = "LSU LAB")
+# #svy.dat[svy.dat$LAB %in% LSU_labs_to_agg,"LAB2"] <- "LSU LAB"
+# svy.dat[LAB %in% LSU_labs_to_agg, "LAB2" := "LSU LAB"]
 
 # Aggregate Orange County lab names
-OC_labs_to_agg <- grep(pattern = "Orange",
+OC_labs_to_agg <- grep(pattern = "Orange County",
                        x = unique_labs,
                        ignore.case = T,
                        value = T)
@@ -1290,7 +1292,7 @@ labnames_df_oc <- data.frame(old_name = OC_labs_to_agg,
 svy.dat[LAB %in% OC_labs_to_agg, "LAB2" := "Orange County PHL"]
 
 # Aggregate Lauring Lab names
-LL_labs_to_agg <- grep(pattern = "LAURING LAB",
+LL_labs_to_agg <- grep(pattern = "(LAURING LAB.+Michigan)|(Michigan.+Lauring Lab)",
                        x = unique_labs,
                        ignore.case = T,
                        value = T)
@@ -1310,7 +1312,7 @@ labnames_df_he <- data.frame(old_name = HE_labs_to_agg,
 svy.dat[LAB %in% HE_labs_to_agg, "LAB2" := "HELIX"]
 
 # Aggregate South Dakota lab names
-SD_labs_to_agg <- grep(pattern = "SOUTH DAKOTA",
+SD_labs_to_agg <- grep(pattern = "SOUTH DAKOTA public health",
                        x = unique_labs,
                        ignore.case = T,
                        value = T)
@@ -1320,7 +1322,7 @@ labnames_df_sd <- data.frame(old_name = SD_labs_to_agg,
 svy.dat[LAB %in% SD_labs_to_agg, "LAB2" := "SD-DPH"]
 
 # Aggregate Mounes lab names
-OM_labs_to_agg <- grep(pattern = "MOUNES",
+OM_labs_to_agg <- grep(pattern = "(omega.+MOUNES)|(oemga.+mounes)",
                        x = unique_labs,
                        ignore.case = T,
                        value = T)
@@ -1340,7 +1342,7 @@ labnames_df_mn <- data.frame(old_name = MN_labs_to_agg,
 svy.dat[LAB %in% MN_labs_to_agg, "LAB2" := "MN-DPH"]
 
 # Aggregate Sonoma lab names
-SO_labs_to_agg <- grep(pattern = "Sonoma",
+SO_labs_to_agg <- grep(pattern = "Sonoma county public health",
                        x = unique_labs,
                        ignore.case = T,
                        value = T)
@@ -1433,7 +1435,7 @@ svy.dat[LAB %in% IN_labs_to_agg, 'LAB2' := labnames_df_in$new_name[1]]
 
 # added 2022-04-28 (Wake Forest & Michigan)
 # Aggregate Wake Forest names
-WF_labs_to_agg <- grep(pattern = 'WAKE FOREST',
+WF_labs_to_agg <- grep(pattern = 'WAKE FOREST school of medicine',
                          x = unique_labs,
                          ignore.case = T,
                          value = T)
@@ -1442,7 +1444,7 @@ labnames_df_wf <- data.frame(old_name = WF_labs_to_agg,
 svy.dat[LAB %in% WF_labs_to_agg, 'LAB2' := labnames_df_wf$new_name[1]]
 
 # aggregate Michigan DoHHS
-MI_labs_to_agg <- grep(pattern = 'MICHIGAN DEPARTMENT',
+MI_labs_to_agg <- grep(pattern = 'MICHIGAN DEPARTMENT of health',
                          x = unique_labs,
                          ignore.case = T,
                          value = T)
@@ -1452,7 +1454,7 @@ svy.dat[LAB %in% MI_labs_to_agg, 'LAB2' := labnames_df_mi$new_name[1]]
 
 # added 2022-05-12 (Connecticut)
 # Aggregate Connecticut names
-CT_labs_to_agg <- grep(pattern = '(CT)|(Connecticut) department of public health',
+CT_labs_to_agg <- grep(pattern = '(CT department of public health)|(Connecticut department of public health)',
                          x = unique_labs,
                          ignore.case = T,
                          value = T)
@@ -1472,6 +1474,56 @@ labnames_df_bu <- data.frame(old_name = BU_labs_to_agg,
                              new_name = "THE BUSHMAN LAB, UPENN")
 svy.dat[LAB %in% BU_labs_to_agg, 'LAB2' := labnames_df_bu$new_name[1]]
 
+# added 2022-05-26 (Delaware PHL)
+# DELAWARE PUBLIC HEALTH LABORATORY
+# DELAWARE PUBLIC HEALTH LAB
+DE_labs_to_agg <- grep(pattern = 'DELAWARE PUBLIC HEALTH LAB',
+                         x = unique_labs,
+                         ignore.case = T,
+                         value = T)
+labnames_df_de <- data.frame(old_name = DE_labs_to_agg,
+                             new_name = "DELAWARE PHL")
+svy.dat[LAB %in% DE_labs_to_agg, 'LAB2' := labnames_df_de$new_name[1]]
+
+# "KANSAS HEALTH AND ENVIRONMENTAL LAB"
+# "KANSAS HEALTH AND ENVIRONMENTAL LABORATORIES"
+KS_labs_to_agg <- grep(pattern = 'KANSAS HEALTH AND ENVIRONMENTAL',
+                         x = unique_labs,
+                         ignore.case = T,
+                         value = T)
+labnames_df_ks <- data.frame(old_name = KS_labs_to_agg,
+                             new_name = "KANSAS HEALTH AND ENVIRONMENTAL LAB")
+svy.dat[LAB %in% KS_labs_to_agg, 'LAB2' := labnames_df_ks$new_name[1]]
+
+# "MISSISSIPPI PUBLIC HEALTH LABORATORY"
+# MS PHL
+MS_labs_to_agg <- grep(pattern = '(MISSISSIPPI PUBLIC HEALTH LABORATORY)|(MS PHL)',
+                         x = unique_labs,
+                         ignore.case = T,
+                         value = T)
+labnames_df_ms <- data.frame(old_name = MS_labs_to_agg,
+                             new_name = "MISSISSIPPI PHL")
+svy.dat[LAB %in% MS_labs_to_agg, 'LAB2' := labnames_df_ms$new_name[1]]
+
+# "HOUSTON HEALTH DEPARTMENT"
+# "HOUSTON HEALTH DEPT."
+HHD_labs_to_agg <- grep(pattern = 'HOUSTON HEALTH DEP',
+                         x = unique_labs,
+                         ignore.case = T,
+                         value = T)
+labnames_df_hhd <- data.frame(old_name = HHD_labs_to_agg,
+                             new_name = "HOUSTON HEALTH DEPT")
+svy.dat[LAB %in% HHD_labs_to_agg, 'LAB2' := labnames_df_hhd$new_name[1]]
+
+
+
+# Steps to add more lab aggregations 
+# 1. find lab names that almost assuredly refer to the same lab 
+# 2. copy-and-paste one of the blocks of code above 
+# 3. change "XX_labs_to_agg" and "labnames_df_xx" to new AND UNIQUE names (do a control-F for the new name to make sure it's unique)
+# 4. change the regex pattern to something that will return ONLY your set of labs
+# 5. add "labnames_df_xx" to "labnames_df" below
+# 6. after running the new code, look at ./data/backup_YYYY-MM-DD/lab_name_updates_YYYY-MM-DD.csv to make sure that ONLY the intended labs are being renamed. 
 
 # Other labs that might be duplicates, but that I have not combined:
 # 1. "INFECTIOUS DISEASE PROGRAM, BROAD INSTITUTE OF HARVARD AND MIT"
@@ -1498,7 +1550,7 @@ labnames_df <- rbind(
   labnames_df_nj,
   labnames_df_tx,
   labnames_df_cdc,
-  labnames_df_lsu,
+  # labnames_df_lsu, # removed 2022-05-26
   labnames_df_oc,
   labnames_df_ll,
   labnames_df_he,
@@ -1517,7 +1569,11 @@ labnames_df <- rbind(
   labnames_df_wf,
   labnames_df_mi,
   labnames_df_ct,
-  labnames_df_bu
+  labnames_df_bu,
+  labnames_df_de,
+  labnames_df_ks,
+  labnames_df_ms,
+  labnames_df_hhd
 )
 
 # print the list of lab names that were changed to the console
