@@ -166,7 +166,7 @@ options(survey.adjust.domain.lonely = T,
   # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
   force_aggregate_omicron <- TRUE
   # list omicron sublineages that will not be aggregated (if they are also in voc) (these are the only Omicron sublineages that will be permitted)
-  force_aggregate_omicron_except <- c('BA.1','BA.2','BA.3','BA.4','BA.5','BA.2.12.1') # 'BA.2.12', 'BA.1.1'
+  force_aggregate_omicron_except <- c('BA.1','BA.2','BA.3','BA.4','BA.5','BA.1.1','BA.2.12.1') # 'BA.2.12', 'BA.1.1'
 
   # force-aggregate Delta sublineages
   # this option will force any/all Delta sublineages that show up in the vocs to be
@@ -190,7 +190,7 @@ options(survey.adjust.domain.lonely = T,
   # this can help avoid numerical overflow when trying to calculate prediction intervals.
   rescale_model_weights <- TRUE
   # how to rescale model weights
-  rescale_model_weights_by <- 'max'
+  rescale_model_weights_by <- 'mean'
   # options: "max", "mean", [number]
 
   # optionally remove UTAH PHL sequences (b/c they were causing issues with Region 8 estimates in January, 2022)
@@ -356,7 +356,7 @@ if(state_source == "state_tag_included"){
    # NOTE! This does not include labs that are explicity excluded above by "remove_utahphl" and "remove_broad"
    invalid_labname <- svy.dat$SOURCE == 'OTHER'
    # index of sequences to be excluded b/c of invalid variant name
-   invalid_variant <- is.na(svy.dat$VARIANT) | svy.dat$VARIANT == "None"
+   invalid_variant <- is.na(svy.dat$VARIANT) | svy.dat$VARIANT == "None" | svy.dat$VARIANT == "Unassigned"
 
    # count sequences that are excluded by week
    if(file.exists(paste0(script.basename, "/data/backup_",data_date, "/dropped_sequence_counts_", data_date, custom_tag, "_v1.csv"))){
@@ -411,7 +411,8 @@ if(state_source == "state_tag_included"){
   # exclude samples where the variant has not been identified
   src.dat = subset(x = src.dat,
                    !is.na(VARIANT) &
-                     VARIANT != "None")
+                     VARIANT != "None" &
+                      VARIANT != "Unassigned")
   # this *might* be adequate for identifying the FULGENT sequences that were NOT
   # part of NS3 or CDC sequencing
   #    & !is.na(src.dat$covv_accession_id)
@@ -674,6 +675,56 @@ if(trim_weights){
   src.dat$weights = myweights
 }
 
+# tally sequences by source
+# 1. tagged as surveillance
+# 2. CDC contracting labs
+# 3. NS3
+# alternatively, tally them using SQL on HUE: https://cdp-01.biotech.cdc.gov:8889/hue/editor?editor=37419
+# (This isn't calculated on a regular basis; it's just whenever we want to look at it again)
+if(FALSE){
+   # identify contractor sequences
+   src.dat[ SOURCE %in% c("UW VIROLOGY LAB",
+                          "FULGENT GENETICS",
+                          "HELIX",
+                          "HELIX/ILLUMINA",
+                          "LABORATORY CORPORATION OF AMERICA",
+                          "AEGIS SCIENCES CORPORATION",
+                          "QUEST DIAGNOSTICS INCORPORATED",
+                          "BROAD INSTITUTE",
+                          "INFINITY BIOLOGIX",
+                          "MAKO MEDICAL"),
+            'source_type' := 'Contractor']
+   # identify NS3 sequences
+   src.dat[ SOURCE %in% c("NS3"),
+            'source_type' := 'NS3']
+   # identify tagged sequences
+   src.dat[ is.na(source_type), 'source_type' := 'Tagged']
+
+   # tally totals by source_type
+   src.dat[ ,
+            .('N' = .N,
+              'Prop' = .N / nrow(src.dat)),
+            by = c('source_type')]
+
+   # compare to results from HUE on 2022-05-31
+   data.frame(
+      'source_type' = c('Contractor', 'NS3', 'Tagged'),
+      'N' = c(1643231, 31781, 529791),
+      'Prop' = c(1643231, 31781, 529791)/sum(c(1643231, 31781, 529791)))
+
+   # plot proportion of totals by week & source_type
+   merge(
+      x = src.dat[ ,
+                   .('N' = .N),
+                   by = c('source_type', 'week')],
+      y = src.dat[ ,
+                   .('N_total' = .N),
+                   by = c('week')],
+      by =  'week'
+   ) %>%
+      mutate(Prop = N / N_total) %>%
+      ggplot(., aes(x = week, y = Prop, color = source_type)) + theme_bw() + geom_line() + scale_y_continuous(labels = scales::percent_format())
+}
 
 
 ### model weeks ----------------------------------------------------------------
@@ -2113,7 +2164,8 @@ if ( grepl("Run2",tag) ){
    # some of these should be aggregated into parent omicron; others should be aggregated into some BA sublineage
 
   # all other variants to be aggregated (used for Run 1 & Run 2 results)
-  Other_agg = model_vars[model_vars %notin% voc]
+  Other_agg = model_vars[model_vars %notin% c(voc, 'B.1.617.2', 'B.1.1.529')] # also have to exclude any variants that have their own row in agg_var_mat. If delta is not included in VOC, then it gets included in both the delta row and the Other row.
+
 
   # generate a matrix that indicates which lineages to aggregate for the nowcast
   # Columns are the lineages in the nowcast model, so all the defined lineages

@@ -32,8 +32,8 @@
 #$ -m ea
 # 
 # Always run in the default queue
-#$ -q all.q
-# -q covid.q
+# -q all.q
+#$ -q covid.q
 #
 # Set the parallel_environment to "smp" and use 4 cores (smp = Symmetric multiprocessing or shared-memory multiprocessing)
 #$ -pe smp 4
