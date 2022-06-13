@@ -42,7 +42,7 @@ options(survey.adjust.domain.lonely = T,
     optparse::make_option(
       opt_str = c("-r", "--run_number"),
       type    = "character",
-      default = "1",
+      default = "2",
       help    = "Run number",
       metavar = "character"),
     # options:
@@ -156,15 +156,19 @@ options(survey.adjust.domain.lonely = T,
   # grouped weights = 3 most recent weeks (up to "time_end") are grouped together for weighting; 2 weeks prior are grouped; all weeks before that are single weeks. The purpose was to avoid extreme weights, but we went with weight trimming over this option.
   use_group_weights <- FALSE
 
-  # another option that will go away with time, but for now it's here to avoid
-  # splitting omicron into multiple sublineages.
+  # force_aggregate_xxx will REMOVE variants from the voc list, which will result
+  # in their subsequent aggregation into a parent lineage *IF* the parent lineage
+  # is included in VOC.
+  # This option will likely go away with time, but for now it's here to override
+  # the automated voc2 selection in some cases. This will prevent splitting omicron
+  # into more sublineages than we want.
   # if 'B.1.1.529' is listed in the vocs, then force-aggregate omicron sublineages
   # even if sublineages are also included in the vocs. To avoid aggregating a
   # specific sublineage, include the sublineage in both "voc" and
   # "force_aggregate_omicron_except".
   # THIS WILL LIKELY NEED TO BE REPLACED IN THE FUTURE, BUT IT'S HERE TO AVOID
   # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
-  force_aggregate_omicron <- TRUE
+  force_aggregate_omicron <- FALSE
   # list omicron sublineages that will not be aggregated (if they are also in voc) (these are the only Omicron sublineages that will be permitted)
   force_aggregate_omicron_except <- c('BA.1','BA.2','BA.3','BA.4','BA.5','BA.2.12.1') # 'BA.2.12', 'BA.1.1'
 
@@ -230,7 +234,8 @@ source(paste0(script.basename, "/weekly_variant_report_functions.R"))
 
 # Load output from variant_surveillance_system.r
 # (filtered genomic surveillance data)
-load(paste0(script.basename, "/data/svydat_", data_date, custom_tag, ".RData"))
+# load(paste0(script.basename, "/data/svydat_", data_date, custom_tag, ".RData"))
+load(paste0('/scicomp/groups-pure/Projects/SARS2Seq/repos/sc2_proportion_modeling', "/data/svydat_", data_date, custom_tag, ".RData"))
 
 # # filter out data that's older than we actually use
 # # NOTE: this will prevent calculation of # of old sequences removed b/c of invalid lab name, invalid variant name, invalid weight
@@ -260,22 +265,22 @@ if( grepl("Run2", tag) ) {
     voc1 = voc1_reduced
   } else {
     if( is.na(voc2_manual) ) {
-    # read in the list of voc created in "variant_surveillance_system.R"
-    # and add on any variants specified in voc2_additional
-    voc = unique( # make sure there are no duplicates
-      c(
-        readRDS(file = paste0(script.basename,
-                              "/data/voc2_auto_", data_date, custom_tag, ".RDS")),
-        # add in the "additional" vocs that need to be included
-        voc2_additional
-      ))
-    # copy the 'voc2_auto' file over to the results folder
-    file.copy(
-      from = paste0(script.basename,
-                    "/data/voc2_auto_", data_date, custom_tag, ".RDS"),
-      to = paste0(script.basename,
-                  "/results/voc2_auto_", data_date, custom_tag, ".RDS")
-    )
+      # read in the list of voc created in "variant_surveillance_system.R"
+      # and add on any variants specified in voc2_additional
+      voc = unique( # make sure there are no duplicates
+        c(
+          readRDS(file = paste0('/scicomp/groups-pure/Projects/SARS2Seq/repos/sc2_proportion_modeling',
+                                "/data/voc2_auto_", data_date, custom_tag, ".RDS")),
+          # add in the "additional" vocs that need to be included
+          voc2_additional
+        ))
+      # copy the 'voc2_auto' file over to the results folder
+      # file.copy(
+      #    from = paste0(script.basename,
+      #                  "/data/voc2_auto_", data_date, custom_tag, ".RDS"),
+      #    to = paste0(script.basename,
+      #                "/results/voc2_auto_", data_date, custom_tag, ".RDS")
+      # )
 
     } else {
       voc = voc2_manual
@@ -325,7 +330,7 @@ if (force_aggregate_B & ('B' %in% voc)) {
 }
 # force-aggregate B.1 into "Other"
 if (force_aggregate_B.1 & ('B.1' %in% voc)) {
-   voc <- voc[ voc %notin% 'B.1' ]
+  voc <- voc[ voc %notin% 'B.1' ]
 }
 
 
@@ -352,48 +357,48 @@ for (vv in factor_columns) svy.dat[, vv] = as.character(svy.dat[, vv])
 # subset the survey data based on whether or not state-tagged data should be included
 if(state_source == "state_tag_included"){
 
-   # index of sequences to be excluded b/c of invalid lab name
-   # NOTE! This does not include labs that are explicity excluded above by "remove_utahphl" and "remove_broad"
-   invalid_labname <- svy.dat$SOURCE == 'OTHER'
-   # index of sequences to be excluded b/c of invalid variant name
-   invalid_variant <- is.na(svy.dat$VARIANT) | svy.dat$VARIANT == "None" | svy.dat$VARIANT == "Unassigned"
+  # index of sequences to be excluded b/c of invalid lab name
+  # NOTE! This does not include labs that are explicity excluded above by "remove_utahphl" and "remove_broad"
+  invalid_labname <- svy.dat$SOURCE == 'OTHER'
+  # index of sequences to be excluded b/c of invalid variant name
+  invalid_variant <- is.na(svy.dat$VARIANT) | svy.dat$VARIANT == "None" | svy.dat$VARIANT == "Unassigned"
 
-   # count sequences that are excluded by week
-   if(file.exists(paste0(script.basename, "/data/backup_",data_date, "/dropped_sequence_counts_", data_date, custom_tag, "_v1.csv"))){
-      # read in the counts of dropped sequences
-      dropped_sequences <- as.data.table(read.csv(file = paste0(script.basename, "/data/backup_",data_date, "/dropped_sequence_counts_", data_date, custom_tag, "_v1.csv")))[,'week' := as.Date(week)]
+  # count sequences that are excluded by week
+  if(file.exists(paste0(script.basename, "/data/backup_",data_date, "/dropped_sequence_counts_", data_date, custom_tag, "_v1.csv"))){
+    # read in the counts of dropped sequences
+    dropped_sequences <- as.data.table(read.csv(file = paste0('/scicomp/groups-pure/Projects/SARS2Seq/repos/sc2_proportion_modeling', "/data/backup_",data_date, "/dropped_sequence_counts_", data_date, custom_tag, "_v1.csv")))[,'week' := as.Date(week)]
 
-      # invalid lab names
-      iln_by_wk <- svy.dat[ invalid_labname, .(count = .N), by = yr_wk]
-      iln_by_wk[,'yr_wk' := as.Date(yr_wk)]
-      # merge in the counts of invalid lab names
-      if(nrow(iln_by_wk) > 0)
-         dropped_sequences <- rbind(
-            dropped_sequences[!(week %in% iln_by_wk$yr_wk & reason == 'n_dropped_invalid_lab_name')],
-            iln_by_wk[, .('week' = yr_wk, 'reason' = 'n_dropped_invalid_lab_name', 'count' = count)]
-         )
-      # fill in 0's for rows that didn't have any sequences dropped
-      dropped_sequences[is.na(count) & reason == 'n_dropped_invalid_lab_name', 'count' := 0]
+    # invalid lab names
+    iln_by_wk <- svy.dat[ invalid_labname, .(count = .N), by = yr_wk]
+    iln_by_wk[,'yr_wk' := as.Date(yr_wk)]
+    # merge in the counts of invalid lab names
+    if(nrow(iln_by_wk) > 0)
+      dropped_sequences <- rbind(
+        dropped_sequences[!(week %in% iln_by_wk$yr_wk & reason == 'n_dropped_invalid_lab_name')],
+        iln_by_wk[, .('week' = yr_wk, 'reason' = 'n_dropped_invalid_lab_name', 'count' = count)]
+      )
+    # fill in 0's for rows that didn't have any sequences dropped
+    dropped_sequences[is.na(count) & reason == 'n_dropped_invalid_lab_name', 'count' := 0]
 
 
 
-      # invalid variant names
-      iv_by_wk <- svy.dat[ invalid_variant, .(count = .N), by = yr_wk]
-      iv_by_wk[,'yr_wk' := as.Date(yr_wk)]
-      # merge in the counts of invalid variant name
-      if(nrow(iv_by_wk) > 0)
-         dropped_sequences <- rbind(
-            dropped_sequences[!(week %in% iv_by_wk$yr_wk & reason == 'n_dropped_invalid_variant_name')],
-            iv_by_wk[, .('week' = yr_wk, 'reason' = 'n_dropped_invalid_variant_name', 'count' = count)]
-         )
-      # fill in 0's for rows that didn't have any sequences dropped
-      dropped_sequences[is.na(count) & reason == 'n_dropped_invalid_variant_name', 'count' := 0]
-   }
-   # only include samples where both the lab and the variant are defined
-   src.dat = subset(x = svy.dat,
+    # invalid variant names
+    iv_by_wk <- svy.dat[ invalid_variant, .(count = .N), by = yr_wk]
+    iv_by_wk[,'yr_wk' := as.Date(yr_wk)]
+    # merge in the counts of invalid variant name
+    if(nrow(iv_by_wk) > 0)
+      dropped_sequences <- rbind(
+        dropped_sequences[!(week %in% iv_by_wk$yr_wk & reason == 'n_dropped_invalid_variant_name')],
+        iv_by_wk[, .('week' = yr_wk, 'reason' = 'n_dropped_invalid_variant_name', 'count' = count)]
+      )
+    # fill in 0's for rows that didn't have any sequences dropped
+    dropped_sequences[is.na(count) & reason == 'n_dropped_invalid_variant_name', 'count' := 0]
+  }
+  # only include samples where both the lab and the variant are defined
+  src.dat = subset(x = svy.dat,
                    !invalid_labname & # SOURCE != "OTHER"
                      !invalid_variant & # !is.na(VARIANT) & VARIANT != "None"
-                      yr_wk >= time_start) # filter out old sequences to speed everything up
+                     yr_wk >= time_start) # filter out old sequences to speed everything up
 } else {
   # only include samples from these labs (i.e. no state-tagged data)
   src.dat = subset(x = svy.dat,
@@ -412,7 +417,7 @@ if(state_source == "state_tag_included"){
   src.dat = subset(x = src.dat,
                    !is.na(VARIANT) &
                      VARIANT != "None" &
-                      VARIANT != "Unassigned")
+                     VARIANT != "Unassigned")
   # this *might* be adequate for identifying the FULGENT sequences that were NOT
   # part of NS3 or CDC sequencing
   #    & !is.na(src.dat$covv_accession_id)
@@ -532,30 +537,30 @@ if(nrow(inf_weights)>0){
 
 # Remove NA and INF weights
 {
-   # index of sequences to be excluded b/c of invalid weights
-   invalid_weight <- is.na(src.dat$SIMPLE_ADJ_WT) | is.infinite(src.dat$SIMPLE_ADJ_WT)
+  # index of sequences to be excluded b/c of invalid weights
+  invalid_weight <- is.na(src.dat$SIMPLE_ADJ_WT) | is.infinite(src.dat$SIMPLE_ADJ_WT)
 
-   # count sequences excluded b/c of invalid weights
-   if(exists('dropped_sequences')){
-      iw_by_wk <- src.dat[ invalid_weight, .(count = .N), by = yr_wk]
-      # merge in the counts of invalid weights
-      if(nrow(iw_by_wk) > 0){
-         iw_by_wk[,'yr_wk' := as.Date(yr_wk)]
+  # count sequences excluded b/c of invalid weights
+  if(exists('dropped_sequences')){
+    iw_by_wk <- src.dat[ invalid_weight, .(count = .N), by = yr_wk]
+    # merge in the counts of invalid weights
+    if(nrow(iw_by_wk) > 0){
+      iw_by_wk[,'yr_wk' := as.Date(yr_wk)]
 
-         dropped_sequences <- rbind(
-            dropped_sequences[!(week %in% iw_by_wk$yr_wk & reason == 'n_dropped_invalid_weight')],
-            iw_by_wk[, .('week' = yr_wk, 'reason' = 'n_dropped_invalid_weight', 'count' = count)]
-         )
-      }
+      dropped_sequences <- rbind(
+        dropped_sequences[!(week %in% iw_by_wk$yr_wk & reason == 'n_dropped_invalid_weight')],
+        iw_by_wk[, .('week' = yr_wk, 'reason' = 'n_dropped_invalid_weight', 'count' = count)]
+      )
+    }
 
-      # fill in 0's for rows that didn't have any sequences dropped
-      dropped_sequences[week %in% as.Date(unique(src.dat$yr_wk)) & is.na(count) & reason == 'n_dropped_invalid_weight', 'count' := 0]
+    # fill in 0's for rows that didn't have any sequences dropped
+    dropped_sequences[week %in% as.Date(unique(src.dat$yr_wk)) & is.na(count) & reason == 'n_dropped_invalid_weight', 'count' := 0]
 
-      # save the dropped_sequence data.table again
-      write.csv(x = dropped_sequences[order(week, count, decreasing = T)],
-                file = paste0(script.basename, "/data/backup_",data_date, "/dropped_sequence_counts_", data_date, custom_tag, ".csv"),
-                row.names = F)
-   }
+    # save the dropped_sequence data.table again
+    write.csv(x = dropped_sequences[order(week, count, decreasing = T)],
+              file = paste0(script.basename, "/data/backup_",data_date, "/dropped_sequence_counts_", data_date, custom_tag, ".csv"),
+              row.names = F)
+  }
 }
 # remove sequences excluded b/c of invalid weights
 src.dat = subset(x = src.dat,
@@ -564,7 +569,7 @@ src.dat = subset(x = src.dat,
 ### aggregate sublineages ------------------------------------------------------
 # make sure "VARIANT" is a character (rather than factor)
 # (redundant with "stringsAsFactors = FALSE")
-src.dat$VARIANT = as.character(src.dat$VARIANT)
+src.dat$VARIANT <- src.dat$lineage <- as.character(src.dat$VARIANT)
 
 #Identify all the clades/lineages to aggregate in the surveillance dataset
 # all the AY variants
@@ -603,13 +608,13 @@ if(Q.1_3_agg==TRUE)   {src.dat[src.dat$VARIANT %in% Q,   "VARIANT"]    <- "B.1.1
 if(AY_agg==TRUE)      {src.dat[src.dat$VARIANT %in% AY,  "VARIANT"]    <- "B.1.617.2"}
 if(B429_7_agg==TRUE)  {src.dat[src.dat$VARIANT %in% B429,"VARIANT"]    <- "B.1.427"}
 if(B.1.1.529_agg==TRUE)  {
-   src.dat[src.dat$VARIANT %in% B529[B529 %notin% voc],"VARIANT"] <- "B.1.1.529"
-   src.dat[src.dat$VARIANT %in% B529.BA1[B529.BA1 %notin% voc],"VARIANT"] <- "BA.1"
-   src.dat[src.dat$VARIANT %in% B529.BA1.1[B529.BA1.1 %notin% voc],"VARIANT"] <- "BA.1.1"
-   src.dat[src.dat$VARIANT %in% B529.BA2[B529.BA2 %notin% voc],"VARIANT"] <- "BA.2"
-   src.dat[src.dat$VARIANT %in% B529.BA3[B529.BA3 %notin% voc],"VARIANT"] <- "BA.3"
-   src.dat[src.dat$VARIANT %in% B529.BA4[B529.BA4 %notin% voc],"VARIANT"] <- "BA.4"
-   src.dat[src.dat$VARIANT %in% B529.BA5[B529.BA5 %notin% voc],"VARIANT"] <- "BA.5"
+  src.dat[src.dat$VARIANT %in% B529[B529 %notin% voc],            "VARIANT"] <- "B.1.1.529"
+  src.dat[src.dat$VARIANT %in% B529.BA1[B529.BA1 %notin% voc],    "VARIANT"] <- "BA.1"
+  src.dat[src.dat$VARIANT %in% B529.BA1.1[B529.BA1.1 %notin% voc],"VARIANT"] <- "BA.1.1"
+  src.dat[src.dat$VARIANT %in% B529.BA2[B529.BA2 %notin% voc],"VARIANT"] <- "BA.2"
+  src.dat[src.dat$VARIANT %in% B529.BA3[B529.BA3 %notin% voc],"VARIANT"] <- "BA.3"
+  src.dat[src.dat$VARIANT %in% B529.BA4[B529.BA4 %notin% voc],"VARIANT"] <- "BA.4"
+  src.dat[src.dat$VARIANT %in% B529.BA5[B529.BA5 %notin% voc],"VARIANT"] <- "BA.5"
 }
 
 # create another column for the varients of interest
@@ -682,48 +687,48 @@ if(trim_weights){
 # alternatively, tally them using SQL on HUE: https://cdp-01.biotech.cdc.gov:8889/hue/editor?editor=37419
 # (This isn't calculated on a regular basis; it's just whenever we want to look at it again)
 if(FALSE){
-   # identify contractor sequences
-   src.dat[ SOURCE %in% c("UW VIROLOGY LAB",
-                          "FULGENT GENETICS",
-                          "HELIX",
-                          "HELIX/ILLUMINA",
-                          "LABORATORY CORPORATION OF AMERICA",
-                          "AEGIS SCIENCES CORPORATION",
-                          "QUEST DIAGNOSTICS INCORPORATED",
-                          "BROAD INSTITUTE",
-                          "INFINITY BIOLOGIX",
-                          "MAKO MEDICAL"),
-            'source_type' := 'Contractor']
-   # identify NS3 sequences
-   src.dat[ SOURCE %in% c("NS3"),
-            'source_type' := 'NS3']
-   # identify tagged sequences
-   src.dat[ is.na(source_type), 'source_type' := 'Tagged']
+  # identify contractor sequences
+  src.dat[ SOURCE %in% c("UW VIROLOGY LAB",
+                         "FULGENT GENETICS",
+                         "HELIX",
+                         "HELIX/ILLUMINA",
+                         "LABORATORY CORPORATION OF AMERICA",
+                         "AEGIS SCIENCES CORPORATION",
+                         "QUEST DIAGNOSTICS INCORPORATED",
+                         "BROAD INSTITUTE",
+                         "INFINITY BIOLOGIX",
+                         "MAKO MEDICAL"),
+           'source_type' := 'Contractor']
+  # identify NS3 sequences
+  src.dat[ SOURCE %in% c("NS3"),
+           'source_type' := 'NS3']
+  # identify tagged sequences
+  src.dat[ is.na(source_type), 'source_type' := 'Tagged']
 
-   # tally totals by source_type
-   src.dat[ ,
-            .('N' = .N,
-              'Prop' = .N / nrow(src.dat)),
-            by = c('source_type')]
+  # tally totals by source_type
+  src.dat[ ,
+           .('N' = .N,
+             'Prop' = .N / nrow(src.dat)),
+           by = c('source_type')]
 
-   # compare to results from HUE on 2022-05-31
-   data.frame(
-      'source_type' = c('Contractor', 'NS3', 'Tagged'),
-      'N' = c(1643231, 31781, 529791),
-      'Prop' = c(1643231, 31781, 529791)/sum(c(1643231, 31781, 529791)))
+  # compare to results from HUE on 2022-05-31
+  data.frame(
+    'source_type' = c('Contractor', 'NS3', 'Tagged'),
+    'N' = c(1643231, 31781, 529791),
+    'Prop' = c(1643231, 31781, 529791)/sum(c(1643231, 31781, 529791)))
 
-   # plot proportion of totals by week & source_type
-   merge(
-      x = src.dat[ ,
-                   .('N' = .N),
-                   by = c('source_type', 'week')],
-      y = src.dat[ ,
-                   .('N_total' = .N),
-                   by = c('week')],
-      by =  'week'
-   ) %>%
-      mutate(Prop = N / N_total) %>%
-      ggplot(., aes(x = week, y = Prop, color = source_type)) + theme_bw() + geom_line() + scale_y_continuous(labels = scales::percent_format())
+  # plot proportion of totals by week & source_type
+  merge(
+    x = src.dat[ ,
+                 .('N' = .N),
+                 by = c('source_type', 'week')],
+    y = src.dat[ ,
+                 .('N_total' = .N),
+                 by = c('week')],
+    by =  'week'
+  ) %>%
+    mutate(Prop = N / N_total) %>%
+    ggplot(., aes(x = week, y = Prop, color = source_type)) + theme_bw() + geom_line() + scale_y_continuous(labels = scales::percent_format())
 }
 
 
@@ -753,11 +758,11 @@ src.dat$model_week = src.dat$week - model_week_min - model_week_mid
 
 # data week (this might be the same as the last week in "model_week_df", or it might be 1 week after; it depends on "time_end")
 data_week_df = data.frame(
-   week       = current_week, # "current_week" is defined in config.R: as.numeric(data_date - week0day1) %/% 7
-   model_week = current_week - model_week_min - model_week_mid,
-   week_start = (data_date - as.numeric(format(data_date, '%w'))),
-   week_mid   = (data_date - as.numeric(format(data_date, '%w'))) + 3,
-   week_end   = (data_date - as.numeric(format(data_date, '%w'))) + 6
+  week       = current_week, # "current_week" is defined in config.R: as.numeric(data_date - week0day1) %/% 7
+  model_week = current_week - model_week_min - model_week_mid,
+  week_start = (data_date - as.numeric(format(data_date, '%w'))),
+  week_mid   = (data_date - as.numeric(format(data_date, '%w'))) + 3,
+  week_end   = (data_date - as.numeric(format(data_date, '%w'))) + 6
 )
 
 # a function to convert dates to model_week
@@ -1003,19 +1008,19 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
 
     # optionally calculate the number of infections attributable to each variant
     if (calc_confirmed_infections){
-      test_filepath <- paste0(script.basename,
-                         "/data/backup_",
-                         data_date, "/",
-                         data_date, "_tests_aggregated",
-                         custom_tag, ".RDS")
+      test_filepath <- paste0('/scicomp/groups-pure/Projects/SARS2Seq/repos/sc2_proportion_modeling',
+                              "/data/backup_",
+                              data_date, "/",
+                              data_date, "_tests_aggregated",
+                              custom_tag, ".RDS")
 
       if (file.exists(test_filepath)){
         test_list <- readRDS(file = test_filepath)
 
         # get the fortnightly test tallies & aggregate them by fn across USA
         tests_fn_us <- test_list$tests_fortnight[,
-                                                  .('total_test_positives' = sum(POSITIVE, na.rm = T)),
-                                                  by = 'fortnight_end'][,'HHS' := 'USA']
+                                                 .('total_test_positives' = sum(POSITIVE, na.rm = T)),
+                                                 by = 'fortnight_end'][,'HHS' := 'USA']
         # aggregate fortnightly tests by HHS region
         tests_fn_hhs <- test_list$tests_fortnight[,
                                                   .('total_test_positives' = sum(POSITIVE, na.rm = T)),
@@ -1265,7 +1270,7 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
 
     # optionally calculate the number of infections attributable to each variant
     if (calc_confirmed_infections){
-      test_filepath <- paste0(script.basename,
+      test_filepath <- paste0('/scicomp/groups-pure/Projects/SARS2Seq/repos/sc2_proportion_modeling',
                               "/data/backup_",
                               data_date, "/",
                               data_date, "_tests_aggregated",
@@ -1301,7 +1306,7 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
       } else {
         print(paste0('File ',
                      test_filepath,
-                     ' not found. Not calculating number of infections attributable to each variant for fortnights.'))
+                     ' not found. Not calculating number of infections attributable to each variant for weeks.'))
       }
 
     }
@@ -1636,19 +1641,19 @@ if ( grepl("Run2",tag) ){
        cex = 0.7,
        xpd = TRUE,
        adj = c(0.5, 0))
-   rect(xleft   = x[2] + (x[3]-x[2])*.25,
+  rect(xleft   = x[2] + (x[3]-x[2])*.25,
        ybottom = 0,
        xright  = x[3],
        ytop    = 100,
        border  = NA,
        col = "#00000040")
-   # add text to the plot
-   text(x = mean(c(x[2], x[3]))+ (x[2]-x[1])*.125,
-        y = 101,
-        labels = 'Future',
-        cex = 0.7,
-        xpd = TRUE,
-        adj = c(0.5, 0))
+  # add text to the plot
+  text(x = mean(c(x[2], x[3]))+ (x[2]-x[1])*.125,
+       y = 101,
+       labels = 'Future',
+       cex = 0.7,
+       xpd = TRUE,
+       adj = c(0.5, 0))
   if (fig_gen_run) dev.off()
 
   ### WoW growth rate vs. transmission ----
@@ -1735,7 +1740,7 @@ if ( grepl("Run2",tag) ){
   gtp <- subset(gr_tab,
                 variant_share >= 0.01) # this is already a percent, so this is filtering out variants with less than 1/1000 of a percent (not 1 percent)
 
-   # plot "nowcast" groth rates by variant
+  # plot "nowcast" groth rates by variant
   plot(x = gtp$variant_share,
        y = gtp$growth_rate,
        log = "x",
@@ -1828,8 +1833,8 @@ if ( grepl("Run2",tag) ){
   # give the table prettier column names (week start date instead of model_week)
   # dimnames(bp_hhs)[[2]] = week_label(as.numeric(dimnames(bp_hhs)[[2]]) - current_week)
   dimnames(bp_hhs)[[2]] = format(
-     x = ((as.numeric(dimnames(bp_hhs)[[2]]) + data_week_df$model_week - 2) + model_week_min) * 7 + as.Date(week0day1),
-     # x = ((as.numeric(dimnames(bp_hhs)[[2]]) + model_week_mid) + model_week_min) * 7 + as.Date(week0day1),
+    x = ((as.numeric(dimnames(bp_hhs)[[2]]) + data_week_df$model_week - 2) + model_week_min) * 7 + as.Date(week0day1),
+    # x = ((as.numeric(dimnames(bp_hhs)[[2]]) + model_week_mid) + model_week_min) * 7 + as.Date(week0day1),
     format = '%m-%d'
   )
 
@@ -1866,7 +1871,7 @@ if ( grepl("Run2",tag) ){
          y = 3 + colSums(100 * t(tail(bp_hhs[hhs,,], 12))),
          labels = with(subset(src.dat,
                               HHS == hhs &
-                              week < current_week - 1 &
+                                week < current_week - 1 &
                                 week >= current_week - display_lookback),
                        table(week)),
          cex = 0.7)
@@ -2142,109 +2147,309 @@ if ( grepl("Run2",tag) ){
   # model to match those that are reported for Run 1.
 
   ### aggregation matrix ----
-  # Check to see which lineages are in model_vars
-  # this returns all variants with "AY" in the name
-  AY_vars = model_vars[grep("AY", model_vars)]
-  # this returns all variants with BA. in the name (Omicron sublineages)
-  BA_vars = model_vars[grep("BA\\.", model_vars)]
+  # this is used to aggregate the results of run 2 to the vocs included in run 1.
+  # The aggregation matrix has a column for each of the vocs in run 2 and a row for each aggregated voc. 1's in the matrix specify which sub-variants to aggregate into the aggregate lineage.
+  {
+    # create a column for each voc in the model
+    agg_var_mat1 <- agg_var_mat2 <- matrix(data = 0,
+                                           nrow = 0,
+                                           ncol = (length(model_vars)+1))
+    colnames(agg_var_mat1) <- colnames(agg_var_mat2) <- c(model_vars,"Other")
 
-  # get the names of the lineages included in Run1
-  if(custom_lineages){
-    run1_lineages = c(voc1, custom_lineage_names)
-  } else {
-    run1_lineages = voc1
+    # fill in agg_var_mat1 for run1 results
+    {
+      # cycle over each variant and find its sub-variants that should be aggregated
+      # (i.e. that aren't subvariants of more specific vocs: for example, BA.1.1.18
+      # should be aggregated into BA.1.1, NOT BA.1 (if both BA.1 and BA.1.1 are listed in the vocs))
+      for (v in seq(voc1)){
+        # my grep below only looks for continuations of the same pattern, which won't work for Delta & Omicron where the subvariants have a different naming system, so I'll manually change their names here. This will need to be updated for any future variants that get a new naming system for their subvariants.
+        v_search <- sub(pattern = 'B.1.617.2', replacement = 'AY', x = sub(pattern = 'B.1.1.529', replacement = 'BA', x = voc1[v]))
+
+        # all subvariants of "v"
+        asv <- grep(pattern = paste0(sub(pattern = '\\.', replacement = '\\\\\\.', x = v_search), '\\..+'), x = voc, value = T)
+
+        # NOTE! This only works for 2 levels. It needs to work for n levels!
+        # subvariants that are not subvariants of a more specific voc
+        {
+          # more specific subvariants that are in voc1/voc2
+          ssv_1 <- asv[asv %in% voc1]
+          # find the subvariants that should be aggregated into "ssv_1" instead of "v", and therefore should be excluded
+          # my grep below only looks for continuations of the same pattern, which won't work for Delta & Omicron where the subvariants have a different naming system, so I'll manually change their names here. This will need to be updated for any future variants that get a new naming system for their subvariants.
+          ssv_search <- sub(pattern = 'B.1.617.2', replacement = 'AY', x = sub(pattern = 'B.1.1.529', replacement = 'BA', x = ssv_1))
+          # for each variant that is a voc & also a subvariant of "v", find all of its subvariants, all of which will be excluded from aggregation into "v"
+          ssv_1_e <- unlist(lapply(X = ssv_search, FUN = function(ssv) c(ssv, grep(pattern = paste0(sub(pattern = '\\.', replacement = '\\\\\\.', x = ssv), '\\..+'), x = asv, value = T))))
+
+          # subvariants that should actually be aggregated into "v"
+          ssv_1_a <- asv[asv %notin% ssv_1_e]
+        }
+
+        # if the ssv_1_a has any subvariants, then add an extra row to the matrix
+        if(length(ssv_1_a > 0)) {
+          # create a new row for the aggregation matrix
+          extra_row <- ifelse(colnames(agg_var_mat1) %in% c(voc1[v], ssv_1_a), 1, 0)
+
+          # add the new row onto the aggregation matrix
+          # but only if the extra row contains
+          agg_var_mat1 <- rbind(
+            agg_var_mat1,
+            extra_row
+          )
+          # update the row name
+          row.names(agg_var_mat1)[nrow(agg_var_mat1)] <- paste(voc1[v], 'Aggregated')
+        }
+
+      }
+
+      # all the variants that are not (in voc1) AND (not aggregated into something else)
+      # should be aggregated into "Other Aggregated"
+      other_agg <- base::setdiff(colnames(agg_var_mat1)[colSums(agg_var_mat1) == 0], voc1)
+      # add the new row onto the aggregation matrix
+      # but only if the extra row contains
+      agg_var_mat1 <- rbind(
+        agg_var_mat1,
+        ifelse(colnames(agg_var_mat1) %in% other_agg, 1, 0)
+      )
+      # update the row name
+      row.names(agg_var_mat1)[nrow(agg_var_mat1)] <- 'Other Aggregated'
+
+      # double-check that no variant is aggregated into multiple vocs
+      if(max(colSums(agg_var_mat1)) > 1){
+        warningCondition(message = paste(
+          'Aggregated results are invalid! These variants are being aggregated multiple times:',
+          names(agg_var_mat1)[colSums(agg_var_mat1) > 1],
+          '. Fix the aggregation matrix.'))
+      }
+    }
+    # agg_var_mat1
+
+    # fill in agg_var_mat2 for run2 results
+    {
+      # choose the voc2's to output
+      if (!is.na(voc2_manual)) {
+        # if voc2_manual is specified, aggregate to those variants for output
+        voc2_agg <- voc2_manual
+        print('Aggregating run 2 results to the variants listed in voc2_manual.')
+      } else if (any(!is.na(voc2_additional))){
+        # if voc2_additional is specified, aggregate to those variants for output
+        voc2_agg <- voc2_additional
+        print('Aggregating run 2 results to the variants listed in voc2_additional.')
+      } else {
+        # if neither voc2_manual nor voc2_additional is specified, then aggregate to voc1
+        voc2_agg <- voc1
+        print('Neither voc2_manual nor voc_additional is specified. Aggregating run 2 results to the variants listed in voc1.')
+      }
+
+      # cycle over each variant and find its sub-variants that should be aggregated
+      # (i.e. that aren't subvariants of more specific vocs: for example, BA.1.1.18
+      # should be aggregated into BA.1.1, NOT BA.1 (if both BA.1 and BA.1.1 are listed in the vocs))
+      for (v in seq(voc2_agg)){
+        # my grep below only looks for continuations of the same pattern, which won't work for Delta & Omicron where the subvariants have a different naming system, so I'll manually change their names here. This will need to be updated for any future variants that get a new naming system for their subvariants.
+        v_search <- sub(pattern = 'B.1.617.2', replacement = 'AY', x = sub(pattern = 'B.1.1.529', replacement = 'BA', x = voc2_agg[v]))
+
+        # all subvariants of "v"
+        asv <- grep(pattern = paste0(sub(pattern = '\\.', replacement = '\\\\\\.', x = v_search), '\\..+'), x = voc, value = T)
+
+        # NOTE! This only works for 2 levels. It needs to work for n levels!
+        # subvariants that are not subvariants of a more specific voc
+        {
+          # more specific subvariants that are in voc2_agg/voc2
+          ssv_1 <- asv[asv %in% voc2_agg]
+          # find the subvariants that should be aggregated into "ssv_1" instead of "v", and therefore should be excluded
+          # my grep below only looks for continuations of the same pattern, which won't work for Delta & Omicron where the subvariants have a different naming system, so I'll manually change their names here. This will need to be updated for any future variants that get a new naming system for their subvariants.
+          ssv_search <- sub(pattern = 'B.1.617.2', replacement = 'AY', x = sub(pattern = 'B.1.1.529', replacement = 'BA', x = ssv_1))
+          # for each variant that is a voc & also a subvariant of "v", find all of its subvariants, all of which will be excluded from aggregation into "v"
+          ssv_1_e <- unlist(lapply(X = ssv_search, FUN = function(ssv) c(ssv, grep(pattern = paste0(sub(pattern = '\\.', replacement = '\\\\\\.', x = ssv), '\\..+'), x = asv, value = T))))
+
+          # subvariants that should actually be aggregated into "v"
+          ssv_1_a <- asv[asv %notin% ssv_1_e]
+        }
+
+        # if the ssv_1_a has any subvariants, then add an extra row to the matrix
+        if(length(ssv_1_a > 0)) {
+          # create a new row for the aggregation matrix
+          extra_row <- ifelse(colnames(agg_var_mat2) %in% c(voc2_agg[v], ssv_1_a), 1, 0)
+
+          # add the new row onto the aggregation matrix
+          # but only if the extra row contains
+          agg_var_mat2 <- rbind(
+            agg_var_mat2,
+            extra_row
+          )
+          # update the row name
+          row.names(agg_var_mat2)[nrow(agg_var_mat2)] <- paste(voc2_agg[v], 'Aggregated')
+        }
+
+      }
+
+      # all the variants that are not (in voc2_agg) AND (not aggregated into something else)
+      # should be aggregated into "Other Aggregated"
+      other_agg <- base::setdiff(colnames(agg_var_mat2)[colSums(agg_var_mat2) == 0], voc2_agg)
+      # add the new row onto the aggregation matrix
+      # but only if the extra row contains
+      agg_var_mat2 <- rbind(
+        agg_var_mat2,
+        ifelse(colnames(agg_var_mat2) %in% other_agg, 1, 0)
+      )
+      # update the row name
+      row.names(agg_var_mat2)[nrow(agg_var_mat2)] <- 'Other Aggregated'
+
+      agg_var_mat2
+      # double-check that no variant is aggregated into multiple vocs
+      if(max(colSums(agg_var_mat2)) > 1){
+        warningCondition(message = paste(
+          'Aggregated results are invalid! These variants are being aggregated multiple times:',
+          names(agg_var_mat2)[colSums(agg_var_mat2) > 1],
+          '. Fix the aggregation matrix.'))
+      }
+    }
+    # agg_var_mat2
+
+    # combine agg_var_mat1 and agg_var_mat2
+    {
+      # first find rows that are identical in agg_var_mat1 and agg_var_mat2
+      # rows from agg_var_mat1 that are also in agg_var_mat2
+      shared_rows_1 <- unlist(lapply(X = 1:nrow(agg_var_mat1), FUN = function(i){
+        lapply(X = 1:nrow(agg_var_mat2), FUN = function(j){
+          if(all(agg_var_mat1[i,] == agg_var_mat2[j,])) return(i)
+        })}))
+
+      # rows from agg_var_mat2 that are also in agg_var_mat1
+      shared_rows_2 <- unlist(lapply(X = 1:nrow(agg_var_mat1), FUN = function(i){
+        lapply(X = 1:nrow(agg_var_mat2), FUN = function(j){
+          if(all(agg_var_mat1[i,] == agg_var_mat2[j,])) return(j)
+        })}))
+
+
+      # shared rows only
+      avm_shared <- agg_var_mat1[shared_rows_1,,drop=FALSE]
+      row.names(avm_shared) <- paste('shared', row.names(avm_shared))
+
+      # only in agg_var_mat1
+      avm_1only <- agg_var_mat1[1:nrow(agg_var_mat1) %notin% shared_rows_1,,drop=FALSE]
+      row.names(avm_1only) <- paste('only1', row.names(avm_1only))
+
+      # only in agg_var_mat2
+      avm_2only <- agg_var_mat2[1:nrow(agg_var_mat2) %notin% shared_rows_2,,drop=FALSE]
+      row.names(avm_2only) <- paste('only2', row.names(avm_2only))
+
+      # combine shared & unshared rows
+      agg_var_mat <- rbind(
+        avm_shared,
+        avm_1only,
+        avm_2only
+      )
+    }
   }
 
-  # this returns all "AY" variants to be aggregated for Run 1 results
-  # (i.e. not listed in run1_lineages)
-  AY_agg = AY_vars[AY_vars %notin% run1_lineages]
-  # this returns all "BA" variants to be aggregated for Run 1 results
-  # Note: this assumes that all BA subvariants will be aggregated into parent Omicron. That's no longer the case, so below I'm adding code to deal with BA subvariants that need their own aggregations.
-  BA_agg = BA_vars[BA_vars %notin% run1_lineages]
-   # some of these should be aggregated into parent omicron; others should be aggregated into some BA sublineage
+  # former aggregation
+  if(FALSE){
+    # Check to see which lineages are in model_vars
+    # this returns all variants with "AY" in the name
+    AY_vars = model_vars[grep("AY", model_vars)]
+    # this returns all variants with BA. in the name (Omicron sublineages)
+    BA_vars = model_vars[grep("BA\\.", model_vars)]
 
-  # all other variants to be aggregated (used for Run 1 & Run 2 results)
-  Other_agg = model_vars[model_vars %notin% c(voc, 'B.1.617.2', 'B.1.1.529')] # also have to exclude any variants that have their own row in agg_var_mat. If delta is not included in VOC, then it gets included in both the delta row and the Other row.
+    # get the names of the lineages included in Run1
+    if(custom_lineages){
+      run1_lineages = c(voc1, custom_lineage_names)
+    } else {
+      run1_lineages = voc1
+    }
+
+    # this returns all "AY" variants to be aggregated for Run 1 results
+    # (i.e. not listed in run1_lineages)
+    AY_agg = AY_vars[AY_vars %notin% run1_lineages]
+    # this returns all "BA" variants to be aggregated for Run 1 results
+    # Note: this assumes that all BA subvariants will be aggregated into parent Omicron. That's no longer the case, so below I'm adding code to deal with BA subvariants that need their own aggregations.
+    BA_agg = BA_vars[BA_vars %notin% run1_lineages]
+    # some of these should be aggregated into parent omicron; others should be aggregated into some BA sublineage
+
+    # all other variants to be aggregated (used for Run 1 & Run 2 results)
+    Other_agg = model_vars[model_vars %notin% c(voc, 'B.1.617.2', 'B.1.1.529')] # also have to exclude any variants that have their own row in agg_var_mat. If delta is not included in VOC, then it gets included in both the delta row and the Other row.
 
 
-  # generate a matrix that indicates which lineages to aggregate for the nowcast
-  # Columns are the lineages in the nowcast model, so all the defined lineages
-  #  plus the "other" lineage
-  # Rows are the aggregated lineages desired
-  agg_var_mat <- matrix(data = 0,
-                        nrow = 3,
-                        ncol = (length(model_vars)+1))
-  colnames(agg_var_mat) <- c(model_vars,"Other")
+    # generate a matrix that indicates which lineages to aggregate for the nowcast
+    # Columns are the lineages in the nowcast model, so all the defined lineages
+    #  plus the "other" lineage
+    # Rows are the aggregated lineages desired
+    agg_var_mat <- matrix(data = 0,
+                          nrow = 3,
+                          ncol = (length(model_vars)+1))
+    colnames(agg_var_mat) <- c(model_vars,"Other")
 
-  # Fill in matrix values: if lineage is to be aggregated to parent lineage in
-  # given row, then value = 1, else value = 0
-  agg_var_mat[1,] <- ifelse(colnames(agg_var_mat) %in% c("B.1.617.2", AY_agg),1,0)
-  agg_var_mat[2,] <- ifelse(colnames(agg_var_mat) %in% c("B.1.1.529", BA_agg),1,0)
-  agg_var_mat[3,] <- ifelse(colnames(agg_var_mat) %in% c(Other_agg, "Other"),1,0)
-  row.names(agg_var_mat) <-c("Delta Aggregated", "Omicron Aggregated", "Other Aggregated")
-  # add rows to agg_var_mat for each BA subvariant in run1_lineages
-  {
-     # get the BA subvariants that are in run1_lineages, and therefore might need their own aggregations
-     #  (e.g. aggregate BA.2.12 into BA.2 if both are in voc2, but only BA.2 is in voc1)
-     BAs_in_r1l <- BA_vars[BA_vars %in% run1_lineages]
-     for( ll in BAs_in_r1l){
+    # Fill in matrix values: if lineage is to be aggregated to parent lineage in
+    # given row, then value = 1, else value = 0
+    agg_var_mat[1,] <- ifelse(colnames(agg_var_mat) %in% c("B.1.617.2", AY_agg),1,0)
+    agg_var_mat[2,] <- ifelse(colnames(agg_var_mat) %in% c("B.1.1.529", BA_agg),1,0)
+    agg_var_mat[3,] <- ifelse(colnames(agg_var_mat) %in% c(Other_agg, "Other"),1,0)
+    row.names(agg_var_mat) <-c("Delta Aggregated", "Omicron Aggregated", "Other Aggregated")
+
+    # add rows to agg_var_mat for each BA subvariant in run1_lineages
+    {
+      # get the BA subvariants that are in run1_lineages, and therefore might need their own aggregations
+      #  (e.g. aggregate BA.2.12 into BA.2 if both are in voc2, but only BA.2 is in voc1)
+      BAs_in_r1l <- BA_vars[BA_vars %in% run1_lineages]
+      for( ll in BAs_in_r1l){
         if(exists('ll_agg')) rm(ll_agg)
         # first get the BA_vars that should be aggregated into this "ll" instead of parent omicron
         # grep(pattern = ll, x = BA_vars) # this won't work in all cases. I'll have to use a piece-wise/messy "solution"
         if (ll == 'BA.1'){
-           # this always excludes BA.1.1
-           # if voc1 includes BA.1, but not BA.1.1, then this is going to result in BA.1.1 aggregated into parent omicron, NOT BA.1
-           ll_agg <- grep("(BA\\.1)(?!(\\.1$)|(\\.1\\.))",BA_vars, perl = T, value = T)
+          # this always excludes BA.1.1
+          # if voc1 includes BA.1, but not BA.1.1, then this is going to result in BA.1.1 aggregated into parent omicron, NOT BA.1
+          ll_agg <- grep("(BA\\.1)(?!(\\.1$)|(\\.1\\.))",BA_vars, perl = T, value = T)
         }
         if (ll == 'BA.1.1'){
-           ll_agg <- grep("(BA\\.1\\.1)(?![0-9])",BA_vars, perl = T, value = T)
+          ll_agg <- grep("(BA\\.1\\.1)(?![0-9])",BA_vars, perl = T, value = T)
         }
         if (ll == 'BA.2') {
-           # this will always aggregate BA.2.12 into BA.2
-           if( length(grep("(BA\\.2)(?![0-9])",run1_lineages, perl = T, value = T)) == 1 ){
-              ll_agg <- grep("(BA\\.2)(?![0-9])",BA_vars, perl = T, value = T)
-           }
-           # this will keep BA.2.12 seperate ONLY if BA.2.12 is *ALSO* listed in run1_lineages
-           if( length(grep("(BA\\.2\\.12)",run1_lineages, perl = T, value = T)) == 1 ){
-              ll_agg <- grep("(BA\\.2)(?!([0-9])|(\\.12))",BA_vars, perl = T, value = T)
-           }
+          # this will always aggregate BA.2.12 into BA.2
+          if( length(grep("(BA\\.2)(?![0-9])",run1_lineages, perl = T, value = T)) == 1 ){
+            ll_agg <- grep("(BA\\.2)(?![0-9])",BA_vars, perl = T, value = T)
+          }
+          # this will keep BA.2.12 seperate ONLY if BA.2.12 is *ALSO* listed in run1_lineages
+          if( length(grep("(BA\\.2\\.12)",run1_lineages, perl = T, value = T)) == 1 ){
+            ll_agg <- grep("(BA\\.2)(?!([0-9])|(\\.12))",BA_vars, perl = T, value = T)
+          }
         }
         if(ll == 'BA.2.12') {
-           ll_agg <- grep("(BA\\.2\\.12)(?![0-9])",BA_vars, perl = T, value = T)
+          ll_agg <- grep("(BA\\.2\\.12)(?![0-9])",BA_vars, perl = T, value = T)
         }
         if (ll == 'BA.3') {
-           ll_agg <- grep("(BA\\.3)(?![0-9])",BA_vars, perl = T, value = T)
+          ll_agg <- grep("(BA\\.3)(?![0-9])",BA_vars, perl = T, value = T)
         }
         if (ll == 'BA.4') {
-           ll_agg <- grep("(BA\\.4)(?![0-9])",BA_vars, perl = T, value = T)
+          ll_agg <- grep("(BA\\.4)(?![0-9])",BA_vars, perl = T, value = T)
         }
         if(ll == 'BA.5') {
-           ll_agg <- grep("(BA\\.5)(?![0-9])",BA_vars, perl = T, value = T)
+          ll_agg <- grep("(BA\\.5)(?![0-9])",BA_vars, perl = T, value = T)
         }
 
         # add a row onto the agg_var_mat for this subvariant
         if(exists('ll_agg')){
-           # if ll_agg contains subvariants of ll, then add a new row to agg_var_mat
-           # if ll_agg only contains ll, don't add a new row
-           if(any(ll_agg != ll)){
-              # create an extra row for the agg_var_mat
-              extra_row <- ifelse(colnames(agg_var_mat) %in% ll_agg,1,0)
+          # if ll_agg contains subvariants of ll, then add a new row to agg_var_mat
+          # if ll_agg only contains ll, don't add a new row
+          if(any(ll_agg != ll)){
+            # create an extra row for the agg_var_mat
+            extra_row <- ifelse(colnames(agg_var_mat) %in% ll_agg,1,0)
 
-              # add the new row onto the aggregation matrix
-              agg_var_mat <- rbind(
-                 agg_var_mat,
-                 extra_row
-              )
-              row.names(agg_var_mat)[nrow(agg_var_mat)] <- paste(ll, 'Aggregated')
+            # add the new row onto the aggregation matrix
+            agg_var_mat <- rbind(
+              agg_var_mat,
+              extra_row
+            )
+            row.names(agg_var_mat)[nrow(agg_var_mat)] <- paste(ll, 'Aggregated')
 
-              # remove aggregation indices from "Omicron Aggregated" if they're in the new row
-              om_row <- which(row.names(agg_var_mat) == 'Omicron Aggregated')
-              agg_var_mat[om_row,which(agg_var_mat[ om_row,] == 1 & extra_row == 1)] <- 0
-           }
+            # remove aggregation indices from "Omicron Aggregated" if they're in the new row
+            om_row <- which(row.names(agg_var_mat) == 'Omicron Aggregated')
+            agg_var_mat[om_row,which(agg_var_mat[ om_row,] == 1 & extra_row == 1)] <- 0
+          }
         }
+      }
+      # print a warning if any columns have totals > 1
+      if(any(colSums(agg_var_mat)>1)) warning(paste0('agg_var_mat not correctly specified. Some variants are aggregated more than once.', agg_var_mat))
     }
-     # print a warning if any columns have totals > 1
-     if(any(colSums(agg_var_mat)>1)) warning(paste0('agg_var_mat not correctly specified. Some variants are aggregated more than once.', agg_var_mat))
+
+    agg_var_mat
   }
 
 
@@ -2315,7 +2520,7 @@ if ( grepl("Run2",tag) ){
       doubling_time_hi = log(2)/gr_hi_link * 7
 
       # format estimates into dataframe with relevant info
-      ests = data.frame(
+      ests = data.table::data.table(
         USA_or_HHSRegion = rgn,
         Fortnight_ending = as.Date(ftn, origin="1970-01-01"),
         Variant = c(model_vars,
@@ -2366,7 +2571,7 @@ if ( grepl("Run2",tag) ){
 
   # optionally calculate the number of infections attributable to each variant
   if (calc_confirmed_infections){
-    test_filepath <- paste0(script.basename,
+    test_filepath <- paste0('/scicomp/groups-pure/Projects/SARS2Seq/repos/sc2_proportion_modeling',
                             "/data/backup_",
                             data_date, "/",
                             data_date, "_tests_aggregated",
@@ -2388,7 +2593,9 @@ if ( grepl("Run2",tag) ){
       proj.res <- merge(
         x = proj.res,
         y = rbind(tests_fn_us,
-                  tests_fn_hhs),
+                  tests_fn_hhs)[,.(fortnight_end = as.Date(fortnight_end),
+                                   total_test_positives = total_test_positives,
+                                   HHS = HHS)],
         by.x = c("USA_or_HHSRegion",
                  "Fortnight_ending"),
         by.y = c('HHS',
@@ -2396,9 +2603,9 @@ if ( grepl("Run2",tag) ){
         all.x = TRUE)
 
       # calculate case totals for each variant
-      proj.res$cases    <- proj.res$total_test_positives * proj.res$Share
-      proj.res$cases_lo <- proj.res$total_test_positives * proj.res$Share_lo
-      proj.res$cases_hi <- proj.res$total_test_positives * proj.res$Share_hi
+      proj.res[, cases := total_test_positives * Share]
+      proj.res[, cases_lo := total_test_positives * Share_lo]
+      proj.res[, cases_hi := total_test_positives * Share_hi]
     } else {
       print(paste0('File ',
                    test_filepath,
@@ -2406,43 +2613,130 @@ if ( grepl("Run2",tag) ){
     }
   }
 
-
   # Format output for the run 1 lineage list
   # only include Variants that are NOT aggregated into a larger group
-  run_1 = proj.res[proj.res$Variant %notin% colnames(agg_var_mat)[colSums(agg_var_mat)>0],]
+  # run_1 = proj.res[proj.res$Variant %notin% colnames(agg_var_mat)[colSums(agg_var_mat)>0],]
+  drop_lin_run1 <- c(colnames(agg_var_mat1)[colSums(agg_var_mat1)>0],
+                     grep('^only2', unique(proj.res$Variant), value = T)) # need to make sure that run1 keeps either "Other" or Other aggregated!
+  run_1 = proj.res[Variant %notin% drop_lin_run1]
+
+  # remove the funky names
+  renaming <- data.table(
+    old = c(grep('^shared', unique(run_1$Variant), value = T),
+            grep('^only1', unique(run_1$Variant), value = T))
+  )
+  renaming[, 'new' := sub(pattern = '(shared )|(only1 )', replacement = '', x = old)]
+
+  # use the "renaming" lookup table to replace the variant names
+  run_1[
+    renaming, # this is a data.table join (using a 2nd data.table in the "i" position)
+    on = setNames("old", 'Variant'), # this tells it what to join on
+    'Variant' := new # this does the replacement based on the look up table
+  ]
 
   # change the name of "Other Aggregated" to "Other" to match other output files
   run_1[run_1$Variant == "Other Aggregated","Variant"] <- "Other"
 
-  # save the results to file
-  write.csv(x = run_1,
-            file = paste0(script.basename,
-                          "/results/updated_nowcast_fortnightly_",
-                          data_date,
-                          sub(pattern = '2', replacement = '1', x = tag),
-                          ".csv"),
-            row.names = FALSE)
+  # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
+  if (!all(run_1[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Fortnight_ending')][,unique(round(total_share, 5))] == 1)){
+    warningCondition(paste(
+      paste0(script.basename,
+             "/results/updated_nowcast_fortnightly_",
+             data_date,
+             sub(pattern = '2', replacement = '1', x = tag),
+             ".csv"),
+      'results are invalid! The total proportion does not add up to 100% in all weeks!')
+    )
+  } else {
+    # only save the results to file if the proportions add up to 100% each week
+    # save the results to file
+    write.csv(x = run_1,
+              file = paste0(script.basename,
+                            "/results/updated_nowcast_fortnightly_",
+                            data_date,
+                            sub(pattern = '2', replacement = '1', x = tag),
+                            ".csv"),
+              row.names = FALSE)
+  }
 
   # Format output for the run2 lineage list
-  # get all the lineages names that are *NOT* "Other Aggregated"
-  drop_lin <- row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"]
+  # get the variant names that should be excluded from the run_2 results
+  # drop_lin <- row.names(agg_var_mat2)[row.names(agg_var_mat2) %notin% "Other Aggregated"]
+  drop_lin <- c(
+    colnames(agg_var_mat2)[colSums(agg_var_mat2)>0], # these are aggregated into something else, so we don't want those
+    grep('^only1', unique(proj.res$Variant), value = T) # these are only for run_1 results, so we don't want those
+  ) # need to make sure run2 keeps either "Other" or "Other aggregated"
 
   # Only include variants that are NOT in the list provided
-  run_2 = proj.res[proj.res$Variant %notin% c(drop_lin,
-                                              Other_agg,
-                                              "Other"),]
+  run_2 = proj.res[Variant %notin% drop_lin]
+
+  # remove the funky names
+  renaming2 <- data.table(
+    old = c(grep('^shared', unique(run_2$Variant), value = T),
+            grep('^only2', unique(run_2$Variant), value = T))
+  )
+  renaming2[, 'new' := sub(pattern = '(shared )|(only2 )', replacement = '', x = old)]
+
+  # use the "renaming" lookup table to replace the variant names
+  run_2[
+    renaming2, # this is a data.table join (using a 2nd data.table in the "i" position)
+    on = setNames("old", 'Variant'), # this tells it what to join on
+    'Variant' := new # this does the replacement based on the look up table
+  ]
+
 
   # change the name of "Other Aggregated" to "Other" to match other output files
   run_2[run_2$Variant=="Other Aggregated","Variant"] <- "Other"
 
-  # save the results to file
-  write.csv(x = run_2,
-            file = paste0(script.basename,
-                          "/results/updated_nowcast_fortnightly_",
-                          data_date,
-                          tag,
-                          ".csv"),
-            row.names = FALSE)
+  # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
+  if (!all(run_2[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Fortnight_ending')][,unique(round(total_share, 5))] == 1)){
+    warningCondition(paste(
+      paste0(script.basename,
+             "/results/updated_nowcast_fortnightly_",
+             data_date,
+             tag,
+             ".csv"),
+      'results are invalid! The total proportion does not add up to 100% in all weeks!')
+    )
+  } else {
+    # only save the results to file if the proportions add up to 100% each week
+    write.csv(x = run_2,
+              file = paste0(script.basename,
+                            "/results/updated_nowcast_fortnightly_",
+                            data_date,
+                            tag,
+                            ".csv"),
+              row.names = FALSE)
+  }
+
+  # Also save the totally unaggregated Run 2 results
+  {
+    # the output from run 2 used to be unaggregated, but now it does (or can) contain some aggregation.
+    # so I'm also saving the un-aggregated results
+
+    run_0 <- proj.res[Variant %notin% row.names(agg_var_mat)]
+
+    # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
+    if (!all(run_0[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Fortnight_ending')][,unique(round(total_share, 5))] == 1)){
+      warningCondition(paste(
+        paste0(script.basename,
+               "/results/updated_nowcast_fortnightly_",
+               data_date,
+               tag,
+               "_unaggregated.csv"),
+        'results are invalid! The total proportion does not add up to 100% in all weeks!')
+      )
+    } else {
+      write.csv(x = run_0,
+                file = paste0(script.basename,
+                              "/results/updated_nowcast_fortnightly_",
+                              data_date,
+                              tag,
+                              "_unaggregated.csv"),
+                row.names = FALSE)
+    }
+  }
+
 
 
   ### Weekly estimates ----
@@ -2522,7 +2816,7 @@ if ( grepl("Run2",tag) ){
       doubling_time_hi = log(2)/gr_hi_link * 7
 
       # format estimates into dataframe with relevant info
-      ests = data.frame(
+      ests = data.table::data.table(
         USA_or_HHSRegion = rgn,
         Week_ending = week_ending, # this no longer identifies a single estimate.
         Variant = c(model_vars,
@@ -2580,7 +2874,7 @@ if ( grepl("Run2",tag) ){
 
   # optionally calculate the number of infections attributable to each variant
   if (calc_confirmed_infections){
-    test_filepath <- paste0(script.basename,
+    test_filepath <- paste0('/scicomp/groups-pure/Projects/SARS2Seq/repos/sc2_proportion_modeling',
                             "/data/backup_",
                             data_date, "/",
                             data_date, "_tests_aggregated",
@@ -2591,12 +2885,12 @@ if ( grepl("Run2",tag) ){
 
       # get the daily test tallies & aggregate them by fn across USA
       tests_dy_us <- test_list$tests_daily[,
-                                            .('total_test_positives_daily' = sum(POSITIVE_daily, na.rm = T)),
-                                            by = 'date'][,'HHS' := 'USA']
+                                           .('total_test_positives_daily' = sum(POSITIVE_daily, na.rm = T)),
+                                           by = 'date'][,'HHS' := 'USA']
       # aggregate daily tests by HHS region
       tests_dy_hhs <- test_list$tests_daily[,
-                                             .('total_test_positives_daily' = sum(POSITIVE_daily, na.rm = T)),
-                                             by = c('date', 'HHS')]
+                                            .('total_test_positives_daily' = sum(POSITIVE_daily, na.rm = T)),
+                                            by = c('date', 'HHS')]
 
       # get the weekly test tallies & aggregate them by fn across USA
       tests_wk_us <- test_list$tests_weekly[,
@@ -2632,13 +2926,13 @@ if ( grepl("Run2",tag) ){
         all.x = TRUE)
 
       # calculate case totals for each variant
-      proj.res$cases_daily    <- proj.res$total_test_positives_daily * proj.res$Share
-      proj.res$cases_lo_daily <- proj.res$total_test_positives_daily * proj.res$Share_lo
-      proj.res$cases_hi_daily <- proj.res$total_test_positives_daily * proj.res$Share_hi
+      proj.res[, cases_daily    := total_test_positives_daily * Share]
+      proj.res[, cases_lo_daily := total_test_positives_daily * Share_lo]
+      proj.res[, cases_hi_daily := total_test_positives_daily * Share_hi]
 
-      proj.res$cases_weekly    <- proj.res$total_test_positives_weekly * proj.res$Share
-      proj.res$cases_lo_weekly <- proj.res$total_test_positives_weekly * proj.res$Share_lo
-      proj.res$cases_hi_weekly <- proj.res$total_test_positives_weekly * proj.res$Share_hi
+      proj.res[, cases_weekly    := total_test_positives_weekly * Share]
+      proj.res[, cases_lo_weekly := total_test_positives_weekly * Share_lo]
+      proj.res[, cases_hi_weekly := total_test_positives_weekly * Share_hi]
     } else {
       print(paste0('File ',
                    test_filepath,
@@ -2648,57 +2942,189 @@ if ( grepl("Run2",tag) ){
   }
 
   # Format output for the run 1 lineage list
-  # only include variants that are NOT in the list provided
-  run_1 = proj.res[proj.res$Variant %notin% colnames(agg_var_mat)[colSums(agg_var_mat)>0],]
+  # only include Variants that are NOT aggregated into a larger group
+  # run_1 = proj.res[proj.res$Variant %notin% colnames(agg_var_mat)[colSums(agg_var_mat)>0],]
+  drop_lin_run1 <- c(colnames(agg_var_mat1)[colSums(agg_var_mat1)>0],
+                     grep('^only2', unique(proj.res$Variant), value = T)) # need to make sure that run1 keeps either "Other" or Other aggregated!
+  run_1 = proj.res[Variant %notin% drop_lin_run1]
+
+  # remove the funky names
+  renaming <- data.table(
+    old = c(grep('^shared', unique(run_1$Variant), value = T),
+            grep('^only1', unique(run_1$Variant), value = T))
+  )
+  renaming[, 'new' := sub(pattern = '(shared )|(only1 )', replacement = '', x = old)]
+
+  # use the "renaming" lookup table to replace the variant names
+  run_1[
+    renaming, # this is a data.table join (using a 2nd data.table in the "i" position)
+    on = setNames("old", 'Variant'), # this tells it what to join on
+    'Variant' := new # this does the replacement based on the look up table
+  ]
 
   # change the name of "Other Aggregated" to "Other" to match other output files
-  run_1[run_1$Variant == "Other Aggregated", "Variant"] <- "Other"
+  run_1[run_1$Variant == "Other Aggregated","Variant"] <- "Other"
 
-  # save the weekly results to file
-  write.csv(x = run_1[ run_1$model_week %% 1 == 0 , !names(run_1) %in% c('total_test_positives_daily', 'cases_daily', 'cases_lo_daily', 'cases_hi_daily')],
-            file = paste0(script.basename,
-                          "/results/updated_nowcast_weekly_",
-                          data_date,
-                          sub(pattern = '2', replacement = '1', x = tag),
-                          ".csv"),
-            row.names = FALSE)
-  # save the daily results to file
-  write.csv(x = run_1[,!names(run_1) %in% c('total_test_positives_weekly', 'cases_weekly', 'cases_lo_weekly', 'cases_hi_weekly')],
-            file = paste0(script.basename,
-                          "/results/updated_nowcast_weekly_",
-                          data_date,
-                          sub(pattern = '2', replacement = '1', x = tag),
-                          "_daily.csv"),
-            row.names = FALSE)
+  # weekly results = remove daily results & daily columns
+  run_1_weekly <- data.table:::subset.data.table(x = run_1,
+                                                 subset = model_week %% 1 == 0,
+                                                 select = !names(run_1) %in% c('total_test_positives_daily', 'cases_daily', 'cases_lo_daily', 'cases_hi_daily'))
+  # daily results = remove weekly columns
+  run_1_daily <- data.table:::subset.data.table(x = run_1,
+                                                select = !names(run_1) %in% c('total_test_positives_weekly', 'cases_weekly', 'cases_lo_weekly', 'cases_hi_weekly'))
 
-  #Format output for the run2 lineage list
-  # get all the lineage names that are *NOT* "Other Aggregated"
-  drop_lin <- row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"]
+  # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
+  if (!all(run_1_weekly[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Week_ending')][,unique(round(total_share, 5))] == 1)){
+    warningCondition(paste(
+      paste0(script.basename,
+             "/results/updated_nowcast_weekly_",
+             data_date,
+             sub(pattern = '2', replacement = '1', x = tag),
+             ".csv"),
+      'results are invalid! The total proportion does not add up to 100% in all weeks!')
+    )
+  } else {
+    # only save the results to file if the proportions add up to 100% each week
+    # save the results to file
+    write.csv(x = run_1_weekly,
+              file = paste0(script.basename,
+                            "/results/updated_nowcast_weekly_",
+                            data_date,
+                            sub(pattern = '2', replacement = '1', x = tag),
+                            ".csv"),
+              row.names = FALSE)
+  }
+  # daily results
+  # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
+  if (!all(run_1_daily[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'date')][,unique(round(total_share, 5))] == 1)){
+    warningCondition(paste(
+      paste0(script.basename,
+             "/results/updated_nowcast_weekly_",
+             data_date,
+             sub(pattern = '2', replacement = '1', x = tag),
+             "_daily.csv"),
+      'results are invalid! The total proportion does not add up to 100% in all weeks!')
+    )
+  } else {
+    # only save the results to file if the proportions add up to 100% each week
+    # save the results to file
+    write.csv(x = run_1_daily,
+              file = paste0(script.basename,
+                            "/results/updated_nowcast_weekly_",
+                            data_date,
+                            sub(pattern = '2', replacement = '1', x = tag),
+                            "_daily.csv"),
+              row.names = FALSE)
+  }
+
+  # Format output for the run2 lineage list
+  # get the variant names that should be excluded from the run_2 results
+  # drop_lin <- row.names(agg_var_mat2)[row.names(agg_var_mat2) %notin% "Other Aggregated"]
+  drop_lin <- c(
+    colnames(agg_var_mat2)[colSums(agg_var_mat2)>0], # these are aggregated into something else, so we don't want those
+    grep('^only1', unique(proj.res$Variant), value = T) # these are only for run_1 results, so we don't want those
+  ) # need to make sure run2 keeps either "Other" or "Other aggregated"
 
   # Only include variants that are NOT in the list provided
-  run_2 = proj.res[proj.res$Variant %notin% c(drop_lin,
-                                              Other_agg,
-                                              "Other"),]
+  run_2 = proj.res[Variant %notin% drop_lin]
+
+  # remove the funky names
+  renaming2 <- data.table(
+    old = c(grep('^shared', unique(run_2$Variant), value = T),
+            grep('^only2', unique(run_2$Variant), value = T))
+  )
+  renaming2[, 'new' := sub(pattern = '(shared )|(only2 )', replacement = '', x = old)]
+
+  # use the "renaming" lookup table to replace the variant names
+  run_2[
+    renaming2, # this is a data.table join (using a 2nd data.table in the "i" position)
+    on = setNames("old", 'Variant'), # this tells it what to join on
+    'Variant' := new # this does the replacement based on the look up table
+  ]
+
 
   # change the name of "Other Aggregated" to "Other" to match other output files
-  run_2[run_2$Variant=="Other Aggregated", "Variant"] <- "Other"
+  run_2[run_2$Variant=="Other Aggregated","Variant"] <- "Other"
 
-  # save the weekly results to file
-  write.csv(x = run_2[run_2$model_week %% 1 == 0 ,!names(run_2) %in% c('total_test_positives_daily', 'cases_daily', 'cases_lo_daily', 'cases_hi_daily')],
-            file = paste0(script.basename,
-                          "/results/updated_nowcast_weekly_",
-                          data_date,
-                          tag,
-                          ".csv"),
-            row.names = FALSE)
-  # save the daily results to file
-  write.csv(x = run_2[,!names(run_2) %in% c('total_test_positives_weekly', 'cases_weekly', 'cases_lo_weekly', 'cases_hi_weekly')],
-            file = paste0(script.basename,
-                          "/results/updated_nowcast_weekly_",
-                          data_date,
-                          tag,
-                          "_daily.csv"),
-            row.names = FALSE)
+  # weekly results = remove daily results & daily columns
+  run_2_weekly <- data.table:::subset.data.table(x = run_2,
+                                                 subset = model_week %% 1 == 0,
+                                                 select = !names(run_2) %in% c('total_test_positives_daily', 'cases_daily', 'cases_lo_daily', 'cases_hi_daily'))
+  # daily results = remove weekly columns
+  run_2_daily <- data.table:::subset.data.table(x = run_2,
+                                                select = !names(run_2) %in% c('total_test_positives_weekly', 'cases_weekly', 'cases_lo_weekly', 'cases_hi_weekly'))
+
+  # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
+  if (!all(run_2_weekly[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Week_ending')][,unique(round(total_share, 5))] == 1)){
+    warningCondition(paste(
+      paste0(script.basename,
+             "/results/updated_nowcast_weekly_",
+             data_date,
+             tag,
+             ".csv"),
+      'results are invalid! The total proportion does not add up to 100% in all weeks!')
+    )
+  } else {
+    # only save the results to file if the proportions add up to 100% each week
+    # save the results to file
+    write.csv(x = run_2_weekly,
+              file = paste0(script.basename,
+                            "/results/updated_nowcast_weekly_",
+                            data_date,
+                            tag,
+                            ".csv"),
+              row.names = FALSE)
+  }
+  # daily results
+  # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
+  if (!all(run_2_daily[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'date')][,unique(round(total_share, 5))] == 1)){
+    warningCondition(paste(
+      paste0(script.basename,
+             "/results/updated_nowcast_weekly_",
+             data_date,
+             tag,
+             "_daily.csv"),
+      'results are invalid! The total proportion does not add up to 100% in all weeks!')
+    )
+  } else {
+    # only save the results to file if the proportions add up to 100% each week
+    # save the results to file
+    write.csv(x = run_2_daily,
+              file = paste0(script.basename,
+                            "/results/updated_nowcast_weekly_",
+                            data_date,
+                            tag,
+                            "_daily.csv"),
+              row.names = FALSE)
+  }
+
+  # Also save the totally unaggregated Run 2 results
+  {
+    # the output from run 2 used to be unaggregated, but now it does (or can) contain some aggregation.
+    # so I'm also saving the un-aggregated results
+
+    run_0 <- proj.res[Variant %notin% row.names(agg_var_mat)]
+
+    # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
+    if (!all(run_0[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'date')][,unique(round(total_share, 5))] == 1)){
+      warningCondition(paste(
+        paste0(script.basename,
+               "/results/updated_nowcast_weekly_",
+               data_date,
+               tag,
+               "_unaggregated.csv"),
+        'results are invalid! The total proportion does not add up to 100% in all weeks!')
+      )
+    } else {
+      write.csv(x = run_0,
+                file = paste0(script.basename,
+                              "/results/updated_nowcast_weekly_",
+                              data_date,
+                              tag,
+                              "_unaggregated.csv"),
+                row.names = FALSE)
+    }
+  }
 } # end Run2
 
 
@@ -2897,7 +3323,7 @@ if ( grepl("Run3", tag) ){
 
   # optionally calculate the number of infections attributable to each variant
   if (calc_confirmed_infections){
-    test_filepath <- paste0(script.basename,
+    test_filepath <- paste0('/scicomp/groups-pure/Projects/SARS2Seq/repos/sc2_proportion_modeling',
                             "/data/backup_",
                             data_date, "/",
                             data_date, "_tests_aggregated",
