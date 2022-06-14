@@ -182,9 +182,9 @@ options(survey.adjust.domain.lonely = T,
   # force-aggregate "B" into "other"
   # variant "B" most likely indicates trouble sequencing, rather than an actual variant, so don't split it out.
   # this also prevents "B" from being included in the Nowcast model.
-  force_aggregate_B <- TRUE
+  force_aggregate_B <- FALSE
   # same for "B.1"
-  force_aggregate_B.1 <- TRUE
+  force_aggregate_B.1 <- FALSE
 
   # rescale the weights that are used in the multinomial Nowcast model.
   # this can help avoid numerical overflow when trying to calculate prediction intervals.
@@ -817,248 +817,248 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
   # subset data to only include
   # - data since May 8, 2021
   # - older than "time_end"
-  dat2 <- subset(x = src.dat,
-                 as.Date(FORTNIGHT_END) >= (time_start_weights - 7*((as.numeric(time_end+1 - time_start_weights)/7) %%2)) & # this is an ugly way to make sure the start date is a multiple of 2 weeks.
-                   as.Date(FORTNIGHT_END) <= time_end)
+  # dat2 <- subset(x = src.dat,
+  #                as.Date(FORTNIGHT_END) >= (time_start_weights - 7*((as.numeric(time_end+1 - time_start_weights)/7) %%2)) & # this is an ugly way to make sure the start date is a multiple of 2 weeks.
+  #                  as.Date(FORTNIGHT_END) <= time_end)
 
-  # get the relevant fortnights from the data
-  # (should this be sorted?)
-  ftnts = (unique(dat2$FORTNIGHT_END))
+  # # get the relevant fortnights from the data
+  # # (should this be sorted?)
+  # ftnts = (unique(dat2$FORTNIGHT_END))
 
-  # skip running this if only running/testing the nowcast model.
-  # (This section takes 90+% of the time required to run this script.)
-  if(!nowcast_only){
-    # create a dataframe with all unique combinations of variants, fortnights, and regions
-    # (and then reverse column order for convenience)
-    all.ftnt = expand.grid(Variant = voc,
-                           Fortnight_ending = ftnts,
-                           USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
+  # # skip running this if only running/testing the nowcast model.
+  # # (This section takes 90+% of the time required to run this script.)
+  # if(!nowcast_only){
+  #   # create a dataframe with all unique combinations of variants, fortnights, and regions
+  #   # (and then reverse column order for convenience)
+  #   all.ftnt = expand.grid(Variant = voc,
+  #                          Fortnight_ending = ftnts,
+  #                          USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
 
-    # get the proportion estimates & CI
-    ests = apply(X = all.ftnt,
-                 MARGIN = 1,
-                 FUN = function(rr) myciprop(voc = rr[3],
-                                             geoid = rr[1],
-                                             svy = subset(x = svyDES,
-                                                          FORTNIGHT_END == rr[2]),
-                                             str = FALSE))
+  #   # get the proportion estimates & CI
+  #   ests = apply(X = all.ftnt,
+  #                MARGIN = 1,
+  #                FUN = function(rr) myciprop(voc = rr[3],
+  #                                            geoid = rr[1],
+  #                                            svy = subset(x = svyDES,
+  #                                                         FORTNIGHT_END == rr[2]),
+  #                                            str = FALSE))
 
-    # add in the estimates to the dataframe
-    all.ftnt = cbind(all.ftnt,
-                     Share    = ests[1,],
-                     Share_lo = ests[2,],
-                     Share_hi = ests[3,],
-                     DF       = ests[4,],
-                     eff.size = ests[5,],
-                     cv.mean  = ests[6,],
-                     deff     = ests[7,])
+  #   # add in the estimates to the dataframe
+  #   all.ftnt = cbind(all.ftnt,
+  #                    Share    = ests[1,],
+  #                    Share_lo = ests[2,],
+  #                    Share_hi = ests[3,],
+  #                    DF       = ests[4,],
+  #                    eff.size = ests[5,],
+  #                    cv.mean  = ests[6,],
+  #                    deff     = ests[7,])
 
-    ## make predictions for the "other" variants (following the same steps)
-    others = expand.grid(Variant          = "Other",
-                         Fortnight_ending = ftnts,
-                         USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
+  #   ## make predictions for the "other" variants (following the same steps)
+  #   others = expand.grid(Variant          = "Other",
+  #                        Fortnight_ending = ftnts,
+  #                        USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
 
-    # get the proportion estimates & CI (for "other" variants)
-    ests.others = apply(X = others,
-                        MARGIN = 1,
-                        FUN = function(rr) myciprop(voc = voc,
-                                                    geoid = rr[1],
-                                                    svy = subset(svyDES,
-                                                                 FORTNIGHT_END == rr[2]),
-                                                    str = FALSE))
+  #   # get the proportion estimates & CI (for "other" variants)
+  #   ests.others = apply(X = others,
+  #                       MARGIN = 1,
+  #                       FUN = function(rr) myciprop(voc = voc,
+  #                                                   geoid = rr[1],
+  #                                                   svy = subset(svyDES,
+  #                                                                FORTNIGHT_END == rr[2]),
+  #                                                   str = FALSE))
 
-    # add in the estimates to the dataframe (for "other" variants)
-    others = cbind(others,
-                   Share    = 1-ests.others[1,],
-                   Share_lo = 1-ests.others[3,],
-                   Share_hi = 1-ests.others[2,],
-                   DF       = ests.others[4,],
-                   eff.size = ests.others[5,],
-                   cv.mean  = ests.others[6,],
-                   deff     = ests.others[7,])
+  #   # add in the estimates to the dataframe (for "other" variants)
+  #   others = cbind(others,
+  #                  Share    = 1-ests.others[1,],
+  #                  Share_lo = 1-ests.others[3,],
+  #                  Share_hi = 1-ests.others[2,],
+  #                  DF       = ests.others[4,],
+  #                  eff.size = ests.others[5,],
+  #                  cv.mean  = ests.others[6,],
+  #                  deff     = ests.others[7,])
 
-    # combine the estimates for the vocs with the estimates for "other" variants
-    all.ftnt = rbind(all.ftnt,
-                     others)
+  #   # combine the estimates for the vocs with the estimates for "other" variants
+  #   all.ftnt = rbind(all.ftnt,
+  #                    others)
 
-    # create a table of counts by variant, time period, and HHS region
-    raw_counts_REG <- aggregate(count ~ VARIANT2 + FORTNIGHT_END + HHS,
-                                data = dat2,
-                                FUN  = sum,
-                                drop = FALSE) # drop = FALSE: keep all combinations, even if no observations
+  #   # create a table of counts by variant, time period, and HHS region
+  #   raw_counts_REG <- aggregate(count ~ VARIANT2 + FORTNIGHT_END + HHS,
+  #                               data = dat2,
+  #                               FUN  = sum,
+  #                               drop = FALSE) # drop = FALSE: keep all combinations, even if no observations
 
-    # convert HHS region to character
-    raw_counts_REG$HHS <- as.character(raw_counts_REG$HHS)
+  #   # convert HHS region to character
+  #   raw_counts_REG$HHS <- as.character(raw_counts_REG$HHS)
 
-    # create a table of counts by variant and time period for the whole US
-    raw_counts_US <- aggregate(count ~ VARIANT2 + FORTNIGHT_END,
-                               data = dat2,
-                               FUN  = sum,
-                               drop = FALSE)
+  #   # create a table of counts by variant and time period for the whole US
+  #   raw_counts_US <- aggregate(count ~ VARIANT2 + FORTNIGHT_END,
+  #                              data = dat2,
+  #                              FUN  = sum,
+  #                              drop = FALSE)
 
-    # add a column for HHS region
-    raw_counts_US <- cbind(raw_counts_US[,1:2],
-                           HHS = "USA",
-                           count = raw_counts_US[,3])
+  #   # add a column for HHS region
+  #   raw_counts_US <- cbind(raw_counts_US[,1:2],
+  #                          HHS = "USA",
+  #                          count = raw_counts_US[,3])
 
-    # combine dataframe of counts by region with dataframe of counts for US
-    raw_counts <- rbind.data.frame(raw_counts_US,
-                                   raw_counts_REG)
+  #   # combine dataframe of counts by region with dataframe of counts for US
+  #   raw_counts <- rbind.data.frame(raw_counts_US,
+  #                                  raw_counts_REG)
 
-    # merge weighted proportions estimates with sequence counts
-    all.ftnt2 <- merge(x = all.ftnt,
-                       y = raw_counts,
-                       by.x = c("USA_or_HHSRegion",
-                                "Fortnight_ending",
-                                "Variant"),
-                       by.y = c("HHS",
-                                "FORTNIGHT_END",
-                                "VARIANT2"),
-                       all = T)
+  #   # merge weighted proportions estimates with sequence counts
+  #   all.ftnt2 <- merge(x = all.ftnt,
+  #                      y = raw_counts,
+  #                      by.x = c("USA_or_HHSRegion",
+  #                               "Fortnight_ending",
+  #                               "Variant"),
+  #                      by.y = c("HHS",
+  #                               "FORTNIGHT_END",
+  #                               "VARIANT2"),
+  #                      all = T)
 
-    # replace NA counts with 0
-    all.ftnt2[is.na(all.ftnt2$count)==T, "count"] <- 0
+  #   # replace NA counts with 0
+  #   all.ftnt2[is.na(all.ftnt2$count)==T, "count"] <- 0
 
-    #calculate denominator counts by region & time period
-    dss <- aggregate(count ~ USA_or_HHSRegion + Fortnight_ending,
-                     data = all.ftnt2,
-                     FUN  = sum)
+  #   #calculate denominator counts by region & time period
+  #   dss <- aggregate(count ~ USA_or_HHSRegion + Fortnight_ending,
+  #                    data = all.ftnt2,
+  #                    FUN  = sum)
 
-    # change the names of the "count" column
-    names(dss)[grep("count",names(dss))] <- "denom_count"
+  #   # change the names of the "count" column
+  #   names(dss)[grep("count",names(dss))] <- "denom_count"
 
-    # add the denominator counts into the dataframe of results
-    all.ftnt2 <- merge(x = all.ftnt2,
-                       y = dss)
+  #   # add the denominator counts into the dataframe of results
+  #   all.ftnt2 <- merge(x = all.ftnt2,
+  #                      y = dss)
 
-    #set the Share 0 and CI limits to NA when the count for a lineage is 0
-    all.ftnt2$Share = ifelse(test = all.ftnt2$Share != 0 & all.ftnt2$count == 0,
-                             yes = 0,
-                             no = all.ftnt2$Share)
-    all.ftnt2$Share_lo = ifelse(test = is.na(all.ftnt2$Share_lo) == F & all.ftnt2$count == 0,
-                                yes = NA,
-                                no = all.ftnt2$Share_lo)
-    all.ftnt2$Share_hi = ifelse(test = is.na(all.ftnt2$Share_hi) == F & all.ftnt2$count==0,
-                                yes = NA,
-                                no = all.ftnt2$Share_hi)
+  #   #set the Share 0 and CI limits to NA when the count for a lineage is 0
+  #   all.ftnt2$Share = ifelse(test = all.ftnt2$Share != 0 & all.ftnt2$count == 0,
+  #                            yes = 0,
+  #                            no = all.ftnt2$Share)
+  #   all.ftnt2$Share_lo = ifelse(test = is.na(all.ftnt2$Share_lo) == F & all.ftnt2$count == 0,
+  #                               yes = NA,
+  #                               no = all.ftnt2$Share_lo)
+  #   all.ftnt2$Share_hi = ifelse(test = is.na(all.ftnt2$Share_hi) == F & all.ftnt2$count==0,
+  #                               yes = NA,
+  #                               no = all.ftnt2$Share_hi)
 
-    # calculate absolute CI width
-    all.ftnt2$CI_width = all.ftnt2$Share_hi - all.ftnt2$Share_lo
+  #   # calculate absolute CI width
+  #   all.ftnt2$CI_width = all.ftnt2$Share_hi - all.ftnt2$Share_lo
 
-    ## generate NCHS flags
-    # flag estimates with Degrees of Freedom < 8
-    all.ftnt2$flag_df = as.numeric(all.ftnt2$DF < 8)
-    # flag estimates with effective size of < 30 (or NA)
-    all.ftnt2$flag_eff.size = ifelse(test = all.ftnt2$eff.size < 30 |
-                                       is.na(all.ftnt2$eff.size) == T,
-                                     yes = 1,
-                                     no = 0)
-    # flag estimates with "denominator count" of < 30 (or NA) (denominator = count of sequences of all variants in a given region and time period)
-    all.ftnt2$flag_dss = ifelse(test = all.ftnt2$denom_count < 30 |
-                                  is.na(all.ftnt2$denom_count) == T,
-                                yes = 1,
-                                no = 0)
-    # flag estimates with wide (absolute) confidence intervals
-    all.ftnt2$flag_abs.ciw = ifelse(test = all.ftnt2$CI_width > 0.30 |
-                                      is.na(all.ftnt2$CI_width) == T,
-                                    yes = 1,
-                                    no = 0)
-    # flag estimates with wide (relative) confidence intervals
-    all.ftnt2$flag_rel.ciw = ifelse(test = ((all.ftnt2$CI_width/all.ftnt2$Share)*100) > 130 |
-                                      is.na((all.ftnt2$CI_width/all.ftnt2$Share)*100) == T,
-                                    yes = 1,
-                                    no = 0)
+  #   ## generate NCHS flags
+  #   # flag estimates with Degrees of Freedom < 8
+  #   all.ftnt2$flag_df = as.numeric(all.ftnt2$DF < 8)
+  #   # flag estimates with effective size of < 30 (or NA)
+  #   all.ftnt2$flag_eff.size = ifelse(test = all.ftnt2$eff.size < 30 |
+  #                                      is.na(all.ftnt2$eff.size) == T,
+  #                                    yes = 1,
+  #                                    no = 0)
+  #   # flag estimates with "denominator count" of < 30 (or NA) (denominator = count of sequences of all variants in a given region and time period)
+  #   all.ftnt2$flag_dss = ifelse(test = all.ftnt2$denom_count < 30 |
+  #                                 is.na(all.ftnt2$denom_count) == T,
+  #                               yes = 1,
+  #                               no = 0)
+  #   # flag estimates with wide (absolute) confidence intervals
+  #   all.ftnt2$flag_abs.ciw = ifelse(test = all.ftnt2$CI_width > 0.30 |
+  #                                     is.na(all.ftnt2$CI_width) == T,
+  #                                   yes = 1,
+  #                                   no = 0)
+  #   # flag estimates with wide (relative) confidence intervals
+  #   all.ftnt2$flag_rel.ciw = ifelse(test = ((all.ftnt2$CI_width/all.ftnt2$Share)*100) > 130 |
+  #                                     is.na((all.ftnt2$CI_width/all.ftnt2$Share)*100) == T,
+  #                                   yes = 1,
+  #                                   no = 0)
 
-    # Single identifier for observations that have *any* NCHS flag
-    all.ftnt2$nchs_flag = ifelse(test = all.ftnt2$flag_df == 1 |
-                                   all.ftnt2$flag_eff.size == 1 |
-                                   all.ftnt2$denom_count == 1 |
-                                   all.ftnt2$flag_abs.ciw == 1 |
-                                   all.ftnt2$flag_rel.ciw == 1,
-                                 yes = 1,
-                                 no = 0)
-    # Single identifier for observations that have any NCHS flag *other* than the
-    # degrees of freedom flag.
-    all.ftnt2$nchs_flag_wodf = ifelse(test = all.ftnt2$flag_eff.size == 1 |
-                                        all.ftnt2$denom_count == 1 |
-                                        all.ftnt2$flag_abs.ciw == 1 |
-                                        all.ftnt2$flag_rel.ciw == 1,
-                                      yes = 1,
-                                      no = 0)
+  #   # Single identifier for observations that have *any* NCHS flag
+  #   all.ftnt2$nchs_flag = ifelse(test = all.ftnt2$flag_df == 1 |
+  #                                  all.ftnt2$flag_eff.size == 1 |
+  #                                  all.ftnt2$denom_count == 1 |
+  #                                  all.ftnt2$flag_abs.ciw == 1 |
+  #                                  all.ftnt2$flag_rel.ciw == 1,
+  #                                yes = 1,
+  #                                no = 0)
+  #   # Single identifier for observations that have any NCHS flag *other* than the
+  #   # degrees of freedom flag.
+  #   all.ftnt2$nchs_flag_wodf = ifelse(test = all.ftnt2$flag_eff.size == 1 |
+  #                                       all.ftnt2$denom_count == 1 |
+  #                                       all.ftnt2$flag_abs.ciw == 1 |
+  #                                       all.ftnt2$flag_rel.ciw == 1,
+  #                                     yes = 1,
+  #                                     no = 0)
 
-    # select columns for the final results
-    all.ftnt2 = all.ftnt2[, c("USA_or_HHSRegion",
-                              "Fortnight_ending",
-                              "Variant",
-                              "Share",
-                              "Share_lo",
-                              "Share_hi",
-                              "count",
-                              "denom_count",
-                              "DF",
-                              "eff.size",
-                              "CI_width",
-                              "nchs_flag",
-                              "nchs_flag_wodf")]
+  #   # select columns for the final results
+  #   all.ftnt2 = all.ftnt2[, c("USA_or_HHSRegion",
+  #                             "Fortnight_ending",
+  #                             "Variant",
+  #                             "Share",
+  #                             "Share_lo",
+  #                             "Share_hi",
+  #                             "count",
+  #                             "denom_count",
+  #                             "DF",
+  #                             "eff.size",
+  #                             "CI_width",
+  #                             "nchs_flag",
+  #                             "nchs_flag_wodf")]
 
-    # optionally calculate the number of infections attributable to each variant
-    if (calc_confirmed_infections){
-      test_filepath <- paste0(script.basename,
-                         "/data/backup_",
-                         data_date, "/",
-                         data_date, "_tests_aggregated",
-                         custom_tag, ".RDS")
+  #   # optionally calculate the number of infections attributable to each variant
+  #   if (calc_confirmed_infections){
+  #     test_filepath <- paste0(script.basename,
+  #                        "/data/backup_",
+  #                        data_date, "/",
+  #                        data_date, "_tests_aggregated",
+  #                        custom_tag, ".RDS")
 
-      if (file.exists(test_filepath)){
-        test_list <- readRDS(file = test_filepath)
+  #     if (file.exists(test_filepath)){
+  #       test_list <- readRDS(file = test_filepath)
 
-        # get the fortnightly test tallies & aggregate them by fn across USA
-        tests_fn_us <- test_list$tests_fortnight[,
-                                                  .('total_test_positives' = sum(POSITIVE, na.rm = T)),
-                                                  by = 'fortnight_end'][,'HHS' := 'USA']
-        # aggregate fortnightly tests by HHS region
-        tests_fn_hhs <- test_list$tests_fortnight[,
-                                                  .('total_test_positives' = sum(POSITIVE, na.rm = T)),
-                                                  by = c('fortnight_end', 'HHS')]
+  #       # get the fortnightly test tallies & aggregate them by fn across USA
+  #       tests_fn_us <- test_list$tests_fortnight[,
+  #                                                 .('total_test_positives' = sum(POSITIVE, na.rm = T)),
+  #                                                 by = 'fortnight_end'][,'HHS' := 'USA']
+  #       # aggregate fortnightly tests by HHS region
+  #       tests_fn_hhs <- test_list$tests_fortnight[,
+  #                                                 .('total_test_positives' = sum(POSITIVE, na.rm = T)),
+  #                                                 by = c('fortnight_end', 'HHS')]
 
-        # merge the positive test results in with the variant proportion estimates
-        all.ftnt2 <- merge(
-          x = all.ftnt2,
-          y = rbind(tests_fn_us,
-                    tests_fn_hhs),
-          by.x = c("USA_or_HHSRegion",
-                   "Fortnight_ending"),
-          by.y = c('HHS',
-                   'fortnight_end'),
-          all.x = TRUE)
+  #       # merge the positive test results in with the variant proportion estimates
+  #       all.ftnt2 <- merge(
+  #         x = all.ftnt2,
+  #         y = rbind(tests_fn_us,
+  #                   tests_fn_hhs),
+  #         by.x = c("USA_or_HHSRegion",
+  #                  "Fortnight_ending"),
+  #         by.y = c('HHS',
+  #                  'fortnight_end'),
+  #         all.x = TRUE)
 
-        # calculate case totals for each variant
-        all.ftnt2$cases    <- all.ftnt2$total_test_positives * all.ftnt2$Share
-        all.ftnt2$cases_lo <- all.ftnt2$total_test_positives * all.ftnt2$Share_lo
-        all.ftnt2$cases_hi <- all.ftnt2$total_test_positives * all.ftnt2$Share_hi
-      } else {
-        print(paste0('File ',
-                     test_filepath,
-                     ' not found. Not calculating number of infections attributable to each variant for fortnights.'))
-      }
+  #       # calculate case totals for each variant
+  #       all.ftnt2$cases    <- all.ftnt2$total_test_positives * all.ftnt2$Share
+  #       all.ftnt2$cases_lo <- all.ftnt2$total_test_positives * all.ftnt2$Share_lo
+  #       all.ftnt2$cases_hi <- all.ftnt2$total_test_positives * all.ftnt2$Share_hi
+  #     } else {
+  #       print(paste0('File ',
+  #                    test_filepath,
+  #                    ' not found. Not calculating number of infections attributable to each variant for fortnights.'))
+  #     }
 
-    }
+  #   }
 
-    # re-order results by HHS region [so that "other" variants are not listed seperately]
-    all.ftnt2 <- all.ftnt2[order(all.ftnt2$USA_or_HHSRegion),]
+  #   # re-order results by HHS region [so that "other" variants are not listed seperately]
+  #   all.ftnt2 <- all.ftnt2[order(all.ftnt2$USA_or_HHSRegion),]
 
-    # write results to file
-    write.csv(x = all.ftnt2,
-              file = paste0(script.basename,
-                            "/results/variant_share_weighted_",
-                            ci.type,
-                            "CI_",
-                            svy.type,
-                            "_",
-                            data_date,
-                            tag,
-                            ".csv"),
-              row.names = FALSE)
+  #   # write results to file
+  #   write.csv(x = all.ftnt2,
+  #             file = paste0(script.basename,
+  #                           "/results/variant_share_weighted_",
+  #                           ci.type,
+  #                           "CI_",
+  #                           svy.type,
+  #                           "_",
+  #                           data_date,
+  #                           tag,
+  #                           ".csv"),
+  #             row.names = FALSE)
 
 
     ### Weekly estimates
@@ -1321,7 +1321,7 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
                             tag,
                             ".csv"),
               row.names=FALSE)
-  }
+  # }
 } # end run (not 3)
 
 # Run2 (nowcast) ---------------------------------------------------------------

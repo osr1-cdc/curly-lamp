@@ -37,7 +37,7 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 data_date <- Sys.Date()
-# data_date <- as.Date('2022-05-26')
+data_date <- as.Date('2022-06-09')
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
@@ -57,15 +57,45 @@ custom_lineage_names <- c("BA.1+")
 #       pangolin sql query (lines 305-320) in variant_surveillance_system.R to match!
 
 # Set voc's for Run1
-voc1 = c(# "AY.1", "AY.2",
-         # "BA.1",
-         # "BA.1.1",
-         "BA.2",
-         "BA.2.12.1",
-         'BA.4',
-         'BA.5',
-         "B.1.617.2", # Delta
-         "B.1.1.529") # Omicron
+voc1 = c("A.2.5",
+          "AY.1",
+          "AY.2",
+          "AY.3",
+          "B.1",
+          "B.1.1",
+          "B.1.1.194",
+          "B.1.1.519",
+          "B.1.1.529",
+          "B.1.1.7",
+          "B.1.2",
+          "B.1.234",
+          "B.1.243",
+          "B.1.351",
+          "B.1.427",
+          "B.1.429",
+          "B.1.525",
+          "B.1.526",
+          "B.1.526.1",
+          "B.1.526.2",
+          "B.1.575",
+          "B.1.596",
+          "B.1.617",
+          "B.1.617.1",
+          "B.1.617.2",
+          "B.1.617.3",
+          "B.1.621",
+          "B.1.621.1",
+          "B.1.626",
+          "B.1.628",
+          "B.1.637",
+          "BA.1.1",
+          "BA.2",
+          "BA.2.12.1",
+          "BA.4",
+          "BA.5",
+          "P.1",
+          "P.2",
+          "R.1")
 # define an alternate set of vocs
 # (the reason for including two sets instead of just redefining the first set is
 #  to make it easier to run both sets simultaneously just changing an option
@@ -233,6 +263,6 @@ weighted_weeks <- 12
 # start-time for the weighted estimates
 # (this speeds up calculations by only calculating weighted variant proportions for the most recent "weighted_weeks")
 # time_start_weights <- time_end - 6 - weighted_weeks*7
-time_start_weights <- as.Date('2021-05-02') # keep using week of (2021-05-02 to 2021-05-08) for consistency
+time_start_weights <- as.Date('2021-01-03') # keep using week of (2021-05-02 to 2021-05-08) for consistency
 # start time will be the earlier of: 1) time_start_weights; 2) "model_weeks" before time_end
 time_start <- min(time_start_weights, time_end - model_weeks*7 + 1) # +1 to start on Monday
