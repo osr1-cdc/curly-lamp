@@ -2409,8 +2409,7 @@ if ( grepl("Run2",tag) ){
       # print a warning if any columns have totals > 1
       if(any(colSums(agg_var_mat)>1)) warning(paste0('agg_var_mat not correctly specified. Some variants are aggregated more than once.', agg_var_mat))
     }
-
-    agg_var_mat
+    # agg_var_mat
   }
 
 
@@ -2564,7 +2563,7 @@ if ( grepl("Run2",tag) ){
         all.x = TRUE)
 
       # calculate case totals for each variant
-      proj.res[, cases := total_test_positives * Share]
+      proj.res[, cases    := total_test_positives * Share]
       proj.res[, cases_lo := total_test_positives * Share_lo]
       proj.res[, cases_hi := total_test_positives * Share_hi]
     } else {
