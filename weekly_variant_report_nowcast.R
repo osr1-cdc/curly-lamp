@@ -42,7 +42,7 @@ options(survey.adjust.domain.lonely = T,
     optparse::make_option(
       opt_str = c("-r", "--run_number"),
       type    = "character",
-      default = "2",
+      default = "1",
       help    = "Run number",
       metavar = "character"),
     # options:
@@ -111,7 +111,7 @@ options(survey.adjust.domain.lonely = T,
       custom_lineages = FALSE
       custom_tag = ""
     } else {
-      errorCondition(message = paste0('custom_lineages must be "T" or "F". Argument provide: ', opts$custom_lineages))
+      stop(message = paste0('custom_lineages must be "T" or "F". Argument provide: ', opts$custom_lineages))
     }
   }
   # convert reduced_vocs flag to a logical value
@@ -123,7 +123,7 @@ options(survey.adjust.domain.lonely = T,
       reduced_vocs = FALSE
       reduced_voc_tag = ""
     } else {
-      errorCondition(message = paste0('reduced_vocs must be "T" or "F". Argument provide: ', opts$reduced_vocs))
+      stop(message = paste0('reduced_vocs must be "T" or "F". Argument provide: ', opts$reduced_vocs))
     }
   }
 
@@ -149,7 +149,7 @@ options(survey.adjust.domain.lonely = T,
   # Option to just fit the nowcast model and avoid the slower parts of the script
   # (this is only valid if the run number == 2)
   # this can be removed eventually. It's here to make it easier to make updates to the Nowcast model.
-  nowcast_only = TRUE
+  nowcast_only = FALSE
 
   # This is an option that probably won't be used, but I don't want to delete it yet
   # so it's hiding here just in case I want to use it again.
@@ -170,7 +170,8 @@ options(survey.adjust.domain.lonely = T,
   # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
   force_aggregate_omicron <- TRUE
   # list omicron sublineages that will not be aggregated (if they are also in voc) (these are the only Omicron sublineages that will be permitted)
-  force_aggregate_omicron_except <- c('BA.1','BA.2','BA.3','BA.4','BA.5','BA.2.12.1', 'BA.1.1') # 'BA.2.12', 'BA.1.1'
+  force_aggregate_omicron_except <- c('BA.1','BA.2','BA.3','BA.4','BA.5','BA.2.12.1','BA.1.1') # 'BA.2.12', 'BA.1.1'
+
 
   # force-aggregate Delta sublineages
   # this option will force any/all Delta sublineages that show up in the vocs to be
@@ -594,7 +595,7 @@ if('BA.3' %in% voc) B529.BA3 <- sort(grep("(BA\\.3)(?![0-9])",unique(src.dat$VAR
 if('BA.4' %in% voc) B529.BA4 <- sort(grep("(BA\\.4)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))             else B529.BA4 <- NULL
 if('BA.5' %in% voc) B529.BA5 <- sort(grep("(BA\\.5)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))             else B529.BA5 <- NULL
 # safety check: make sure that no variants are in the multiple sublineage groups
-if(any(duplicated(c(B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5)))) errorCondition(message = paste0(c(B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5)[duplicate(c(B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5))], ' appear in multiple BA sublineage groups. Check B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5.'))
+if(any(duplicated(c(B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5)))) stop(message = paste0(c(B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5)[duplicate(c(B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5))], ' appear in multiple BA sublineage groups. Check B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5.'))
 B529=sort(grep("(B\\.1\\.1\\.529)|(BA\\.[0-9])",unique(src.dat$VARIANT), value = T))
 B529=B529[ B529 %notin% c(voc, B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5) ] #vector of the B529s to aggregate
 
@@ -621,6 +622,31 @@ if(B.1.1.529_agg==TRUE)  {
 src.dat$VARIANT2 = as.character(src.dat$VARIANT)
 # group all non-"variants of interest" together
 src.dat[src.dat$VARIANT %notin% voc, "VARIANT2"] <- "Other"
+
+# create a table of all the old and new (after aggregating) variant names
+write.csv(
+  x = src.dat[
+    , # no filtering
+    .(old = lineage, new = VARIANT), # create new columns with clearer names
+    by = c('lineage', 'VARIANT') # group by lineage and Variant
+    ][
+      old != new, # filter out all the lineages that do not change
+      .(old, new) # select only these columns
+      ][
+        order(old), # reorder by the original lineage name
+        ],
+  file = paste0(script.basename,
+                "/results/lineage_aggregations_",
+                ci.type,
+                "CI_",
+                svy.type,
+                "_",
+                data_date,
+                tag,
+                ".csv"),
+  row.names = F
+)
+
 
 
 
@@ -1368,6 +1394,13 @@ if ( grepl("Run2",tag) ){
                            data = src.dat,
                            subset = src.dat$week >= current_week - n_recent_weeks)),
       decreasing = TRUE)
+
+    ## force-remove delta from the list of most abundant variants
+    # (so that it is aggregated into "Other" and not automatically added into the
+    #  Nowcast model as 1 of the "n_top" most abundant lineages)
+    if(FALSE){
+      us_var <- us_var[ names(us_var) != 'B.1.617.2' ]
+    }
 
     # names of all the variants
     us_rank = names(us_var)
@@ -2150,42 +2183,73 @@ if ( grepl("Run2",tag) ){
   # The aggregation matrix has a column for each of the vocs in run 2 and a row for each aggregated voc. 1's in the matrix specify which sub-variants to aggregate into the aggregate lineage.
   {
     # create a column for each voc in the model
-    agg_var_mat <- agg_var_mat2 <- matrix(data = 0,
+    agg_var_mat <- matrix(data = 0,
                                            nrow = 0,
                                            ncol = (length(model_vars)+1))
-    colnames(agg_var_mat) <- colnames(agg_var_mat2) <- c(model_vars,"Other")
+    colnames(agg_var_mat) <- c(model_vars,"Other")
 
     # fill in agg_var_mat for run1 results
     {
       # cycle over each variant and find its sub-variants that should be aggregated
-      # (i.e. that aren't subvariants of more specific vocs: for example, BA.1.1.18
+      # (i.e. that aren't sub-variants of more specific vocs: for example, BA.1.1.18
       # should be aggregated into BA.1.1, NOT BA.1 (if both BA.1 and BA.1.1 are listed in the vocs))
       for (v in seq(voc1)){
-        # my grep below only looks for continuations of the same pattern, which won't work for Delta & Omicron where the subvariants have a different naming system, so I'll manually change their names here. This will need to be updated for any future variants that get a new naming system for their subvariants.
-        v_search <- sub(pattern = 'B.1.617.2', replacement = 'AY', x = sub(pattern = 'B.1.1.529', replacement = 'BA', x = voc1[v]))
+        # my grep below only looks for continuations of the same pattern, which won't
+        # work for Delta & Omicron where the sub-variants have a different naming system,
+        # so I'll manually change their names here. This will need to be updated for
+        # any future variants that get a new naming system for their sub-variants.
+        # v_search = the name of the variant that we're using to search for sub-variants
+        v_search <- sub(pattern = 'B.1.617.2',
+                        replacement = 'AY',
+                        x = sub(pattern = 'B.1.1.529',
+                                replacement = 'BA', x = voc1[v]))
 
-        # all subvariants of "v"
+        # all sub-variants of "v_search" (regardless of whether or not they should be aggregated into "v_search")
         asv <- grep(pattern = paste0(sub(pattern = '\\.', replacement = '\\\\\\.', x = v_search), '\\..+'), x = voc, value = T)
 
-        # NOTE! This only works for 2 levels. It needs to work for n levels! (e.g. if BA.1 and BA.1.1 are both in VOC, this will avoid aggregating BA.1.1 into BA.1. However, it won't handle BA.1.1.x properly.)
-        # subvariants that are not subvariants of a more specific voc
+        # remove all sub-variants from "asv" that should *NOT* be aggregated into "v_search"
+        # NOTE! This only works for 2 levels. Ideally it would work for n levels
+        # (e.g. if BA.1 and BA.1.1 are both in VOC, this will avoid aggregating BA.1.1
+        #  into BA.1. It might not handle BA.1.1.x properly. It might try to
+        #  aggregate BA.1.1.x into both BA.1 and BA.1.1)
         {
-          # more specific subvariants that are in voc1/voc2
+          # identify sub-variants in "asv" that are also in voc1 or voc2 (and therefore should NOT be aggregated into "v_search")
           ssv_1 <- asv[asv %in% voc1]
-          # find the subvariants that should be aggregated into "ssv_1" instead of "v", and therefore should be excluded
-          # my grep below only looks for continuations of the same pattern, which won't work for Delta & Omicron where the subvariants have a different naming system, so I'll manually change their names here. This will need to be updated for any future variants that get a new naming system for their subvariants.
-          ssv_search <- sub(pattern = 'B.1.617.2', replacement = 'AY', x = sub(pattern = 'B.1.1.529', replacement = 'BA', x = ssv_1))
-          # for each variant that is a voc & also a subvariant of "v", find all of its subvariants, all of which will be excluded from aggregation into "v"
-          ssv_1_e <- unlist(lapply(X = ssv_search, FUN = function(ssv) c(ssv, grep(pattern = paste0(sub(pattern = '\\.', replacement = '\\\\\\.', x = ssv), '\\..+'), x = asv, value = T))))
+          # find the sub-variants (in "asv") that should be aggregated into "ssv_1"
+          # instead of "v_search"
+          # as above, my grep below only looks for continuations of the same pattern,
+          # which won't work for Delta & Omicron where the subvariants have a different
+          # naming system, so I'll manually change their names here. This will need to
+          # be updated for any future variants that get a new naming system for their subvariants.
+          ssv_search <- sub(pattern = 'B.1.617.2',
+                            replacement = 'AY',
+                            x = sub(pattern = 'B.1.1.529',
+                                    replacement = 'BA',
+                                    x = ssv_1))
+          # for each sub-variant in ssv_search (i.e. that is a voc & also a sub-variant
+          # of "v_search"), find all of its subvariants, all of which will be excluded
+          # from aggregation into "v_search"
+          ssv_1_e <- unlist(lapply(X = ssv_search,
+                                   FUN = function(ssv) c(ssv, # want to exclude "ssv_search" from aggregation b/c it's listed in voc
+                                                         # grep identifies sub-variants of "ssv_search" that are also in "asv" (and therefore should be excluded from asv)
+                                                         grep(pattern = paste0(sub(pattern = '\\.',
+                                                                                   replacement = '\\\\\\.',
+                                                                                   x = ssv),
+                                                                               '\\..+'),
+                                                              x = asv,
+                                                              value = T))))
 
-          # subvariants that should actually be aggregated into "v"
+          # identify the sub-variants that *should* be aggregated into "v_search"
+          # by removing ones that should be aggregated into other vocs
           ssv_1_a <- asv[asv %notin% ssv_1_e]
         }
 
-        # if the ssv_1_a has any subvariants, then add an extra row to the matrix
+        # if the ssv_1_a has any sub-variants, then add an extra row to the matrix
         if(length(ssv_1_a > 0)) {
           # create a new row for the aggregation matrix
-          extra_row <- ifelse(colnames(agg_var_mat) %in% c(voc1[v], ssv_1_a), 1, 0)
+          extra_row <- ifelse(colnames(agg_var_mat) %in% c(voc1[v], ssv_1_a),
+                              1,
+                              0)
 
           # add the new row onto the aggregation matrix
           # but only if the extra row contains
@@ -2198,24 +2262,14 @@ if ( grepl("Run2",tag) ){
           # replace "B.1.1.529 Aggregated" with "Omicon Aggregated" and same for Delta; for backward compatibility
           row.names(agg_var_mat)[row.names(agg_var_mat) == 'B.1.1.529 Aggregated'] <- 'Omicron Aggregated'
           row.names(agg_var_mat)[row.names(agg_var_mat) == 'B.1.617.2 Aggregated'] <- 'Delta Aggregated'
-        }
-      }
-
-      # NOTE! Setting up the agg_var_mat in this way assumes that variants included in
-      # voc2 but NOT in voc1 (i.e: setdiff(voc, voc1) ) will be aggregated into something
-      # that IS in voc1 (other than "Other Aggregated").
-      if(!all(colSums(agg_var_mat[,setdiff(voc, voc1), drop = FALSE]) > 0)){
-        problem_vocs <- colnames(agg_var_mat)[colSums(agg_var_mat[,setdiff(voc, voc1), drop = FALSE]) == 0]
-        errorCondition(message = paste0('Not all variants in "voc" are aggregated into something in "voc1".',
-                                        paste(problem_vocs, collapse = ', '),
-                                        ' will not be aggregated appropriately in "agg_var_mat". Either change voc1 and/or voc2 or change the way agg_var_mat works.'))
-      }
+        } # end add extra row to agg_var_mat matrix
+      } # end loop over vocs
 
       # all the variants that are not (in voc1) AND (not aggregated into something else)
       # should be aggregated into "Other Aggregated"
       other_agg <- base::setdiff(colnames(agg_var_mat)[colSums(agg_var_mat) == 0], voc1)
       # add the new row onto the aggregation matrix
-      # but only if the extra row contains
+      # but only if the extra row contains something??
       agg_var_mat <- rbind(
         agg_var_mat,
         ifelse(colnames(agg_var_mat) %in% other_agg, 1, 0)
@@ -2225,10 +2279,24 @@ if ( grepl("Run2",tag) ){
 
       # double-check that no variant is aggregated into multiple vocs
       if(max(colSums(agg_var_mat)) > 1){
-        warningCondition(message = paste(
+        warning(message = paste(
           'Aggregated results are invalid! These variants are being aggregated multiple times:',
           names(agg_var_mat)[colSums(agg_var_mat) > 1],
           '. Fix the aggregation matrix.'))
+      }
+
+      # NOTE! Setting up the agg_var_mat in this way assumes that variants included in
+      # voc2 but NOT in voc1 (i.e: setdiff(voc, voc1) ) will be aggregated into something
+      # that IS in voc1 (other than "Other Aggregated"). This also means that the
+      # "Other Aggregated" row is the SAME for run1 output and run2 output, which
+      # is important because they both use that row for output below.
+      # this is a check to make sure that the assumption stated above is being met.
+      sub_mat <- agg_var_mat[row.names(agg_var_mat) != 'Other Aggregated',setdiff(voc, voc1), drop = FALSE]
+      if(!all(colSums(sub_mat) > 0)){
+        problem_vocs <- colnames(sub_mat)[colSums(sub_mat) == 0]
+        warning(message = paste0('Not all variants in "voc" are aggregated into something in "voc1". ',
+                                          paste(problem_vocs, collapse = ', '),
+                                          ' is in voc2 but is not aggregated into anything in voc1. Therefore it will be aggregated into "Other Aggregated" for both run_1 and run_2 output. Either change voc1 and/or voc2 or change the way agg_var_mat works.'))
       }
     }
     # agg_var_mat
@@ -2518,7 +2586,7 @@ if ( grepl("Run2",tag) ){
 
   # QA: make sure that the shares add up to 1 each time period to make sure that the aggregation is doing what I want it to:
   if (!all(run_1[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Fortnight_ending')][,unique(round(total_share, 5))] == 1)){
-    warningCondition(paste(
+    warning(paste(
       paste0(script.basename,
              "/results/updated_nowcast_fortnightly_",
              data_date,
@@ -2552,7 +2620,7 @@ if ( grepl("Run2",tag) ){
 
   # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
   if (!all(run_2[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Fortnight_ending')][,unique(round(total_share, 5))] == 1)){
-    warningCondition(paste(
+    warning(paste(
       paste0(script.basename,
              "/results/updated_nowcast_fortnightly_",
              data_date,
@@ -2793,7 +2861,7 @@ if ( grepl("Run2",tag) ){
 
   # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
   if (!all(run_1_weekly[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Week_ending')][,unique(round(total_share, 5))] == 1)){
-    warningCondition(paste(
+    warning(paste(
       paste0(script.basename,
              "/results/updated_nowcast_weekly_",
              data_date,
@@ -2815,7 +2883,7 @@ if ( grepl("Run2",tag) ){
   # daily results
   # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
   if (!all(run_1_daily[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'date')][,unique(round(total_share, 5))] == 1)){
-    warningCondition(paste(
+    warning(paste(
       paste0(script.basename,
              "/results/updated_nowcast_weekly_",
              data_date,
@@ -2857,7 +2925,7 @@ if ( grepl("Run2",tag) ){
 
   # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
   if (!all(run_2_weekly[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Week_ending')][,unique(round(total_share, 5))] == 1)){
-    warningCondition(paste(
+    warning(paste(
       paste0(script.basename,
              "/results/updated_nowcast_weekly_",
              data_date,
@@ -2879,7 +2947,7 @@ if ( grepl("Run2",tag) ){
   # daily results
   # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
   if (!all(run_2_daily[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'date')][,unique(round(total_share, 5))] == 1)){
-    warningCondition(paste(
+    warning(paste(
       paste0(script.basename,
              "/results/updated_nowcast_weekly_",
              data_date,
