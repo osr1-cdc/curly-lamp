@@ -93,7 +93,7 @@ voc2_additional = c(#"AY.1", "AY.2",
                     # "BA.3",
                     'BA.4',
                     'BA.5',
-                    # "B.1.617.2", # Delta
+                    "B.1.617.2", # Delta
                     "B.1.1.529" # Omicron
                     )
 # voc2_custom = c(voc2,
@@ -118,7 +118,9 @@ voc3 = c("B.1.1.7",   # Alpha  # and Q.1 to 8*
          "B.1.621",   # Mu
          "B.1.1.529", # Omicron # and BA.*
          "BA.2",
-         "BA.2.12.1")
+         "BA.2.12.1",
+         "BA.4",
+         "BA.5")
 # define an alternate set of vocs
 voc3_reduced = voc1_reduced
 
