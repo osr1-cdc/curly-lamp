@@ -588,16 +588,31 @@ B429=sort(unique(src.dat$VARIANT)[grep("B\\.1\\.429",unique(src.dat$VARIANT))])
 B429=B429[which(B429 %notin% voc)] #vector of the B429s to aggregate
 # omicrons [including lots of sublineages]
 # aggregate the BA sublineages [NOTE! this *WILL* aggregate all BA.1.1.x sub-sublineages into BA.1.1 *even* if BA.1.1.x is listed in voc.]
-if('BA.1' %in% voc) B529.BA1 <- sort(grep("(BA\\.1)(?!(\\.1$)|(\\.1\\.))",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA1 <- NULL
-if('BA.1.1' %in% voc) B529.BA1.1 <- sort(grep("(BA\\.1\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))     else B529.BA1.1 <- NULL
-if('BA.2' %in% voc) B529.BA2 <- sort(grep("(BA\\.2)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))             else B529.BA2 <- NULL
-if('BA.3' %in% voc) B529.BA3 <- sort(grep("(BA\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))             else B529.BA3 <- NULL
-if('BA.4' %in% voc) B529.BA4 <- sort(grep("(BA\\.4)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))             else B529.BA4 <- NULL
-if('BA.5' %in% voc) B529.BA5 <- sort(grep("(BA\\.5)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))             else B529.BA5 <- NULL
+if('BA.1.1' %in% voc)  B529.BA1.1  <- sort(grep("(BA\\.1\\.1)(?![0-9])",  unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA1.1  <- NULL
+if('BA.1.15' %in% voc) B529.BA1.15 <- sort(grep("(BA\\.1\\.15)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA1.15 <- NULL
+if('BA.1' %in% voc){
+   B529.BA1 <- sort(grep("(BA\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
+   # BA.1 subvariants do not include subvariants already included in B529.BA1.1, B529.BA1.15
+   B529.BA1 <- setdiff(B529.BA1, c(B529.BA1.1, B529.BA1.15))
+} else B529.BA1 <- NULL
+if('BA.2.3' %in% voc)  B529.BA2.3  <- sort(grep("(BA\\.2\\.3)(?![0-9])",  unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.3  <- NULL
+if('BA.2.9' %in% voc)  B529.BA2.9  <- sort(grep("(BA\\.2\\.9)(?![0-9])",  unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.9  <- NULL
+if('BA.2.10' %in% voc) B529.BA2.10 <- sort(grep("(BA\\.2\\.10)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.10 <- NULL
+if('BA.2' %in% voc){
+  B529.BA2 <- sort(grep("(BA\\.2)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
+  # BA.2 subvariants do not include subvariants already included in B529.BA2.3, B529.BA2.9, B529.BA2.10
+  B529.BA2 <- setdiff(B529.BA2, c(B529.BA2.3, B529.BA2.9, B529.BA2.10))
+}  else B529.BA2 <- NULL
+if('BA.3' %in% voc)    B529.BA3    <- sort(grep("(BA\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))       else B529.BA3    <- NULL
+if('BA.4' %in% voc)    B529.BA4    <- sort(grep("(BA\\.4)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))       else B529.BA4    <- NULL
+# BA.5 sublineages includes BE.x [NOTE! Change this if any BE sublineages are added to the VOCs]
+if('BA.5' %in% voc) B529.BA5 <- sort(grep("(BE\\.)|((BA\\.5)(?![0-9]))",unique(src.dat$VARIANT), perl = T, value = T))   else B529.BA5    <- NULL
+
 # safety check: make sure that no variants are in the multiple sublineage groups
-if(any(duplicated(c(B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5)))) stop(message = paste0(c(B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5)[duplicate(c(B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5))], ' appear in multiple BA sublineage groups. Check B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5.'))
+B.529.all <- c(B529.BA1, B529.BA1.1, B529.BA1.15, B529.BA2, B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA3, B529.BA4, B529.BA5)
+if(any(duplicated(B.529.all))) stop(message = paste0(B.529.all[duplicate(B.529.all)], ' appear in multiple BA sublineage groups. Check B529.BA1, B529.BA1.1, B529.BA.1.15, B529.BA2, B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA3, B529.BA4, B529.BA5.'))
 B529=sort(grep("(B\\.1\\.1\\.529)|(BA\\.[0-9])",unique(src.dat$VARIANT), value = T))
-B529=B529[ B529 %notin% c(voc, B529.BA1, B529.BA1.1, B529.BA2, B529.BA3, B529.BA4, B529.BA5) ] #vector of the B529s to aggregate
+B529=B529[ B529 %notin% c(voc, B.529.all) ] #vector of the B529s to aggregate
 
 
 # Aggregate sublineages to the parent lineage
@@ -609,9 +624,13 @@ if(AY_agg==TRUE)      {src.dat[src.dat$VARIANT %in% AY,  "VARIANT"]    <- "B.1.6
 if(B429_7_agg==TRUE)  {src.dat[src.dat$VARIANT %in% B429,"VARIANT"]    <- "B.1.427"}
 if(B.1.1.529_agg==TRUE)  {
   src.dat[src.dat$VARIANT %in% B529[B529 %notin% voc],            "VARIANT"] <- "B.1.1.529"
-  src.dat[src.dat$VARIANT %in% B529.BA1[B529.BA1 %notin% voc],    "VARIANT"] <- "BA.1"
-  src.dat[src.dat$VARIANT %in% B529.BA1.1[B529.BA1.1 %notin% voc],"VARIANT"] <- "BA.1.1"
-  src.dat[src.dat$VARIANT %in% B529.BA2[B529.BA2 %notin% voc],"VARIANT"] <- "BA.2"
+  src.dat[src.dat$VARIANT %in% B529.BA1[   B529.BA1    %notin% voc],"VARIANT"] <- "BA.1"
+  src.dat[src.dat$VARIANT %in% B529.BA1.1[ B529.BA1.1  %notin% voc],"VARIANT"] <- "BA.1.1"
+  src.dat[src.dat$VARIANT %in% B529.BA1.15[B529.BA1.15 %notin% voc],"VARIANT"] <- "BA.1.15"
+  src.dat[src.dat$VARIANT %in% B529.BA2[   B529.BA2    %notin% voc],"VARIANT"] <- "BA.2"
+  src.dat[src.dat$VARIANT %in% B529.BA2.3[ B529.BA2.3  %notin% voc],"VARIANT"] <- "BA.2.3"
+  src.dat[src.dat$VARIANT %in% B529.BA2.9[ B529.BA2.9  %notin% voc],"VARIANT"] <- "BA.2.9"
+  src.dat[src.dat$VARIANT %in% B529.BA2.10[B529.BA2.10 %notin% voc],"VARIANT"] <- "BA.2.10"
   src.dat[src.dat$VARIANT %in% B529.BA3[B529.BA3 %notin% voc],"VARIANT"] <- "BA.3"
   src.dat[src.dat$VARIANT %in% B529.BA4[B529.BA4 %notin% voc],"VARIANT"] <- "BA.4"
   src.dat[src.dat$VARIANT %in% B529.BA5[B529.BA5 %notin% voc],"VARIANT"] <- "BA.5"
@@ -625,7 +644,9 @@ src.dat[src.dat$VARIANT %notin% voc, "VARIANT2"] <- "Other"
 
 # create a table of all the old and new (after aggregating) variant names
 write.csv(
-  x = src.dat[
+  x = rbind(
+    # first all the lineages that are renamed
+    src.dat[
     , # no filtering
     .(old = lineage, new = VARIANT), # create new columns with clearer names
     by = c('lineage', 'VARIANT') # group by lineage and Variant
@@ -635,6 +656,17 @@ write.csv(
       ][
         order(old), # reorder by the original lineage name
         ],
+    # then all the lineages that are NOT renamed
+    src.dat[
+    , # no filtering
+    .(old = lineage, new = VARIANT), # create new columns with clearer names
+    by = c('lineage', 'VARIANT') # group by lineage and Variant
+    ][
+      old == new, # filter out all the lineages that change
+      .(old, new) # select only these columns
+      ][
+        order(old), # reorder by the original lineage name
+        ]),
   file = paste0(script.basename,
                 "/results/lineage_aggregations_",
                 ci.type,
@@ -2300,6 +2332,21 @@ if ( grepl("Run2",tag) ){
       }
     }
     # agg_var_mat
+
+    # save the aggregation matrix to file for double-checking
+    write.csv(
+      x = agg_var_mat,
+      file = paste0(script.basename,
+                    "/results/agg_var_mat_",
+                    ci.type,
+                    "CI_",
+                    svy.type,
+                    "_",
+                    data_date,
+                    tag,
+                    ".csv"),
+      row.names = F
+    )
   }
 
   # former aggregation

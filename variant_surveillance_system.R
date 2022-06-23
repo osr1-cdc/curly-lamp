@@ -1515,6 +1515,15 @@ labnames_df_hhd <- data.frame(old_name = HHD_labs_to_agg,
                              new_name = "HOUSTON HEALTH DEPT")
 svy.dat[LAB %in% HHD_labs_to_agg, 'LAB2' := labnames_df_hhd$new_name[1]]
 
+# GEORGIA DEPARTMENT OF PUBLIC HEALTH
+# GA DEPARTMENT OF PUBLIC HEALTH
+GA_labs_to_agg <- grep(pattern = '(^GEORGIA DEPARTMENT OF PUBLIC HEALTH$)|(^GA DEPARTMENT OF PUBLIC HEALTH$)',
+                         x = unique_labs,
+                         ignore.case = T,
+                         value = T)
+labnames_df_ga <- data.frame(old_name = GA_labs_to_agg,
+                             new_name = "GA DEPARTMENT OF PUBLIC HEALTH")
+svy.dat[LAB %in% GA_labs_to_agg, 'LAB2' := labnames_df_ga$new_name[1]]
 
 
 # Steps to add more lab aggregations 
@@ -1573,23 +1582,24 @@ labnames_df <- rbind(
   labnames_df_de,
   labnames_df_ks,
   labnames_df_ms,
-  labnames_df_hhd
+  labnames_df_hhd,
+  labnames_df_ga
 )
 
 # print the list of lab names that were changed to the console
-print("Labs that were re-named:")
-for (x in seq(nrow(labnames_df))) {
-  print(
-    paste(
-      labnames_df[x,'old_name'], "     to     ", labnames_df[x,'new_name']
-    )
-  )
-}
+# print("Labs that were re-named:")
+# for (x in seq(nrow(labnames_df))) {
+#   print(
+#     paste(
+#       labnames_df[x,'old_name'], "     to     ", labnames_df[x,'new_name']
+#     )
+#   )
+# }
 
 # print the names of labs that were NOT renamed
-print("")
-print("Labs that were NOT re-named:")
-print(sort(unique_labs[unique_labs %notin% labnames_df$old_name]))
+# print("")
+# print("Labs that were NOT re-named:")
+# print(sort(unique_labs[unique_labs %notin% labnames_df$old_name]))
 
 # find similar lab names that remain
 # (This doesn't work very well, but it can be helpful to see things a little differently)
@@ -1639,22 +1649,6 @@ saveRDS(object = check_count,
 # print a list of cleaned lab names to the console
 # check_count
 
-
-
-# print a list of the newly added lab names to aid in checking for typos
-# look for the check_count data from 7 days prior to get names that were just added this week.
-# if(file.exists(paste0(script.basename, "/data/backup_", data_date - 7, "/", data_date - 7, "_sequence_counts_by_lab", custom_tag, ".RDS"))){
-#   last_week_counts <- readRDS(paste0(script.basename, "/data/backup_", data_date - 7, "/", data_date - 7, "_sequence_counts_by_lab", custom_tag, ".RDS"))
-#
-#   newly_added_labs <- setdiff(check_count$LAB2, last_week_counts$LAB2)
-#   if(length(newly_added_labs) == 0) print('\nNo newly added labs.') else {
-#      print('\nnewly added lab names:')
-#      print(newly_added_labs)
-#   }
-# } # this has been replaced with the sequence counts by lab-week below
-
-
-
 # Use counts of sequences by lab-week to look for issues with submissions
 # - 1. new labs that have been added (helpful for finding typos)
 # - 2. weeks where a labs samples have gone DOWN (I'm assuming that samples aren't frequently removed)
@@ -1686,11 +1680,16 @@ saveRDS(object = check_count,
       # read in the older counts
       previous_counts_by_week <- readRDS(previous_file)
 
-      # 1. new labs that have been added:
+      # 1. new labs that have been added: (to aid in checking for typos)
       newly_added_labs <- setdiff(unique(counts_by_week$LAB2), unique(previous_counts_by_week$LAB2))
       if(length(newly_added_labs) == 0) print('\nNo newly added labs.') else {
+         print('Compare newly added labs to all labs to look for typos:')
          print('\nnewly added lab names:')
-         print(newly_added_labs)
+         print(sort(newly_added_labs))
+         print("")
+         print("All lab names")
+         print(sort(unique(counts_by_week$LAB2)))
+         print("")
       }
 
       # - 2. weeks where a labs samples have gone DOWN
@@ -1705,12 +1704,11 @@ saveRDS(object = check_count,
       # calculate the number of sequences added or subtracted
       cbw[, 'N_net' := N_new - N_old]
 
+      n_lost_print_threshold <- 100
       if(nrow(cbw[N_net < 0])){
-         temp <- cbw[N_net < 0]
+         temp <- cbw[N_net <= 0]
          temp[, 'new_date':= data_date]
          temp[, 'old_date':= regmatches(previous_file,regexpr('[0-9]{4}-[0-9]{2}-[0-9]{2}',previous_file))]
-         print('sequences were lost from these lab-week combinations:')
-         print(temp[order(yr_wk),], nrow=500) # nrow is a data.table-specific argument
          write.csv(x = temp,
                    file = paste0(script.basename,
                                  "/data/backup_",
@@ -1718,13 +1716,16 @@ saveRDS(object = check_count,
                                  "_lost_sequences",
                                  custom_tag, ".csv"),
                    row.names = F)
+         if(nrow(cbw[N_net <= -n_lost_print_threshold])){
+          print(paste0('At least ', n_lost_print_threshold, ' sequences were lost from these lab-week combinations:'))
+          print(temp[N_net <= -n_lost_print_threshold][order(N_net),], nrow=500) # nrow is a data.table-specific argument
+         }
       }
 
       # - 3. weeks > 8 weeks in the past where labs samples have increased
+      n_added_print_threshold <- 100
       temp <- cbw[ yr_wk <= (data_date - 8*7) & N_net > 0]
       if(nrow(temp)> 0){
-         print('sequences were added to these old lab-week combinations:')
-         print(temp[order(yr_wk)], nrow=500) # nrow is a data.table-specific argument
          write.csv(x = temp,
                    file = paste0(script.basename,
                                  "/data/backup_",
@@ -1732,6 +1733,10 @@ saveRDS(object = check_count,
                                  "_old_sequence_additions",
                                  custom_tag, ".csv"),
                    row.names = F)
+        if(nrow(temp[N_net >= n_added_print_threshold]) > 0){
+          print(paste0('At least ', n_added_print_threshold, ' sequences were added to these old lab-week combinations:'))
+          print(temp[N_net >= n_added_print_threshold][order(N_net, decreasing = TRUE)], nrow=500) # nrow is a data.table-specific argument
+        }
       }
 
       # - 4. labs that normally submit a lot of sequences submitting a different number of sequences than expected
