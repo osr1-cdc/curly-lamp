@@ -644,29 +644,16 @@ src.dat[src.dat$VARIANT %notin% voc, "VARIANT2"] <- "Other"
 
 # create a table of all the old and new (after aggregating) variant names
 write.csv(
-  x = rbind(
-    # first all the lineages that are renamed
-    src.dat[
+  x = src.dat[
     , # no filtering
     .(old = lineage, new = VARIANT), # create new columns with clearer names
     by = c('lineage', 'VARIANT') # group by lineage and Variant
     ][
-      old != new, # filter out all the lineages that do not change
+      ,
       .(old, new) # select only these columns
       ][
         order(old), # reorder by the original lineage name
         ],
-    # then all the lineages that are NOT renamed
-    src.dat[
-    , # no filtering
-    .(old = lineage, new = VARIANT), # create new columns with clearer names
-    by = c('lineage', 'VARIANT') # group by lineage and Variant
-    ][
-      old == new, # filter out all the lineages that change
-      .(old, new) # select only these columns
-      ][
-        order(old), # reorder by the original lineage name
-        ]),
   file = paste0(script.basename,
                 "/results/lineage_aggregations_",
                 ci.type,
@@ -2335,7 +2322,7 @@ if ( grepl("Run2",tag) ){
 
     # save the aggregation matrix to file for double-checking
     write.csv(
-      x = agg_var_mat,
+      x = replace(agg_var_mat, agg_var_mat == 0, NA), # it's easier to view in Excel with only the 1's and no 0's
       file = paste0(script.basename,
                     "/results/agg_var_mat_",
                     ci.type,
@@ -2345,7 +2332,8 @@ if ( grepl("Run2",tag) ){
                     data_date,
                     tag,
                     ".csv"),
-      row.names = F
+      row.names = T, 
+      na = ""
     )
   }
 
