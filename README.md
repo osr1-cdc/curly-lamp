@@ -124,3 +124,28 @@ It is best to run this from DVD-VM (`dvd-sars2seq-dev01.biotech.cdc.gov`), but c
 	git commit -m 'Production runs: YYYY-MM-DD'
 	git push
    ```
+
+
+## Color Codes used on CDT
+| Variant	| Hex Code|
+| -------|-------- |
+| B.1.621	| #cee1ec |
+| B.1.617.2	| #f28e2b |
+| B.1.1.7	| #1e80a0 |
+| P.1	| #83962a |
+| AY.2	| #c14f22 |
+| AY.1	| #a13703 |
+| B.1.351	| #8e49b5 |
+| B.1.526	| #eec9e5 |
+| B.1.525	| #e78cc7 |
+| B.1.617.1	| #55aaff |
+| B.1.617.3	| #ff55ff |
+| Other	| #152d44 |
+| C.37	| #9eacb4 |
+| B.1.1.529 / BA.1	| #88419d |
+| BA.1.1	| #4d004b |
+| BA.2	| #f1b6da |
+| BA.2.12.1	| #e15759 |
+| BA.4	| #86bcb6 |
+| BA.5	| #499894 |
+
