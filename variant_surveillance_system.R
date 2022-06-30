@@ -1525,6 +1525,17 @@ labnames_df_ga <- data.frame(old_name = GA_labs_to_agg,
                              new_name = "GA DEPARTMENT OF PUBLIC HEALTH")
 svy.dat[LAB %in% GA_labs_to_agg, 'LAB2' := labnames_df_ga$new_name[1]]
 
+# added 2022-06-30
+# "BUREAU OF LABORATORIES, PENNSYLVANIA DEPARTMENT OF HEALTH"
+# "PENNSYLVANIA DEPARTMENT OF HEALTH BUREAU OF LABORATORIES"
+PA_labs_to_agg <- grep(pattern = 'PENNSYLVANIA DEPARTMENT OF HEALTH',
+                         x = unique_labs,
+                         ignore.case = T,
+                         value = T)
+labnames_df_pa <- data.frame(old_name = PA_labs_to_agg,
+                             new_name = "PENNSYLVANIA DEPARTMENT OF HEALTH BUREAU OF LABORATORIES")
+svy.dat[LAB %in% PA_labs_to_agg, 'LAB2' := labnames_df_pa$new_name[1]]
+
 
 # Steps to add more lab aggregations 
 # 1. find lab names that almost assuredly refer to the same lab 
@@ -1583,7 +1594,8 @@ labnames_df <- rbind(
   labnames_df_ks,
   labnames_df_ms,
   labnames_df_hhd,
-  labnames_df_ga
+  labnames_df_ga,
+  labnames_df_pa
 )
 
 # print the list of lab names that were changed to the console
