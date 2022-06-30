@@ -31,18 +31,19 @@
 # Mail options (b = beginning; e = end; a = aborted)
 #$ -m ea
 # 
-# Always run in the default queue
+# Choose queue
 # -q all.q
 #$ -q covid.q
 #
-# Set the parallel_environment to "smp" and use 4 cores (smp = Symmetric multiprocessing or shared-memory multiprocessing)
-#$ -pe smp 4
+# Set the parallel_environment to "smp" and use xx cores (smp = Symmetric multiprocessing or shared-memory multiprocessing); MAKE SURE THIS IS >= p CORES!
+#$ -pe smp 10
 
 source /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
 
-Rscript weekly_variant_report_nowcast.R -r 2 -c F -v F -t quantile_99 -s T
+Rscript weekly_variant_report_nowcast.R -r 2 -c F -v F -t quantile_99 -s T -p 10
 # -r = run number
 # -c = include custom lineages
 # -v = use reduced vocs
 # -t = trim weights
 # -s = save datasets (results are always saved)
+# -p = number of parallel cores to use (or FALSE for not using parallel); MAKE SURE TO SET SMP SETTINGS TO HAVE AT LEAST p CORES!

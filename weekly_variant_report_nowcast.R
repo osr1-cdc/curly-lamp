@@ -95,6 +95,17 @@ options(survey.adjust.domain.lonely = T,
       default = "F",
       help    = "Maximum weight for any individual sequence",
       metavar = "character"
+    ),
+
+    # optionally run the weighted estimates in parallel
+    # setting to a number will use that many cores (make sure the qsub script reserves adequate cores)
+    # options: must be a number or FALSE
+    optparse::make_option(
+      opt_str = c("-p", "--parallel_cores"),
+      type    = "character",
+      default = "F",
+      help    = "Number of cores for parallel estimation of weighted proportions",
+      metavar = "character"
     )
   )
 
@@ -139,6 +150,14 @@ options(survey.adjust.domain.lonely = T,
     save_datasets_to_file = FALSE
   } else {
     save_datasets_to_file = TRUE
+  }
+
+  # whether or not to use parallel processing on weighted estimates
+  if( toupper(opts$parallel_cores) %in% c('F', 'FALSE', 'N', 'NO', '1', '0')){
+    use_parallel = FALSE
+  } else {
+    use_parallel = TRUE
+    ncores = as.numeric(opts$parallel_cores)
   }
 
   # Option to calculate the number of confirmed cases attributable to each variant
@@ -884,13 +903,65 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
                            USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
 
     # get the proportion estimates & CI
-    ests = apply(X = all.ftnt,
-                 MARGIN = 1,
-                 FUN = function(rr) myciprop(voc = rr[3],
-                                             geoid = rr[1],
-                                             svy = subset(x = svyDES,
-                                                          FORTNIGHT_END == rr[2]),
-                                             str = FALSE))
+    all_ftnt_ests_function <- function(all.ftnt, svyDES){
+      ests <- apply(X = all.ftnt,
+                    MARGIN = 1,
+                    FUN = function(rr) myciprop(voc = rr[3],
+                                                geoid = rr[1],
+                                                svy = subset(x = svyDES,
+                                                             FORTNIGHT_END == rr[2]),
+                                                str = FALSE))
+      return(ests)
+    }
+
+    # do the estimates in parallel
+    if(use_parallel){
+      # use a tryCatch just in case the parallel operation fails
+      ests <- tryCatch(expr = { # "expr" is what we want to run (not in a function form, unlike "error" and "warning")
+        # choose the number of cores
+        # ncores <- max(1, parallel::detectCores())
+
+        # split the rows of data into "ncores" sets
+        cut_list <- split(x = all.ftnt,
+                          f = rep(1:ncores,
+                                  each = ceiling(nrow(all.ftnt)/ncores),
+                                  length.out = nrow(all.ftnt)))
+
+        # make a cluster
+        cl <- parallel::makeCluster(ncores)
+
+        # pass everything to each of the cores
+        parallel::clusterEvalQ(cl = cl, {
+          library(survey)
+          library(data.table)
+        })
+        # export all the other R objects that are used within all_ftnt_ests_function to each cluster node
+        parallel::clusterExport(cl = cl,
+                                varlist = c('svyDES', 'script.basename', 'ci.type', 'voc'))
+        parallel::clusterEvalQ(cl = cl, {
+          source(paste0(script.basename, "/weekly_variant_report_functions.R"))
+          options(survey.adjust.domain.lonely = T,
+                  survey.lonely.psu = "average",
+                  stringsAsFactors = FALSE)
+        })
+
+        # perform the calculations on the cluster
+        ests_list <- parallel::parLapply(cl = cl,
+                                         X = cut_list,
+                                         fun = all_ftnt_ests_function,
+                                         svyDES = svyDES)
+
+        # combine the results into a single dataframe
+        do.call(what = 'cbind', args = ests_list)
+      },
+      error = function(cond) { # if "expr" throws an error, do this instead of actually stopping
+        message('Parallel execution of biweekly weighted proportions failed. Running in series instead.')
+        message("Here's the original error message:")
+        message(cond)
+        # Choose a return value in case of error
+        return(all_ftnt_ests_function(all.ftnt = all.ftnt, svyDES = svyDES))
+      })
+    } else ests <- all_ftnt_ests_function(all.ftnt = all.ftnt, svyDES = svyDES)
 
     # add in the estimates to the dataframe
     all.ftnt = cbind(all.ftnt,
@@ -907,14 +978,44 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
                          Fortnight_ending = ftnts,
                          USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
 
-    # get the proportion estimates & CI (for "other" variants)
-    ests.others = apply(X = others,
-                        MARGIN = 1,
-                        FUN = function(rr) myciprop(voc = voc,
-                                                    geoid = rr[1],
-                                                    svy = subset(svyDES,
-                                                                 FORTNIGHT_END == rr[2]),
-                                                    str = FALSE))
+    # function to get the proportion estimates & CI (for "other" variants)
+    others_ftnt_ests_function <- function(others, svyDES){
+      ests.others = apply(X = others,
+                          MARGIN = 1,
+                          FUN = function(rr) myciprop(voc = voc, # "Other" isn't in the Nowcast model; if voc is a vector, myciprop will return the aggregated proportion. So feed in all the vocs, then subtract from 1 to get "Other" estimates.
+                                                      geoid = rr[1],
+                                                      svy = subset(svyDES,
+                                                                   FORTNIGHT_END == rr[2]),
+                                                      str = FALSE))
+      return(ests.others)
+    }
+
+    if(use_parallel){
+      # use a tryCatch just in case the parallel operation fails
+      ests.others <- tryCatch(expr = { # "expr" is what we want to run (not in a function form, unlike "error" and "warning")
+        # split the rows of data into "ncores" sets
+        cut_list <- split(x = others,
+                          f = rep(1:ncores,
+                                  each = ceiling(nrow(others)/ncores),
+                                  length.out = nrow(others)))
+
+        # perform the calculations on the cluster
+        others_list <- parallel::parLapply(cl = cl,
+                                           X = cut_list,
+                                           fun = others_ftnt_ests_function,
+                                           svyDES = svyDES)
+
+        # combine the results into a single dataframe
+        do.call(what = 'cbind', args = others_list)
+      },
+      error = function(cond) { # if "expr" throws an error, do this instead of actually stopping
+        message('Parallel execution of biweekly "other" weighted proportions failed. Running in series instead.')
+        message("Here's the original error message:")
+        message(cond)
+        # Choose a return value in case of error
+        return(others_ftnt_ests_function(others = others, svyDES = svyDES))
+      })
+    } else ests.others <- others_ftnt_ests_function(others = others, svyDES = svyDES)
 
     # add in the estimates to the dataframe (for "other" variants)
     others = cbind(others,
@@ -1131,14 +1232,46 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
                            Week_of = wks,
                            USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
 
-    # get predictions & CI for each variant in each week and region
+    # function to get predictions & CI for each variant in each week and region
     # (using survey design but NOT multinomial nowcast model)
-    ests = apply(X = all.wkly,
-                 MARGIN = 1,
-                 FUN = function(rr) myciprop(voc   = rr[3],
-                                             geoid = rr[1],
-                                             svy   = subset(svyDES, yr_wk == rr[2]),
-                                             str   = FALSE))
+    all_wkly_ests_function <- function(all.wkly, svyDES){
+      ests <- apply(X = all.wkly,
+                    MARGIN = 1,
+                    FUN = function(rr) myciprop(voc   = rr[3],
+                                                geoid = rr[1],
+                                                svy   = subset(svyDES,
+                                                               yr_wk == rr[2]),
+                                                str   = FALSE))
+      return(ests)
+    }
+
+    # do the estimates in parallel
+    if(use_parallel){
+      # use a tryCatch just in case the parallel operation fails
+      ests <- tryCatch(expr = { # "expr" is what we want to run (not in a function form, unlike "error" and "warning")
+        # split the rows of data into "ncores" sets
+        cut_list <- split(x = all.wkly,
+                          f = rep(1:ncores,
+                                  each = ceiling(nrow(all.wkly)/ncores),
+                                  length.out = nrow(all.wkly)))
+
+        # perform the calculations on the cluster
+        ests_list <- parallel::parLapply(cl = cl,
+                                         X = cut_list,
+                                         fun = all_wkly_ests_function,
+                                         svyDES = svyDES)
+
+        # combine the results into a single dataframe
+        do.call(what = 'cbind', args = ests_list)
+      },
+      error = function(cond) { # if "expr" throws an error, do this instead of actually stopping
+        message('Parallel execution of weekly weighted proportions failed. Running in series instead.')
+        message("Here's the original error message:")
+        message(cond)
+        # Choose a return value in case of error
+        return(all_wkly_ests_function(all.wkly = all.wkly, svyDES = svyDES))
+      })
+    } else ests <- all_wkly_ests_function(all.wkly = all.wkly, svyDES = svyDES)
 
     # add the predictions into the dataframe
     all.wkly = cbind(all.wkly,
@@ -1155,14 +1288,48 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
                          Week_of = wks,
                          USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
 
+    # function to get the proportion estimates & CI (for "other" variants)
     # get predictions & CI for "other" (grouped) variant in each week and region
     # (using survey design but NOT multinomial nowcast model)
-    ests.others = apply(X = others,
-                        MARGIN = 1,
-                        FUN = function(rr) myciprop(voc = voc,
-                                                    geoid = rr[1],
-                                                    svy = subset(svyDES, yr_wk == rr[2]),
-                                                    str =  FALSE))
+    others_wkly_ests_function <- function(others, svyDES){
+      ests.others <- apply(X = others,
+                           MARGIN = 1,
+                           FUN = function(rr) myciprop(voc = voc,
+                                                       geoid = rr[1],
+                                                       svy = subset(svyDES, yr_wk == rr[2]),
+                                                       str =  FALSE))
+      return(ests.others)
+    }
+
+    if(use_parallel){
+      # use a tryCatch just in case the parallel operation fails
+      ests.others <- tryCatch(expr = { # "expr" is what we want to run (not in a function form, unlike "error" and "warning")
+        # split the rows of data into "ncores" sets
+        cut_list <- split(x = others,
+                          f = rep(1:ncores,
+                                  each = ceiling(nrow(others)/ncores),
+                                  length.out = nrow(others)))
+
+        # perform the calculations on the cluster
+        others_list <- parallel::parLapply(cl = cl,
+                                           X = cut_list,
+                                           fun = others_wkly_ests_function,
+                                           svyDES = svyDES)
+
+        # close the cluster
+        parallel::stopCluster(cl)
+
+        # combine the results into a single dataframe
+        do.call(what = 'cbind', args = others_list)
+      },
+      error = function(cond) { # if "expr" throws an error, do this instead of actually stopping
+        message('Parallel execution of weekly "other" weighted proportions failed. Running in series instead.')
+        message("Here's the original error message:")
+        message(cond)
+        # Choose a return value in case of error
+        return(others_wkly_ests_function(others = others, svyDES = svyDES))
+      })
+    } else ests.others <- others_wkly_ests_function(others = others, svyDES = svyDES)
 
     # add the predictions into the dataframe
     others = cbind(others,
@@ -3018,15 +3185,73 @@ if ( grepl("Run3", tag) ){
                           Roll_4wk_end = data_weeks,
                           State = sort(unique(src.dat$STUSAB)))[, 3:1]
 
-  # calculate estimated proportions (and CI) using survey design
-  ests = apply(X = all.state,
-               MARGIN = 1,
-               FUN = function(rr) myciprop(voc = rr[3],
-                                           geoid = rr[1],
-                                           svy = subset(svyDES,
-                                                        week >= (as.numeric(rr[2])- 3) &
-                                                          week < (as.numeric(rr[2])+1)),
-                                           str = FALSE))
+
+
+
+  # get the proportion estimates & CI
+  all_state_ests_function <- function(all.state, svyDES){
+    ests <- apply(X = all.state,
+                  MARGIN = 1,
+                  FUN = function(rr) myciprop(voc = rr[3],
+                                              geoid = rr[1],
+                                              svy = subset(svyDES,
+                                                           week >= (as.numeric(rr[2])- 3) &
+                                                             week < (as.numeric(rr[2])+1)),
+                                              str = FALSE))
+    return(ests)
+  }
+
+  # do the estimates in parallel
+  if(use_parallel){
+    # use a tryCatch just in case the parallel operation fails
+    ests <- tryCatch(expr = { # "expr" is what we want to run (not in a function form, unlike "error" and "warning")
+      # choose the number of cores
+      # ncores <- max(1, parallel::detectCores())
+
+      # split the rows of data into "ncores" sets
+      cut_list <- split(x = all.state,
+                        f = rep(1:ncores,
+                                each = ceiling(nrow(all.state)/ncores),
+                                length.out = nrow(all.state)))
+
+      # make a cluster
+      cl <- parallel::makeCluster(ncores)
+
+      # pass everything to each of the cores
+      parallel::clusterEvalQ(cl = cl, {
+        library(survey)
+        library(data.table)
+      })
+      # export all the other R objects that are used within all_ftnt_ests_function to each cluster node
+      parallel::clusterExport(cl = cl,
+                              varlist = c('svyDES', 'script.basename', 'ci.type', 'voc'))
+      parallel::clusterEvalQ(cl = cl, {
+        source(paste0(script.basename, "/weekly_variant_report_functions.R"))
+        options(survey.adjust.domain.lonely = T,
+                survey.lonely.psu = "average",
+                stringsAsFactors = FALSE)
+      })
+
+      # perform the calculations on the cluster
+      ests_list <- parallel::parLapply(cl = cl,
+                                       X = cut_list,
+                                       fun = all_state_ests_function,
+                                       svyDES = svyDES)
+
+      # combine the results into a single dataframe
+      do.call(what = 'cbind', args = ests_list)
+
+      # close the cluster
+      # parallel::stopCluster(cl)
+    },
+    error = function(cond) { # if "expr" throws an error, do this instead of actually stopping
+      message('Parallel execution of monthly state weighted proportions failed. Running in series instead.')
+      message("Here's the original error message:")
+      message(cond)
+      # Choose a return value in case of error
+      return(all_state_ests_function(all.state = all.state, svyDES = svyDES))
+    })
+  } else ests <- all_state_ests_function(all.state = all.state, svyDES = svyDES)
 
   # add together the combinations of states, time period, & variants with estimates
   all.state = cbind(all.state,
@@ -3043,15 +3268,49 @@ if ( grepl("Run3", tag) ){
                        Roll_4wk_end = data_weeks,
                        State = sort(unique(src.dat$STUSAB)))[, 3:1]
 
-  # calculate the estimated proportions (and CI) using survey design
-  ests.others = apply(X = others,
-                      MARGIN = 1,
-                      FUN = function(rr) myciprop(voc = voc,
-                                                  geoid = rr[1],
-                                                  svy = subset(svyDES,
-                                                               week >= (as.numeric(rr[2])- 3) &
-                                                                 week < (as.numeric(rr[2])+1)),
-                                                  str = FALSE))
+  # get the proportion estimates & CI
+  other_state_ests_function <- function(others, svyDES){
+    ests.others <- apply(X = others,
+                  MARGIN = 1,
+                  FUN = function(rr) myciprop(voc = voc,
+                                              geoid = rr[1],
+                                              svy = subset(svyDES,
+                                                           week >= (as.numeric(rr[2])- 3) &
+                                                             week < (as.numeric(rr[2])+1)),
+                                              str = FALSE))
+    return(ests.others)
+  }
+
+  # do the estimates in parallel
+  if(use_parallel){
+    # use a tryCatch just in case the parallel operation fails
+    ests.others <- tryCatch(expr = { # "expr" is what we want to run (not in a function form, unlike "error" and "warning")
+      # split the rows of data into "ncores" sets
+      cut_list <- split(x = others,
+                        f = rep(1:ncores,
+                                each = ceiling(nrow(others)/ncores),
+                                length.out = nrow(others)))
+
+      # perform the calculations on the cluster
+      ests_list <- parallel::parLapply(cl = cl,
+                                       X = cut_list,
+                                       fun = other_state_ests_function,
+                                       svyDES = svyDES)
+
+      # close the cluster
+      parallel::stopCluster(cl)
+
+      # combine the results into a single dataframe
+      do.call(what = 'cbind', args = ests_list)
+    },
+    error = function(cond) { # if "expr" throws an error, do this instead of actually stopping
+      message('Parallel execution of "other" monthly state weighted proportions failed. Running in series instead.')
+      message("Here's the original error message:")
+      message(cond)
+      # Choose a return value in case of error
+      return(other_state_ests_function(others = others, svyDES = svyDES))
+    })
+  } else ests.others <- other_state_ests_function(others = others, svyDES = svyDES)
 
   # add together the combinations of states, time period, & variants with estimates
   others = cbind(others,
