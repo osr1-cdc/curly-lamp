@@ -610,7 +610,7 @@ B429=B429[which(B429 %notin% voc)] #vector of the B429s to aggregate
 if('BA.1.1' %in% voc)  B529.BA1.1  <- sort(grep("(BA\\.1\\.1)(?![0-9])",  unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA1.1  <- NULL
 if('BA.1.15' %in% voc) B529.BA1.15 <- sort(grep("(BA\\.1\\.15)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA1.15 <- NULL
 if('BA.1' %in% voc){
-   B529.BA1 <- sort(grep("(BA\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
+   B529.BA1 <- sort(grep("BC\\.|BD\\.|(BA\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
    # BA.1 subvariants do not include subvariants already included in B529.BA1.1, B529.BA1.15
    B529.BA1 <- setdiff(B529.BA1, c(B529.BA1.1, B529.BA1.15))
 } else B529.BA1 <- NULL
@@ -618,14 +618,14 @@ if('BA.2.3' %in% voc)  B529.BA2.3  <- sort(grep("(BA\\.2\\.3)(?![0-9])",  unique
 if('BA.2.9' %in% voc)  B529.BA2.9  <- sort(grep("(BA\\.2\\.9)(?![0-9])",  unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.9  <- NULL
 if('BA.2.10' %in% voc) B529.BA2.10 <- sort(grep("(BA\\.2\\.10)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.10 <- NULL
 if('BA.2' %in% voc){
-  B529.BA2 <- sort(grep("(BA\\.2)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
+  B529.BA2 <- sort(grep("BG\\.|(BA\\.2)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
   # BA.2 subvariants do not include subvariants already included in B529.BA2.3, B529.BA2.9, B529.BA2.10
   B529.BA2 <- setdiff(B529.BA2, c(B529.BA2.3, B529.BA2.9, B529.BA2.10))
 }  else B529.BA2 <- NULL
 if('BA.3' %in% voc)    B529.BA3    <- sort(grep("(BA\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))       else B529.BA3    <- NULL
 if('BA.4' %in% voc)    B529.BA4    <- sort(grep("(BA\\.4)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))       else B529.BA4    <- NULL
 # BA.5 sublineages includes BE.x [NOTE! Change this if any BE sublineages are added to the VOCs]
-if('BA.5' %in% voc) B529.BA5 <- sort(grep("(BE\\.)|((BA\\.5)(?![0-9]))",unique(src.dat$VARIANT), perl = T, value = T))   else B529.BA5    <- NULL
+if('BA.5' %in% voc) B529.BA5 <- sort(grep("(BF\\.)|(BE\\.)|((BA\\.5)(?![0-9]))",unique(src.dat$VARIANT), perl = T, value = T))   else B529.BA5    <- NULL
 
 # safety check: make sure that no variants are in the multiple sublineage groups
 B.529.all <- c(B529.BA1, B529.BA1.1, B529.BA1.15, B529.BA2, B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA3, B529.BA4, B529.BA5)
