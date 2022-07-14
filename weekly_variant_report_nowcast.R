@@ -630,7 +630,7 @@ if('BA.5' %in% voc) B529.BA5 <- sort(grep("(BF\\.)|(BE\\.)|((BA\\.5)(?![0-9]))",
 # safety check: make sure that no variants are in the multiple sublineage groups
 B.529.all <- c(B529.BA1, B529.BA1.1, B529.BA1.15, B529.BA2, B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA3, B529.BA4, B529.BA5)
 if(any(duplicated(B.529.all))) stop(message = paste0(B.529.all[duplicate(B.529.all)], ' appear in multiple BA sublineage groups. Check B529.BA1, B529.BA1.1, B529.BA.1.15, B529.BA2, B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA3, B529.BA4, B529.BA5.'))
-B529=sort(grep("(B\\.1\\.1\\.529)|(BA\\.[0-9])",unique(src.dat$VARIANT), value = T))
+B529=sort(grep("(B\\.1\\.1\\.529)|(BA\\.[0-9])|(BC\\.[0-9])|(BD\\.[0-9])|(BE\\.[0-9])|(BF\\.[0-9])|(BG\\.[0-9])",unique(src.dat$VARIANT), value = T))
 B529=B529[ B529 %notin% c(voc, B.529.all) ] #vector of the B529s to aggregate
 
 
