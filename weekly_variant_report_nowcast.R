@@ -2462,6 +2462,12 @@ if ( grepl("Run2",tag) ){
       )
       # update the row name
       row.names(agg_var_mat)[nrow(agg_var_mat)] <- 'Other Aggregated'
+      
+      # force BE.1 into BA.5 FOR NOW. Long term fix needs to be worked out!
+      if("BE.1" %in% colnames(agg_var_mat)) {
+        agg_var_mat["Other Aggregated","BE.1"] <- 0
+        agg_var_mat["BA.5 Aggregated","BE.1"] <- 1
+      }
 
       # double-check that no variant is aggregated into multiple vocs
       if(max(colSums(agg_var_mat)) > 1){
