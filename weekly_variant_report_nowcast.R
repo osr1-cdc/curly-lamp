@@ -187,7 +187,7 @@ options(survey.adjust.domain.lonely = T,
   # "force_aggregate_omicron_except".
   # THIS WILL LIKELY NEED TO BE REPLACED IN THE FUTURE, BUT IT'S HERE TO AVOID
   # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
-  force_aggregate_omicron <- FALSE
+  force_aggregate_omicron <- TRUE
   # list omicron sublineages that will not be aggregated (if they are also in voc) (these are the only Omicron sublineages that will be permitted)
   force_aggregate_omicron_except <- c('BA.1','BA.2','BA.3','BA.4','BA.5','BA.2.12.1') # 'BA.2.12', 'BA.1.1'
 
@@ -372,6 +372,8 @@ column_classes = sapply(svy.dat, class) # get the class of each column
 factor_columns = names(column_classes[column_classes == "factor"]) # names of the columns that are factors
 # convert columns that are factors to strings
 for (vv in factor_columns) svy.dat[, vv] = as.character(svy.dat[, vv])
+
+svy.dat$VARIANT[svy.dat$VARIANT == "BE.1"] <- "BA.5"
 
 # subset the survey data based on whether or not state-tagged data should be included
 if(state_source == "state_tag_included"){
@@ -2464,10 +2466,10 @@ if ( grepl("Run2",tag) ){
       row.names(agg_var_mat)[nrow(agg_var_mat)] <- 'Other Aggregated'
       
       # force BE.1 into BA.5 FOR NOW. Long term fix needs to be worked out!
-      if("BE.1" %in% colnames(agg_var_mat)) {
-        agg_var_mat["Other Aggregated","BE.1"] <- 0
-        agg_var_mat["BA.5 Aggregated","BE.1"] <- 1
-      }
+      # if("BE.1" %in% colnames(agg_var_mat)) {
+      #   agg_var_mat["Other Aggregated","BE.1"] <- 0
+      #   agg_var_mat["BA.5 Aggregated","BE.1"] <- 1
+      # }
 
       # double-check that no variant is aggregated into multiple vocs
       if(max(colSums(agg_var_mat)) > 1){
