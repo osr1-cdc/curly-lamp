@@ -617,6 +617,7 @@ if('BA.1' %in% voc){
 if('BA.2.3' %in% voc) B529.BA2.3 <- sort(grep("(BA\\.2\\.3)(?![0-9])",  unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.3 <- NULL
 if('BA.2.9' %in% voc) B529.BA2.9 <- sort(grep("(BA\\.2\\.9)(?![0-9])",  unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.9 <- NULL
 if('BA.2.10' %in% voc) B529.BA2.10 <- sort(grep("(BA\\.2\\.10)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.10 <- NULL
+if('BA.2.18' %in% voc) B529.BA2.18 <- sort(grep("(BA\\.2\\.18)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.18 <- NULL
 if('BA.2.12.1' %in% voc) B529.BA2.12.1 <- sort(grep("BG\\.|(BA\\.2\\.12\\.1)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.12.1 <- NULL
 if('BA.2.12' %in% voc) {
   B529.BA2.12 <- sort(grep("BG\\.|(BA\\.2\\.12)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
@@ -625,27 +626,30 @@ if('BA.2.12' %in% voc) {
 if('BA.2' %in% voc){
   B529.BA2 <- sort(grep("BG\\.|(BA\\.2)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
   # BA.2 subvariants do not include subvariants already included in B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA2.12.1, B529.BA2.12
-  B529.BA2 <- setdiff(B529.BA2, c(B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA2.12.1, B529.BA2.12))
+  B529.BA2 <- setdiff(B529.BA2, c(B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA2.12.1, B529.BA2.12, B529.BA2.18))
 } else B529.BA2 <- NULL
 if('BA.3' %in% voc) B529.BA3 <- sort(grep("(BA\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA3 <- NULL
+if('BA.4.4' %in% voc) B529.BA4.4 <- sort(grep("(BA\\.4\\.4)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA4.4 <- NULL
+if('BA.4.6' %in% voc) B529.BA4.4 <- sort(grep("(BA\\.4\\.6)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA4.6 <- NULL
 if('BA.4.1' %in% voc) B529.BA4.1 <- sort(grep("(BA\\.4\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA4.1 <- NULL
 if('BA.4' %in% voc) {
   B529.BA4 <- sort(grep("(BA\\.4)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
   # BA.4 subvariants do not include subvariants already included in B529.BA4.1
-  B529.BA4 <- setdiff(B529.BA4, c(B529.BA4.1))
+  B529.BA4 <- setdiff(B529.BA4, c(B529.BA4.1, B529.BA4.4, B529.BA4.6))
 } else B529.BA4 <- NULL
 # BA.5 sublineages includes BE.x [NOTE! Change this if any BE sublineages are added to the VOCs]
 if('BE.1' %in% voc) B529.BE.1 <- sort(grep("(BE\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BE.1 <- NULL
+if('BE.3' %in% voc) B529.BE.1 <- sort(grep("(BE\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BE.3 <- NULL
 if('BA.5.3.1' %in% voc) {
   B529.BA5.3.1 <- sort(grep("BE\\.|(BA\\.5\\.3\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA5.3.1 <- setdiff(B529.BA5.3.1, c(B529.BE.1))
+  B529.BA5.3.1 <- setdiff(B529.BA5.3.1, c(B529.BE.1, B529.BE.3))
 } else B529.BA5.3.1 <- NULL
 if('BA.5.2.1' %in% voc) {
   B529.BA5.2.1 <- sort(grep("BF\\.|(BA\\.5\\.2\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
 } else B529.BA5.2.1 <- NULL
 if('BA.5' %in% voc){
   B529.BA5 <- sort(grep("(BF\\.)|(BE\\.)|((BA\\.5)(?![0-9]))",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA5 <- setdiff(B529.BA5, c(B529.BE.1, B529.BA5.3.1, B529.BA5.2.1))
+  B529.BA5 <- setdiff(B529.BA5, c(B529.BE.1, B529.BE.3, B529.BA5.3.1, B529.BA5.2.1))
 } else B529.BA5 <- NULL
 
 # safety check: make sure that no variants are in the multiple sublineage groups
@@ -676,13 +680,17 @@ if(B.1.1.529_agg==TRUE)  {
   src.dat[src.dat$VARIANT %in% B529.BA2.10[B529.BA2.10 %notin% voc],"VARIANT"] <- "BA.2.10"
   src.dat[src.dat$VARIANT %in% B529.BA2.12[B529.BA2.12 %notin% voc],"VARIANT"] <- "BA.2.12"
   src.dat[src.dat$VARIANT %in% B529.BA2.12.1[B529.BA2.12.1 %notin% voc],"VARIANT"] <- "BA.2.12.1"
+  src.dat[src.dat$VARIANT %in% B529.BA2.10[B529.BA2.18 %notin% voc],"VARIANT"] <- "BA.2.18"
   src.dat[src.dat$VARIANT %in% B529.BA3[B529.BA3 %notin% voc],"VARIANT"] <- "BA.3"
   src.dat[src.dat$VARIANT %in% B529.BA4[B529.BA4 %notin% voc],"VARIANT"] <- "BA.4"
   src.dat[src.dat$VARIANT %in% B529.BA4.1[B529.BA4.1 %notin% voc],"VARIANT"] <- "BA.4.1"
+  src.dat[src.dat$VARIANT %in% B529.BA4.4[B529.BA4.4 %notin% voc],"VARIANT"] <- "BA.4.4"
+  src.dat[src.dat$VARIANT %in% B529.BA4.6[B529.BA4.6 %notin% voc],"VARIANT"] <- "BA.4.6"
   src.dat[src.dat$VARIANT %in% B529.BA5[B529.BA5 %notin% voc],"VARIANT"] <- "BA.5"
   src.dat[src.dat$VARIANT %in% B529.BA5.2.1[B529.BA5.2.1 %notin% voc],"VARIANT"] <- "BA.5.2.1"
   src.dat[src.dat$VARIANT %in% B529.BA5.3.1[B529.BA5.3.1 %notin% voc],"VARIANT"] <- "BA.5.3.1"
   src.dat[src.dat$VARIANT %in% B529.BE.1[B529.BE.1 %notin% voc],"VARIANT"] <- "BE.1"
+  src.dat[src.dat$VARIANT %in% B529.BE.3[B529.BE.3 %notin% voc],"VARIANT"] <- "BE.3"
 }
 
 # create another column for the varients of interest
@@ -2397,7 +2405,7 @@ if ( grepl("Run2",tag) ){
   ### aggregation matrix ----
   # this is used to aggregate the results of run 2 to the vocs included in run 1.
   # The aggregation matrix has a column for each of the vocs in run 2 and a row for each aggregated voc. 1's in the matrix specify which sub-variants to aggregate into the aggregate lineage.
-  {
+  if(FALSE){
     # create a column for each voc in the model
     agg_var_mat <- matrix(data = 0,
                                            nrow = 0,
@@ -2493,12 +2501,6 @@ if ( grepl("Run2",tag) ){
       # update the row name
       row.names(agg_var_mat)[nrow(agg_var_mat)] <- 'Other Aggregated'
 
-      # force BE.1 into BA.5 FOR NOW. Long term fix needs to be worked out!
-      if("BE.1" %in% colnames(agg_var_mat) & "BA.5 Aggregated" %in% row.names(agg_var_mat)) {
-        agg_var_mat["Other Aggregated","BE.1"] <- 0
-        agg_var_mat["BA.5 Aggregated","BE.1"] <- 1
-      }
-
       # double-check that no variant is aggregated into multiple vocs
       if(max(colSums(agg_var_mat)) > 1){
         warning(message = paste(
@@ -2519,6 +2521,12 @@ if ( grepl("Run2",tag) ){
         warning(message = paste0('Not all variants in "voc" are aggregated into something in "voc1". ',
                                           paste(problem_vocs, collapse = ', '),
                                           ' is in voc2 but is not aggregated into anything in voc1. Therefore it will be aggregated into "Other Aggregated" for both run_1 and run_2 output. Either change voc1 and/or voc2 or change the way agg_var_mat works.'))
+      }
+      
+      # force BE.1 into BA.5 FOR NOW. Long term fix needs to be worked out!
+      if("BE.1" %in% colnames(agg_var_mat) & "BA.5 Aggregated" %in% row.names(agg_var_mat)) {
+        agg_var_mat["Other Aggregated","BE.1"] <- 0
+        agg_var_mat["BA.5 Aggregated","BE.1"] <- 1
       }
     }
     # agg_var_mat
@@ -2541,7 +2549,7 @@ if ( grepl("Run2",tag) ){
   }
 
   # former aggregation
-  if(FALSE){
+  if(TRUE) {
     # Check to see which lineages are in model_vars
     # this returns all variants with "AY" in the name
     AY_vars = model_vars[grep("AY", model_vars)]
@@ -2595,10 +2603,10 @@ if ( grepl("Run2",tag) ){
         if (ll == 'BA.1'){
           # this always excludes BA.1.1
           # if voc1 includes BA.1, but not BA.1.1, then this is going to result in BA.1.1 aggregated into parent omicron, NOT BA.1
-          ll_agg <- grep("(BA\\.1)(?!(\\.1$)|(\\.1\\.))|(BC\\.)|(BD\\.)",BA_vars, perl = T, value = T)
+          ll_agg <- grep("(BA\\.1)(?!(\\.1$)|(BC\\.)|(BD\\.)",BA_vars, perl = T, value = T)
         }
         if (ll == 'BA.1.1'){
-          ll_agg <- grep("(BA\\.1\\.1)(?![0-9])",BA_vars, perl = T, value = T)
+          ll_agg <- grep("(BA\\.1\\.1)(?![0-9])|(BC\\.)",BA_vars, perl = T, value = T)
         }
         if (ll == 'BA.2') {
           # this will always aggregate BA.2.12 into BA.2
@@ -2649,6 +2657,20 @@ if ( grepl("Run2",tag) ){
       if(any(colSums(agg_var_mat)>1)) warning(paste0('agg_var_mat not correctly specified. Some variants are aggregated more than once.', agg_var_mat))
     }
     # agg_var_mat
+    write.csv(
+      x = replace(agg_var_mat, agg_var_mat == 0, NA), # it's easier to view in Excel with only the 1's and no 0's
+      file = paste0(script.basename,
+                    "/results/agg_var_mat_",
+                    ci.type,
+                    "CI_",
+                    svy.type,
+                    "_",
+                    data_date,
+                    tag,
+                    ".csv"),
+      row.names = T, 
+      na = ""
+    )
   }
 
 
