@@ -607,31 +607,45 @@ B429=sort(unique(src.dat$VARIANT)[grep("B\\.1\\.429",unique(src.dat$VARIANT))])
 B429=B429[which(B429 %notin% voc)] #vector of the B429s to aggregate
 # omicrons [including lots of sublineages]
 # aggregate the BA sublineages [NOTE! this *WILL* aggregate all BA.1.1.x sub-sublineages into BA.1.1 *even* if BA.1.1.x is listed in voc.]
-if('BA.1.1' %in% voc)  B529.BA1.1  <- sort(grep("(BA\\.1\\.1)(?![0-9])",  unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA1.1  <- NULL
+if('BA.1.1' %in% voc) B529.BA1.1 <- sort(grep("BC\\.|(BA\\.1\\.1)(?![0-9])",  unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA1.1 <- NULL
 if('BA.1.15' %in% voc) B529.BA1.15 <- sort(grep("(BA\\.1\\.15)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA1.15 <- NULL
 if('BA.1' %in% voc){
    B529.BA1 <- sort(grep("BC\\.|BD\\.|(BA\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
    # BA.1 subvariants do not include subvariants already included in B529.BA1.1, B529.BA1.15
    B529.BA1 <- setdiff(B529.BA1, c(B529.BA1.1, B529.BA1.15))
 } else B529.BA1 <- NULL
-if('BA.2.3' %in% voc)  B529.BA2.3  <- sort(grep("(BA\\.2\\.3)(?![0-9])",  unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.3  <- NULL
-if('BA.2.9' %in% voc)  B529.BA2.9  <- sort(grep("(BA\\.2\\.9)(?![0-9])",  unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.9  <- NULL
+if('BA.2.3' %in% voc) B529.BA2.3 <- sort(grep("(BA\\.2\\.3)(?![0-9])",  unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.3 <- NULL
+if('BA.2.9' %in% voc) B529.BA2.9 <- sort(grep("(BA\\.2\\.9)(?![0-9])",  unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.9 <- NULL
 if('BA.2.10' %in% voc) B529.BA2.10 <- sort(grep("(BA\\.2\\.10)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.10 <- NULL
+if('BA.2.12.1' %in% voc) B529.BA2.12.1 <- sort(grep("BG\\.|(BA\\.2\\.12\\.1)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.12.1 <- NULL
+if('BA.2.12' %in% voc) {
+  B529.BA2.12 <- sort(grep("BG\\.|(BA\\.2\\.12)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
+  B529.BA2.12 <- setdiff(B529.BA2.12, c(B529.BA2.12.1))
+} else B529.BA2.12 <- NULL
 if('BA.2' %in% voc){
   B529.BA2 <- sort(grep("BG\\.|(BA\\.2)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
-  # BA.2 subvariants do not include subvariants already included in B529.BA2.3, B529.BA2.9, B529.BA2.10
-  B529.BA2 <- setdiff(B529.BA2, c(B529.BA2.3, B529.BA2.9, B529.BA2.10))
+  # BA.2 subvariants do not include subvariants already included in B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA2.12.1, B529.BA2.12
+  B529.BA2 <- setdiff(B529.BA2, c(B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA2.12.1, B529.BA2.12))
 } else B529.BA2 <- NULL
-if('BA.3' %in% voc)    B529.BA3    <- sort(grep("(BA\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))       else B529.BA3    <- NULL
-if('BA.4.1' %in% voc)    B529.BA4.1    <- sort(grep("(BA\\.4\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))       else B529.BA4.1    <- NULL
+if('BA.3' %in% voc) B529.BA3 <- sort(grep("(BA\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA3 <- NULL
+if('BA.4.1' %in% voc) B529.BA4.1 <- sort(grep("(BA\\.4\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA4.1 <- NULL
 if('BA.4' %in% voc) {
   B529.BA4 <- sort(grep("(BA\\.4)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
   # BA.4 subvariants do not include subvariants already included in B529.BA4.1
   B529.BA4 <- setdiff(B529.BA4, c(B529.BA4.1))
 } else B529.BA4 <- NULL
 # BA.5 sublineages includes BE.x [NOTE! Change this if any BE sublineages are added to the VOCs]
+if('BE.1' %in% voc) B529.BE.1 <- sort(grep("(BE\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BE.1 <- NULL
+if('BA.5.3.1' %in% voc) {
+  B529.BA5.3.1 <- sort(grep("BE\\.|(BA\\.5\\.3\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
+  B529.BA5.3.1 <- setdiff(B529.BA5.3.1, c(B529.BE.1))
+} else B529.BA5.3.1 <- NULL
+if('BA.5.2.1' %in% voc) {
+  B529.BA5.2.1 <- sort(grep("BF\\.|(BA\\.5\\.2\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
+} else B529.BA5.2.1 <- NULL
 if('BA.5' %in% voc){
   B529.BA5 <- sort(grep("(BF\\.)|(BE\\.)|((BA\\.5)(?![0-9]))",unique(src.dat$VARIANT), perl = T, value = T))
+  B529.BA5 <- setdiff(B529.BA5, c(B529.BE.1, B529.BA5.3.1, B529.BA5.2.1))
 } else B529.BA5 <- NULL
 
 # safety check: make sure that no variants are in the multiple sublineage groups
@@ -657,9 +671,15 @@ if(B.1.1.529_agg==TRUE)  {
   src.dat[src.dat$VARIANT %in% B529.BA2.3[ B529.BA2.3  %notin% voc],"VARIANT"] <- "BA.2.3"
   src.dat[src.dat$VARIANT %in% B529.BA2.9[ B529.BA2.9  %notin% voc],"VARIANT"] <- "BA.2.9"
   src.dat[src.dat$VARIANT %in% B529.BA2.10[B529.BA2.10 %notin% voc],"VARIANT"] <- "BA.2.10"
+  src.dat[src.dat$VARIANT %in% B529.BA2.12[B529.BA2.12 %notin% voc],"VARIANT"] <- "BA.2.12"
+  src.dat[src.dat$VARIANT %in% B529.BA2.12.1[B529.BA2.12.1 %notin% voc],"VARIANT"] <- "BA.2.12.1"
   src.dat[src.dat$VARIANT %in% B529.BA3[B529.BA3 %notin% voc],"VARIANT"] <- "BA.3"
   src.dat[src.dat$VARIANT %in% B529.BA4[B529.BA4 %notin% voc],"VARIANT"] <- "BA.4"
+  src.dat[src.dat$VARIANT %in% B529.BA4.1[B529.BA4.1 %notin% voc],"VARIANT"] <- "BA.4.1"
   src.dat[src.dat$VARIANT %in% B529.BA5[B529.BA5 %notin% voc],"VARIANT"] <- "BA.5"
+  src.dat[src.dat$VARIANT %in% B529.BA5.2.1[B529.BA5.2.1 %notin% voc],"VARIANT"] <- "BA.5.2.1"
+  src.dat[src.dat$VARIANT %in% B529.BA5.3.1[B529.BA5.3.1 %notin% voc],"VARIANT"] <- "BA.5.3.1"
+  src.dat[src.dat$VARIANT %in% B529.BE.1[B529.BE.1 %notin% voc],"VARIANT"] <- "BE.1"
 }
 
 # create another column for the varients of interest
@@ -2471,7 +2491,7 @@ if ( grepl("Run2",tag) ){
       row.names(agg_var_mat)[nrow(agg_var_mat)] <- 'Other Aggregated'
 
       # force BE.1 into BA.5 FOR NOW. Long term fix needs to be worked out!
-      if("BE.1" %in% colnames(agg_var_mat)) {
+      if("BE.1" %in% colnames(agg_var_mat) & "BA.5 Aggregated" %in% row.names(agg_var_mat)) {
         agg_var_mat["Other Aggregated","BE.1"] <- 0
         agg_var_mat["BA.5 Aggregated","BE.1"] <- 1
       }
