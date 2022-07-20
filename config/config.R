@@ -168,6 +168,8 @@ if(data_date == Sys.Date()){
   date_frozen <- paste0('"', data_date, '"')
   current_data = FALSE
 }
+
+current_data = TRUE
 # Options:
 # - default = newest data available: "to_date(date_frozen)"
 # - alternative = set a date:        '"2021-11-04"'

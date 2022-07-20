@@ -630,7 +630,7 @@ if('BA.2' %in% voc){
 } else B529.BA2 <- NULL
 if('BA.3' %in% voc) B529.BA3 <- sort(grep("(BA\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA3 <- NULL
 if('BA.4.4' %in% voc) B529.BA4.4 <- sort(grep("(BA\\.4\\.4)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA4.4 <- NULL
-if('BA.4.6' %in% voc) B529.BA4.4 <- sort(grep("(BA\\.4\\.6)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA4.6 <- NULL
+if('BA.4.6' %in% voc) B529.BA4.6 <- sort(grep("(BA\\.4\\.6)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA4.6 <- NULL
 if('BA.4.1' %in% voc) B529.BA4.1 <- sort(grep("(BA\\.4\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA4.1 <- NULL
 if('BA.4' %in% voc) {
   B529.BA4 <- sort(grep("(BA\\.4)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
@@ -639,7 +639,7 @@ if('BA.4' %in% voc) {
 } else B529.BA4 <- NULL
 # BA.5 sublineages includes BE.x [NOTE! Change this if any BE sublineages are added to the VOCs]
 if('BE.1' %in% voc) B529.BE.1 <- sort(grep("(BE\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BE.1 <- NULL
-if('BE.3' %in% voc) B529.BE.1 <- sort(grep("(BE\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BE.3 <- NULL
+if('BE.3' %in% voc) B529.BE.3 <- sort(grep("(BE\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BE.3 <- NULL
 if('BA.5.3.1' %in% voc) {
   B529.BA5.3.1 <- sort(grep("BE\\.|(BA\\.5\\.3\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
   B529.BA5.3.1 <- setdiff(B529.BA5.3.1, c(B529.BE.1, B529.BE.3))
@@ -654,8 +654,8 @@ if('BA.5' %in% voc){
 
 # safety check: make sure that no variants are in the multiple sublineage groups
 B.529.all <- c(B529.BA1, B529.BA1.1, B529.BA1.15, B529.BA2, B529.BA2.3, B529.BA2.9,
-                B529.BA2.10, B529.BA2.12, B529.BA2.12.1, B529.BA3, B529.BA4, B529.BA4.1,
-                B529.BA5, B529.BE.1, B529.BA5.3.1, B529.BA5.2.1)
+                B529.BA2.10, B529.BA2.12, B529.BA2.12.1, B529.BA2.18, B529.BA3, B529.BA4, B529.BA4.1, B529.BA4.4, B529.BA4.6,
+                B529.BA5, B529.BE.1, B529.BE.3, B529.BA5.3.1, B529.BA5.2.1)
 
 if(any(duplicated(B.529.all))) stop(message = paste0(B.529.all[duplicate(B.529.all)], ' appear in multiple BA sublineage groups. Check B529.BA1, B529.BA1.1, B529.BA.1.15, B529.BA2, B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA3, B529.BA4, B529.BA5.'))
 B529=sort(grep("(B\\.1\\.1\\.529)|(BA\\.[0-9])|(BC\\.[0-9])|(BD\\.[0-9])|(BE\\.[0-9])|(BF\\.[0-9])|(BG\\.[0-9])",unique(src.dat$VARIANT), value = T))

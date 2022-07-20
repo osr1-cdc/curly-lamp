@@ -145,7 +145,7 @@ node = "10"
 # If the data was already pulled and you want to just use that data instead of re-pulling it, set here. 
 # This is useful if you aggregate some lab names at the end of this code and then want to re-run the
 # script after changing which labs get aggregated. 
-use_previously_imported_data <- TRUE
+use_previously_imported_data <- FALSE
 
 # use previously pulled data if it exists
 if(use_previously_imported_data &
@@ -1822,7 +1822,7 @@ write.csv(x = dropped_sequences,
 # print('table of omicron sequences from labs with > 100 sequences:')
 # table(svy.dat$VARIANT[grep('(B\\.1\\.1\\.529)|(BA\\.[0-9])', x = svy.dat$VARIANT)])
 print('table of omicron sequences that will be included in analysis:')
-table(svy.dat$VARIANT[ svy.dat$LAB2 != 'OTHER'][grep('(B\\.1\\.1\\.529)|(BA\\.[0-9])', x = svy.dat$VARIANT[ svy.dat$LAB2 != 'OTHER'])])
+table(svy.dat$VARIANT[ svy.dat$LAB2 != 'OTHER'][grep('(B\\.1\\.1\\.529)|(BA\\.[0-9])|(BC\\.[0-9])|(BD\\.[0-9])|(BE\\.[0-9])|(BF\\.[0-9])|(BG\\.[0-9])', x = svy.dat$VARIANT[ svy.dat$LAB2 != 'OTHER'])])
 
 # Create survey weights --------------------------------------------------------
 
