@@ -187,7 +187,7 @@ options(survey.adjust.domain.lonely = T,
   # "force_aggregate_omicron_except".
   # THIS WILL LIKELY NEED TO BE REPLACED IN THE FUTURE, BUT IT'S HERE TO AVOID
   # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
-  force_aggregate_omicron <- FALSE
+  force_aggregate_omicron <- TRUE
   # list omicron sublineages that will not be aggregated (if they are also in voc) (these are the only Omicron sublineages that will be permitted)
   force_aggregate_omicron_except <- c('BA.1','BA.2','BA.3','BA.4','BA.5','BA.2.12.1') # 'BA.2.12', 'BA.1.1'
 
@@ -363,6 +363,8 @@ if (remove_broad){
   svy.dat <- subset(x = svy.dat,
                     subset = SOURCE %notin% c('BROAD INSTITUTE', 'INFECTIOUS DISEASE PROGRAM, BROAD INSTITUTE OF HARVARD AND MIT'))
 }
+
+svy.dat$VARIANT[grep("BE\\.", svy.dat$VARIANT)]  <- "BA.5"
 
 ### subset data ----------------------------------------------------------------
 
