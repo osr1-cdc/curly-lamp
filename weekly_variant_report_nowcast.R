@@ -187,7 +187,7 @@ options(survey.adjust.domain.lonely = T,
   # "force_aggregate_omicron_except".
   # THIS WILL LIKELY NEED TO BE REPLACED IN THE FUTURE, BUT IT'S HERE TO AVOID
   # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
-  force_aggregate_omicron <- TRUE
+  force_aggregate_omicron <- FALSE
   # list omicron sublineages that will not be aggregated (if they are also in voc) (these are the only Omicron sublineages that will be permitted)
   force_aggregate_omicron_except <- c('BA.1','BA.2','BA.3','BA.4','BA.5','BA.2.12.1') # 'BA.2.12', 'BA.1.1'
 
@@ -325,7 +325,7 @@ if (custom_lineages == TRUE) {
 if ( force_aggregate_omicron & ('B.1.1.529' %in% voc) ){
 
   # omicron sub-lineages to exclude/aggregate
-  omicron_sublineages <- voc[ grepl('(BA\\.[0-9])', voc, ignore.case = TRUE) ]
+  omicron_sublineages <- voc[ grepl('(BA\\.[0-9])|(BD\\.[0-9])|(BE\\.[0-9])|(BF\\.[0-9])|(BG\\.[0-9])', voc, ignore.case = TRUE) ]
 
   # but don't force-aggregate any sublineages in "force_aggregate_omicron_except"
   # if they are also in the vocs.
@@ -363,8 +363,6 @@ if (remove_broad){
   svy.dat <- subset(x = svy.dat,
                     subset = SOURCE %notin% c('BROAD INSTITUTE', 'INFECTIOUS DISEASE PROGRAM, BROAD INSTITUTE OF HARVARD AND MIT'))
 }
-
-svy.dat$VARIANT[grep("BE\\.", svy.dat$VARIANT)]  <- "BA.5"
 
 ### subset data ----------------------------------------------------------------
 
@@ -597,13 +595,13 @@ src.dat$VARIANT <- src.dat$lineage <- as.character(src.dat$VARIANT)
 AY = sort(unique(src.dat$VARIANT)[grep("AY",unique(src.dat$VARIANT))])
 # just the AY variants that are to be aggregated (i.e. not listed in "voc")
 AY = AY[which(AY %notin% voc)]
-P1=sort(unique(src.dat$VARIANT)[grep("P\\.1.",unique(src.dat$VARIANT))])
+P1=sort(unique(src.dat$VARIANT)[grep("P\\.1",unique(src.dat$VARIANT))])
 P1=P1[which(P1 %notin% voc)] #vector of the P1s to aggregate
 Q=sort(unique(src.dat$VARIANT)[grep("Q\\.",unique(src.dat$VARIANT))])
 Q=Q[which(Q %notin% voc)] #vector of the Qs to aggregate
-B351=sort(unique(src.dat$VARIANT)[grep("B\\.1\\.351\\.",unique(src.dat$VARIANT))])
+B351=sort(unique(src.dat$VARIANT)[grep("B\\.1\\.351",unique(src.dat$VARIANT))])
 B351=B351[which(B351 %notin% voc)] #vector of the B351s to aggregate
-B621=sort(unique(src.dat$VARIANT)[grep("B\\.1\\.621\\.",unique(src.dat$VARIANT))])
+B621=sort(unique(src.dat$VARIANT)[grep("B\\.1\\.621|BB\\.",unique(src.dat$VARIANT))])
 B621=B621[which(B621 %notin% voc)] #vector of the B621s to aggregate
 B429=sort(unique(src.dat$VARIANT)[grep("B\\.1\\.429",unique(src.dat$VARIANT))])
 B429=B429[which(B429 %notin% voc)] #vector of the B429s to aggregate
