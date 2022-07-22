@@ -2626,6 +2626,13 @@ if ( grepl("Run2",tag) ){
         }
         if (ll == 'BA.4') {
           ll_agg <- grep("(BA\\.4)(?![0-9])",BA_vars, perl = T, value = T)
+          # this will keep BA.4.6 seperate ONLY if BA.4.6 is *ALSO* listed in run1_lineages
+          if( length(grep("(BA\\.4\\.6)",run1_lineages, perl = T, value = T)) == 1 ){
+            ll_agg <- grep("(BA\\.4)(?!([0-9])|(\\.6))",BA_vars, perl = T, value = T)
+          }
+        }
+        if (ll == 'BA.4.6'){
+          ll_agg <- grep("(BA\\.4\\.6)(?![0-9])",BA_vars, perl = T, value = T)
         }
         if(ll == 'BA.5') {
           #
