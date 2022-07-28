@@ -638,16 +638,16 @@ if('BA.4' %in% voc) {
   B529.BA4 <- setdiff(B529.BA4, c(B529.BA4.1, B529.BA4.4, B529.BA4.6))
 } else B529.BA4 <- NULL
 # BA.5 sublineages includes BE.x [NOTE! Change this if any BE sublineages are added to the VOCs]
+if('BA.5.3.1' %in% voc) {
+  B529.BA5.3.1 <- sort(grep("BE\\.|(BA\\.5\\.3\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
+  B529.BA5.3.1 <- setdiff(B529.BA5.3.1, c(B529.BE.1, B529.BE.1.1, B529.BE.3))
+} else B529.BA5.3.1 <- NULL
 if('BE.1.1' %in% voc) B529.BE.1.1 <- sort(grep("(BE\\.1\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BE.1.1 <- NULL
 if('BE.1' %in% voc) {
   B529.BE.1 <- sort(grep("(BE\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
   B529.BE.1 <- setdiff(B529.BA5.3.1, c(B529.BE.1.1))
 } else B529.BE.1 <- NULL
 if('BE.3' %in% voc) B529.BE.3 <- sort(grep("(BE\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BE.3 <- NULL
-if('BA.5.3.1' %in% voc) {
-  B529.BA5.3.1 <- sort(grep("BE\\.|(BA\\.5\\.3\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA5.3.1 <- setdiff(B529.BA5.3.1, c(B529.BE.1, B529.BE.1.1, B529.BE.3))
-} else B529.BA5.3.1 <- NULL
 if('BA.5.2.1' %in% voc) {
   B529.BA5.2.1 <- sort(grep("BF\\.|(BA\\.5\\.2\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
 } else B529.BA5.2.1 <- NULL
@@ -661,7 +661,7 @@ if('BA.5.1' %in% voc) {
 if('BA.5.2' %in% voc) {
   B529.BA5.2 <- sort(grep("(BA\\.5\\.2)(?![0-9])|BA\\.5\\.2\\.",unique(src.dat$VARIANT), perl = T, value = T))
   B529.BA5.2 <- setdiff(B529.BA5.2, c(B529.BA5.2.1))
-} else B529.BA5.1 <- NULL
+} else B529.BA5.2 <- NULL
 if('BA.5' %in% voc){
   B529.BA5 <- sort(grep("(BF\\.)|(BE\\.)|((BA\\.5)(?![0-9]))",unique(src.dat$VARIANT), perl = T, value = T))
   B529.BA5 <- setdiff(B529.BA5, c(B529.BE.1, B529.BE.1.1, B529.BE.3, B529.BA5.1, B529.BA5.1.1, B529.BA5.3.1, B529.BA5.2, B529.BA5.2.1, B529.BA5.6, B529.BA5.5))
