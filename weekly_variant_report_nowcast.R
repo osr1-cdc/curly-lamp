@@ -648,8 +648,10 @@ if('BE.1' %in% voc) {
   B529.BE.1 <- setdiff(B529.BA5.3.1, c(B529.BE.1.1))
 } else B529.BE.1 <- NULL
 if('BE.3' %in% voc) B529.BE.3 <- sort(grep("(BE\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BE.3 <- NULL
+if('BF.5' %in% voc) B529.BF.5 <- sort(grep("(BF\\.5)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.5 <- NULL
 if('BA.5.2.1' %in% voc) {
   B529.BA5.2.1 <- sort(grep("BF\\.|(BA\\.5\\.2\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
+  B529.BA5.2.1 <- setdiff(B529.BA5.2.1, c(B529.BF.5))
 } else B529.BA5.2.1 <- NULL
 if('BA.5.1.1' %in% voc) B529.BA5.1.1 <- sort(grep("(BA\\.5\\.1\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.1.1 <- NULL
 if('BA.5.6' %in% voc) B529.BA5.6 <- sort(grep("(BA\\.5\\.6)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.6 <- NULL
@@ -664,7 +666,8 @@ if('BA.5.2' %in% voc) {
 } else B529.BA5.2 <- NULL
 if('BA.5' %in% voc){
   B529.BA5 <- sort(grep("(BF\\.)|(BE\\.)|((BA\\.5)(?![0-9]))",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA5 <- setdiff(B529.BA5, c(B529.BE.1, B529.BE.1.1, B529.BE.3, B529.BA5.1, B529.BA5.1.1, B529.BA5.3.1, B529.BA5.2, B529.BA5.2.1, B529.BA5.6, B529.BA5.5))
+  B529.BA5 <- setdiff(B529.BA5, c(B529.BE.1, B529.BE.1.1, B529.BE.3, B529.BA5.1, B529.BA5.1.1, B529.BA5.3.1, B529.BA5.2,
+                      B529.BF.5, B529.BA5.2.1, B529.BA5.6, B529.BA5.5))
 } else B529.BA5 <- NULL
 
 # safety check: make sure that no variants are in the multiple sublineage groups
@@ -708,6 +711,7 @@ if(B.1.1.529_agg==TRUE)  {
   src.dat[src.dat$VARIANT %in% B529.BA5.1.1[B529.BA5.1.1 %notin% voc],"VARIANT"] <- "BA.5.1.1"
   src.dat[src.dat$VARIANT %in% B529.BA5.2[B529.BA5.2 %notin% voc],"VARIANT"] <- "BA.5.2"
   src.dat[src.dat$VARIANT %in% B529.BA5.2.1[B529.BA5.2.1 %notin% voc],"VARIANT"] <- "BA.5.2.1"
+  src.dat[src.dat$VARIANT %in% B529.BF.5[B529.BF.5 %notin% voc],"VARIANT"] <- "BF.5"
   src.dat[src.dat$VARIANT %in% B529.BA5.3.1[B529.BA5.3.1 %notin% voc],"VARIANT"] <- "BA.5.3.1"
   src.dat[src.dat$VARIANT %in% B529.BA5.5[B529.BA5.5 %notin% voc],"VARIANT"] <- "BA.5.5"
   src.dat[src.dat$VARIANT %in% B529.BA5.6[B529.BA5.6 %notin% voc],"VARIANT"] <- "BA.5.6"

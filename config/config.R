@@ -36,8 +36,8 @@
 # custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
-data_date <- Sys.Date()
-# data_date <- as.Date('2022-07-26')
+# data_date <- Sys.Date()
+data_date <- as.Date('2022-08-02')
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
@@ -58,11 +58,11 @@ custom_lineage_names <- c("BA.1+")
 
 # Set voc's for Run1
 voc1 = c(# "AY.1", "AY.2",
-         #"BA.1.1",
+         "BA.1.1",
          "BA.2",
          "BA.2.12.1",
          'BA.4',
-         #'BA.4.6',
+         'BA.4.6',
          'BA.5',
          "B.1.617.2", # Delta
          "B.1.1.529") # Omicron
@@ -87,13 +87,13 @@ voc2_manual = c(NA)
 # (this will not have any effect if "voc2_manual" is used)
 voc2_additional = c(#"AY.1", "AY.2",
                     "BA.1",
-                    #"BA.1.1",
+                    "BA.1.1",
                     "BA.2",
-                    # "BA.2.12",
+                    "BA.2.12",
                     "BA.2.12.1",
-                    # "BA.3",
+                    "BA.3",
                     'BA.4',
-                    #'BA.4.6',
+                    'BA.4.6',
                     'BA.5',
                     "B.1.617.2", # Delta
                     "B.1.1.529" # Omicron
@@ -122,7 +122,7 @@ voc3 = c("B.1.1.7",   # Alpha  # and Q.1 to 8*
          "BA.2",
          "BA.2.12.1",
          "BA.4",
-         #"BA.4.6",
+         "BA.4.6",
          "BA.5")
 # define an alternate set of vocs
 voc3_reduced = voc1_reduced
