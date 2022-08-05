@@ -1746,6 +1746,20 @@ if ( grepl("Run2",tag) ){
                            mysvy = mysvy,
                            fmla = formula("as.numeric(as.factor(K_US)) ~ model_week + as.factor(HHS)"),
                            model_vars = model_vars)
+  #write svymlm_hhs to file
+  saveRDS(object = svymlm_hhs,
+          file = paste0(script.basename,
+                          '/results/svymlm_hhs_', # save to results instead of 'data' folder
+                          data_date,
+                          tag,
+                          '.RDS'))
+
+  saveRDS(object = svymlm_us,
+          file = paste0(script.basename,
+                          '/results/svymlm_us_', # save to results instead of 'data' folder
+                          data_date,
+                          tag,
+                          '.RDS'))
 
   ## Plot results ----
 
