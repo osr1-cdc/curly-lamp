@@ -38,6 +38,7 @@
 # (generally set to current date to allow more portability)
 # data_date <- Sys.Date()
 data_date <- as.Date('2022-08-04')
+results_folder <- "results_2022-08-04_BA4BA5BA46WOW"
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):

@@ -237,8 +237,10 @@ if(length(script.basename) == 0) {
   script.basename = "."
 }
 
-# create results dir
+# create results dir and output folder definition
 dir.create(paste0(script.basename,"/results"), showWarnings = F)
+dir.create(paste0(script.basename,"/results/",results_folder), showWarnings = F)
+output_folder <- paste0("/results/", results_folder)
 
 
 ## Data prep -------------------------------------------------------------------
@@ -298,7 +300,7 @@ if( grepl("Run2", tag) ) {
          from = paste0(script.basename,
                        "/data/voc2_auto_", data_date, custom_tag, ".RDS"),
          to = paste0(script.basename,
-                     "/results/voc2_auto_", data_date, custom_tag, ".RDS")
+                     output_folder, "/voc2_auto_", data_date, custom_tag, ".RDS")
       )
 
     } else {
@@ -739,7 +741,7 @@ write.csv(
         order(old), # reorder by the original lineage name
         ],
   file = paste0(script.basename,
-                "/results/lineage_aggregations_",
+                output_folder, "/lineage_aggregations_",
                 ci.type,
                 "CI_",
                 svy.type,
@@ -1265,7 +1267,7 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
     # write results to file
     write.csv(x = all.ftnt2,
               file = paste0(script.basename,
-                            "/results/variant_share_weighted_",
+                            output_folder, "/variant_share_weighted_",
                             ci.type,
                             "CI_",
                             svy.type,
@@ -1593,7 +1595,7 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
     # save the results to file
     write.csv(x = all.wkly2,
               file = paste0(script.basename,
-                            "/results/variant_share_weekly_weighted_",
+                            output_folder, "/variant_share_weekly_weighted_",
                             ci.type,
                             "CI_",
                             svy.type,
@@ -1722,7 +1724,7 @@ if ( grepl("Run2",tag) ){
     # consider saving a list of everything that is needed to fit the nowcast model: list(src.moddat, mysvy, model_vars)
     saveRDS(object = src.moddat,
             file = paste0(script.basename,
-                          '/results/src.moddat_', # save to results instead of 'data' folder
+                          output_folder, '/src.moddat_', # save to results instead of 'data' folder
                           data_date,
                           tag,
                           '.RDS'))
@@ -1749,14 +1751,14 @@ if ( grepl("Run2",tag) ){
   #write svymlm_hhs to file
   saveRDS(object = svymlm_hhs,
           file = paste0(script.basename,
-                          '/results/svymlm_hhs_', # save to results instead of 'data' folder
+                          output_folder, '/svymlm_hhs_', # save to results instead of 'data' folder
                           data_date,
                           tag,
                           '.RDS'))
 
   saveRDS(object = svymlm_us,
           file = paste0(script.basename,
-                          '/results/svymlm_us_', # save to results instead of 'data' folder
+                          output_folder, '/svymlm_us_', # save to results instead of 'data' folder
                           data_date,
                           tag,
                           '.RDS'))
@@ -1796,7 +1798,7 @@ if ( grepl("Run2",tag) ){
 
   # base filename for figures
   stub = paste0(script.basename,
-                "/results/wtd_shares_",
+                output_folder, "/wtd_shares_",
                 data_date,
                 "_")
 
@@ -2015,7 +2017,7 @@ if ( grepl("Run2",tag) ){
   # save growth rates to file
   write.csv(x = gr_tab,
             file = paste0(script.basename,
-                          "/results/wow_growth_variant_share",
+                          output_folder, "/wow_growth_variant_share",
                           data_date,
                           tag,
                           ".csv"),
@@ -2426,7 +2428,7 @@ if ( grepl("Run2",tag) ){
   # save growth rates to file
   write.csv(x = gr_tab,
             file = paste0(script.basename,
-                          "/results/wow_growth_variant_share",
+                          output_folder, "/wow_growth_variant_share",
                           data_date,
                           tag,
                           "_HHS.csv"),
@@ -2576,7 +2578,7 @@ if ( grepl("Run2",tag) ){
     write.csv(
       x = replace(agg_var_mat, agg_var_mat == 0, NA), # it's easier to view in Excel with only the 1's and no 0's
       file = paste0(script.basename,
-                    "/results/agg_var_mat_",
+                    output_folder, "/agg_var_mat_",
                     ci.type,
                     "CI_",
                     svy.type,
@@ -2708,7 +2710,7 @@ if ( grepl("Run2",tag) ){
     write.csv(
       x = replace(agg_var_mat, agg_var_mat == 0, NA), # it's easier to view in Excel with only the 1's and no 0's
       file = paste0(script.basename,
-                    "/results/agg_var_mat_",
+                    output_folder, "/agg_var_mat_",
                     ci.type,
                     "CI_",
                     svy.type,
@@ -2896,7 +2898,7 @@ if ( grepl("Run2",tag) ){
   if (!all(run_1[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Fortnight_ending')][,unique(round(total_share, 5))] == 1)){
     warning(paste(
       paste0(script.basename,
-             "/results/updated_nowcast_fortnightly_",
+             output_folder, "/updated_nowcast_fortnightly_",
              data_date,
              sub(pattern = '2', replacement = '1', x = tag),
              ".csv"),
@@ -2907,7 +2909,7 @@ if ( grepl("Run2",tag) ){
     # save the results to file
     write.csv(x = run_1,
               file = paste0(script.basename,
-                            "/results/updated_nowcast_fortnightly_",
+                            output_folder, "/updated_nowcast_fortnightly_",
                             data_date,
                             sub(pattern = '2', replacement = '1', x = tag),
                             ".csv"),
@@ -2930,7 +2932,7 @@ if ( grepl("Run2",tag) ){
   if (!all(run_2[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Fortnight_ending')][,unique(round(total_share, 5))] == 1)){
     warning(paste(
       paste0(script.basename,
-             "/results/updated_nowcast_fortnightly_",
+             output_folder, "/updated_nowcast_fortnightly_",
              data_date,
              tag,
              ".csv"),
@@ -2940,7 +2942,7 @@ if ( grepl("Run2",tag) ){
     # only save the results to file if the proportions add up to 100% each week
     write.csv(x = run_2,
               file = paste0(script.basename,
-                            "/results/updated_nowcast_fortnightly_",
+                            output_folder, "/updated_nowcast_fortnightly_",
                             data_date,
                             tag,
                             ".csv"),
@@ -3171,7 +3173,7 @@ if ( grepl("Run2",tag) ){
   if (!all(run_1_weekly[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Week_ending')][,unique(round(total_share, 5))] == 1)){
     warning(paste(
       paste0(script.basename,
-             "/results/updated_nowcast_weekly_",
+             output_folder, "/updated_nowcast_weekly_",
              data_date,
              sub(pattern = '2', replacement = '1', x = tag),
              ".csv"),
@@ -3182,7 +3184,7 @@ if ( grepl("Run2",tag) ){
     # save the results to file
     write.csv(x = run_1_weekly,
               file = paste0(script.basename,
-                            "/results/updated_nowcast_weekly_",
+                            output_folder, "/updated_nowcast_weekly_",
                             data_date,
                             sub(pattern = '2', replacement = '1', x = tag),
                             ".csv"),
@@ -3193,7 +3195,7 @@ if ( grepl("Run2",tag) ){
   if (!all(run_1_daily[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'date')][,unique(round(total_share, 5))] == 1)){
     warning(paste(
       paste0(script.basename,
-             "/results/updated_nowcast_weekly_",
+             output_folder, "/updated_nowcast_weekly_",
              data_date,
              sub(pattern = '2', replacement = '1', x = tag),
              "_daily.csv"),
@@ -3204,7 +3206,7 @@ if ( grepl("Run2",tag) ){
     # save the results to file
     write.csv(x = run_1_daily,
               file = paste0(script.basename,
-                            "/results/updated_nowcast_weekly_",
+                            output_folder, "/updated_nowcast_weekly_",
                             data_date,
                             sub(pattern = '2', replacement = '1', x = tag),
                             "_daily.csv"),
@@ -3235,7 +3237,7 @@ if ( grepl("Run2",tag) ){
   if (!all(run_2_weekly[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Week_ending')][,unique(round(total_share, 5))] == 1)){
     warning(paste(
       paste0(script.basename,
-             "/results/updated_nowcast_weekly_",
+             output_folder, "/updated_nowcast_weekly_",
              data_date,
              tag,
              ".csv"),
@@ -3246,7 +3248,7 @@ if ( grepl("Run2",tag) ){
     # save the results to file
     write.csv(x = run_2_weekly,
               file = paste0(script.basename,
-                            "/results/updated_nowcast_weekly_",
+                            output_folder, "/updated_nowcast_weekly_",
                             data_date,
                             tag,
                             ".csv"),
@@ -3257,7 +3259,7 @@ if ( grepl("Run2",tag) ){
   if (!all(run_2_daily[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'date')][,unique(round(total_share, 5))] == 1)){
     warning(paste(
       paste0(script.basename,
-             "/results/updated_nowcast_weekly_",
+             output_folder, "/updated_nowcast_weekly_",
              data_date,
              tag,
              "_daily.csv"),
@@ -3268,7 +3270,7 @@ if ( grepl("Run2",tag) ){
     # save the results to file
     write.csv(x = run_2_daily,
               file = paste0(script.basename,
-                            "/results/updated_nowcast_weekly_",
+                            output_folder, "/updated_nowcast_weekly_",
                             data_date,
                             tag,
                             "_daily.csv"),
@@ -3611,7 +3613,7 @@ if ( grepl("Run3", tag) ){
   # write results to file
   write.csv(x = all.state.out,
             file = paste0(script.basename,
-                          "/results/state_weighted_roll4wk_",
+                          output_folder, "/state_weighted_roll4wk_",
                           ci.type,
                           "CI_svyNEW_",
                           data_date,
@@ -3625,7 +3627,7 @@ if ( grepl("Run3", tag) ){
 if(save_datasets_to_file){
   saveRDS(object = src.dat,
           file = paste0(script.basename,
-                        '/results/src.dat_', # save to results instead of 'data' folder
+                        output_folder, '/src.dat_', # save to results instead of 'data' folder
                         data_date,
                         tag,
                         '.RDS'))
