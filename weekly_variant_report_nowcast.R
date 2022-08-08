@@ -237,12 +237,6 @@ if(length(script.basename) == 0) {
   script.basename = "."
 }
 
-# create results dir and output folder definition
-dir.create(paste0(script.basename,"/results"), showWarnings = F)
-dir.create(paste0(script.basename,"/results/",results_folder), showWarnings = F)
-output_folder <- paste0("/results/", results_folder)
-
-
 ## Data prep -------------------------------------------------------------------
 #capture system time
 tstart = proc.time()
@@ -258,6 +252,11 @@ source(paste0(script.basename, "/weekly_variant_report_functions.R"))
 # (filtered genomic surveillance data)
 load(paste0(script.basename, "/data/svydat_", data_date, custom_tag, ".RData"))
 # load(paste0('/scicomp/groups-pure/Projects/SARS2Seq/repos/sc2_proportion_modeling', "/data/svydat_", data_date, custom_tag, ".RData"))
+
+# create results dir and output folder definition
+dir.create(paste0(script.basename,"/results"), showWarnings = F)
+dir.create(paste0(script.basename,"/results/",results_folder), showWarnings = F)
+output_folder <- paste0("/results/", results_folder)
 
 # # filter out data that's older than we actually use
 # # NOTE: this will prevent calculation of # of old sequences removed b/c of invalid lab name, invalid variant name, invalid weight
