@@ -42,7 +42,7 @@ data_date <- Sys.Date()
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_folder <- paste0("results_", data_date, "_set1")
+results_folder <- paste0("results_", data_date, "_set2")
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
@@ -62,7 +62,7 @@ custom_lineage_names <- c("BA.1+")
 
 # Set voc's for Run1
 voc1 = c(# "AY.1", "AY.2",
-         "BA.1.1",
+         # "BA.1.1",
          "BA.2",
          "BA.2.12.1",
          'BA.4',
@@ -91,7 +91,7 @@ voc2_manual = c(NA)
 # (this will not have any effect if "voc2_manual" is used)
 voc2_additional = c(#"AY.1", "AY.2",
                     "BA.1",
-                    "BA.1.1",
+                    # "BA.1.1",
                     "BA.2",
                     "BA.2.12",
                     "BA.2.12.1",
