@@ -42,7 +42,7 @@ data_date <- Sys.Date()
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_folder <- paste0("results_", data_date, "_BA4BA5BA46WOW")
+results_folder <- paste0("results_", data_date, "_set1")
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
@@ -243,3 +243,66 @@ weighted_weeks <- 12
 time_start_weights <- as.Date('2021-05-02') # keep using week of (2021-05-02 to 2021-05-08) for consistency
 # start time will be the earlier of: 1) time_start_weights; 2) "model_weeks" before time_end
 time_start <- min(time_start_weights, time_end - model_weeks*7 + 1) # +1 to start on Monday
+
+# Option to calculate the number of confirmed cases attributable to each variant
+# This is done by simplying multiplying the proportions estimated in this script
+# by the number of confirmed positive cases from ICATT testing data.
+calc_confirmed_infections <- TRUE
+
+# Option to just fit the nowcast model and avoid the slower parts of the script
+# (this is only valid if the run number == 2)
+# this can be removed eventually. It's here to make it easier to make updates to the Nowcast model.
+nowcast_only = FALSE
+
+# This is an option that probably won't be used, but I don't want to delete it yet
+# so it's hiding here just in case I want to use it again.
+# grouped weights = 3 most recent weeks (up to "time_end") are grouped together for weighting; 2 weeks prior are grouped; all weeks before that are single weeks. The purpose was to avoid extreme weights, but we went with weight trimming over this option.
+use_group_weights <- FALSE
+
+# force_aggregate_xxx will REMOVE variants from the voc list, which will result
+# in their subsequent aggregation into a parent lineage *IF* the parent lineage
+# is included in VOC.
+# This option will likely go away with time, but for now it's here to override
+# the automated voc2 selection in some cases. This will prevent splitting omicron
+# into more sublineages than we want.
+# if 'B.1.1.529' is listed in the vocs, then force-aggregate omicron sublineages
+# even if sublineages are also included in the vocs. To avoid aggregating a
+# specific sublineage, include the sublineage in both "voc" and
+# "force_aggregate_omicron_except".
+# THIS WILL LIKELY NEED TO BE REPLACED IN THE FUTURE, BUT IT'S HERE TO AVOID
+# SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
+force_aggregate_omicron <- FALSE
+# list omicron sublineages that will not be aggregated (if they are also in voc) (these are the only Omicron sublineages that will be permitted)
+force_aggregate_omicron_except <- c('BA.1','BA.2','BA.3','BA.4','BA.5','BA.2.12.1','BA.4.6') # 'BA.2.12', 'BA.1.1'
+
+
+# force-aggregate Delta sublineages
+# this option will force any/all Delta sublineages that show up in the vocs to be
+# aggregated into "B.1.617.2". This was introduced on 2022-02-01 to help stabalize
+# Nowcast estimates of the BA.2 sublineage.
+# Another option would be to use the "voc_manual" setting in config/config.R to prevent
+# AY sublineages from being split out from Delta. The difference between using "voc_manual"
+# and using "force_aggregate_delta" is that using "voc_manual" requires one to look up
+# all other lineages > 1% for inclusion.
+# another option to try to control this problem is to set "n_top" to a low number.
+force_aggregate_delta <- FALSE
+
+# force-aggregate "B" into "other"
+# variant "B" most likely indicates trouble sequencing, rather than an actual variant, so don't split it out.
+# this also prevents "B" from being included in the Nowcast model.
+force_aggregate_B <- TRUE
+# same for "B.1"
+force_aggregate_B.1 <- TRUE
+
+# rescale the weights that are used in the multinomial Nowcast model.
+# this can help avoid numerical overflow when trying to calculate prediction intervals.
+rescale_model_weights <- TRUE
+# how to rescale model weights
+rescale_model_weights_by <- 'max'
+# options: "max", "mean", [number]
+
+# optionally remove UTAH PHL sequences (b/c they were causing issues with Region 8 estimates in January, 2022)
+remove_utahphl <- FALSE
+
+# optionally remove BROAD sequences (b/c they were having trouble with dropout on the Omicron spike protein, resulting in an inability to distinguish between BA.1 and BA.1+R346K in Jan/Feb 2022)
+remove_broad <- FALSE
