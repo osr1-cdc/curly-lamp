@@ -406,6 +406,21 @@ colnames(tests) = c("collection_date",
                     "NEGATIVE",
                     "POSITIVE")
 
+# add code for testing data portion exclusion
+if(exclude_testing_data_portion) {
+  
+  # subset unaffected states
+  tests_valid <- tests %>%
+    filter(STUSAB %notin% exclusion_states)
+
+  # filter out exclusion state data past a given date
+  tests_exclusion <- tests %>%
+    filter(STUSAB %in% exclusion_states &
+      as.Date(collection_date) < as.Date(testing_exclusion_cutoff))
+
+  tests <- bind_rows(tests_valid, tests_exclusion)
+}
+
 # Get the vocs included in run 2
 # only if voc2_manual is not set
 if(is.na(voc2_manual)){

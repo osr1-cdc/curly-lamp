@@ -36,8 +36,8 @@
 # custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
-data_date <- Sys.Date()
-# data_date <- as.Date('2022-08-04')
+# data_date <- Sys.Date()
+data_date <- as.Date('2022-08-09')
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
@@ -306,3 +306,8 @@ remove_utahphl <- FALSE
 
 # optionally remove BROAD sequences (b/c they were having trouble with dropout on the Omicron spike protein, resulting in an inability to distinguish between BA.1 and BA.1+R346K in Jan/Feb 2022)
 remove_broad <- FALSE
+
+# new option for testing data exclustion
+exclude_testing_data_portion <- TRUE
+exclusion_states <- c("TX")
+testing_exclusion_cutoff <- "2022-07-01"
