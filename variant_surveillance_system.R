@@ -416,7 +416,8 @@ if(exclude_testing_data_portion) {
   # filter out exclusion state data past a given date
   tests_exclusion <- tests %>%
     filter(STUSAB %in% exclusion_states &
-      as.Date(collection_date) < as.Date(testing_exclusion_cutoff))
+      (as.Date(collection_date) < as.Date(testing_exclusion_cutoff) |
+       as.Date(collection_date) > as.Date(testing_exclusion_cutoff_end)))
 
   tests <- bind_rows(tests_valid, tests_exclusion)
 }
