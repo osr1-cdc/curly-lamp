@@ -1974,9 +1974,17 @@ if ( grepl("Run2",tag) ){
   par(mar = c(5.1, 4.1, 4.1, 4.1))
 
   # filter out extremely rare variants from the plot
-  gtp <- subset(gr_tab,
-                variant_share >= 0.01) # this is already a percent, so this is filtering out variants with less than 1/1000 of a percent (not 1 percent)
+  if (force_aggregate_omicron) {
+    gtp <- subset(gr_tab,
+                  variant %in% c(voc1, "OTHER"))
+  } else {
+    gtp <- subset(gr_tab,
+                  variant_share >= 0.01) # this is already a percent, so this is filtering out variants with less than 1/1000 of a percent (not 1 percent)
+  }
 
+  wow_x_scale <- floor(log(min(gtp$variant_share),10))
+  wow_x_min <- 5 * (10 ^ (wow_x_scale - 1)) 
+  
   # plot "nowcast" groth rates by variant
   plot(x = gtp$variant_share,
        y = gtp$growth_rate,
@@ -1984,7 +1992,7 @@ if ( grepl("Run2",tag) ){
        type = "n",
        ylim = range(gtp$growth_rate_lo, gtp$growth_rate_hi),
        xaxt = "n",
-       xlim = c(0.005,110),
+       xlim = c(wow_x_min,110),
        xlab = "Nowcast Estimated Proportion (%)",
        ylab = "Week over week growth rate (%)",
        main = "Nationwide")
@@ -2002,9 +2010,9 @@ if ( grepl("Run2",tag) ){
 
   # add an x axis
   axis(side = 1,
-       at     = c(0.001, 0.01, 0.1, 1, 10, 100),
-       labels = c(0.001, 0.01, 0.1, 1, 10, 100))
-
+       at     = 10 ^ seq(wow_x_scale,2,by=1),
+       labels = 10 ^ seq(wow_x_scale,2,by=1))
+  
   # add a horizontal line at 0
   abline(h = 0,
          col = "grey65")
@@ -2285,8 +2293,17 @@ if ( grepl("Run2",tag) ){
     par(mar = c(5.1, 4.1, 4.1, 4.1))
 
     # filter out variants with proportions less than 0.01%
+    if (force_aggregate_omicron) {
     gtphhs <- subset(gr_tab_hhs,
-                     variant_share >= 0.01)
+                  variant %in% c(voc1, "OTHER"))
+    } else {
+    gtphhs <- subset(gr_tab_hhs,
+                  variant_share >= 0.01) # this is already a percent, so this is filtering out variants with less than 1/1000 of a percent (not 1 percent)
+    }
+  
+    wow_x_scale <- floor(log(min(gtp$variant_share),10))
+    wow_x_min <- 5 * (10 ^ (wow_x_scale - 1)) 
+  
 
     # plot "nowcast" growth rates by variant
     plot(x = 100 * gtphhs$variant_share,
@@ -2295,7 +2312,7 @@ if ( grepl("Run2",tag) ){
          type = "n",
          ylim = range(gtphhs$growth_rate_lo, gtphhs$growth_rate_hi),
          xaxt = "n",
-         xlim = c(0.01,110),
+         xlim = c(wow_x_min,110),
          xlab = "Weighted share (%)",
          ylab = "Week over week growth rate (%)",
          main = paste("HHS Region", hhs))
@@ -2313,8 +2330,8 @@ if ( grepl("Run2",tag) ){
 
     # add an x-axis
     axis(side = 1,
-         at     = c(0.01, 0.1, 1, 10, 100),
-         labels = c(0.01, 0.1, 1, 10, 100))
+         at     = 10 ^ seq(wow_x_scale,2,by=1),
+         labels = 10 ^ seq(wow_x_scale,2,by=1))
 
     # add a horizontal line at 0
     abline(h = 0,
