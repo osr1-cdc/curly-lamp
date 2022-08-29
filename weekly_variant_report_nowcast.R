@@ -2301,7 +2301,7 @@ if ( grepl("Run2",tag) ){
                   variant_share >= 0.01) # this is already a percent, so this is filtering out variants with less than 1/1000 of a percent (not 1 percent)
     }
   
-    wow_x_scale <- floor(log(min(gtp$variant_share),10))
+    wow_x_scale <- floor(log(min(gtphhs$variant_share),10))
     wow_x_min <- 5 * (10 ^ (wow_x_scale - 1)) 
   
 
