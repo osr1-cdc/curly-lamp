@@ -604,12 +604,12 @@ if('BA.5.1' %in% voc) {
 } else B529.BA5.1 <- NULL
 if('BA.5.2' %in% voc) {
   B529.BA5.2 <- sort(grep("(BA\\.5\\.2)(?![0-9])|BA\\.5\\.2\\.|BF\\.",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA5.2 <- setdiff(B529.BA5.2, c(B529.BA5.2.1, B529.BF.5, B529.BF.10))
+  B529.BA5.2 <- setdiff(B529.BA5.2, c(B529.BA5.2.1, B529.BF.5, B529.BF.7, B529.BF.10))
 } else B529.BA5.2 <- NULL
 if('BA.5' %in% voc){
   B529.BA5 <- sort(grep("(BK\\.)|(BF\\.)|(BE\\.)|((BA\\.5)(?![0-9]))",unique(src.dat$VARIANT), perl = T, value = T))
   B529.BA5 <- setdiff(B529.BA5, c(B529.BE.1, B529.BE.1.1, B529.BE.3, B529.BA5.1, B529.BA5.1.1, B529.BA5.3.1, B529.BA5.2,
-                      B529.BF.5, B529.BF.10, B529.BA5.2.1, B529.BA5.6, B529.BA5.5, B529.BA5.1.10))
+                      B529.BF.5, B529.BF.7, B529.BF.10, B529.BA5.2.1, B529.BA5.6, B529.BA5.5, B529.BA5.1.10))
 } else B529.BA5 <- NULL
 
 # safety check: make sure that no variants are in the multiple sublineage groups
