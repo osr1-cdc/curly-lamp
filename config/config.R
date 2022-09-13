@@ -42,7 +42,7 @@ data_date <- Sys.Date()
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_folder <- paste0("results_", data_date, "_BA275")
+results_folder <- paste0("results_", data_date, "_set1")
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
@@ -65,6 +65,7 @@ voc1 = c(# "AY.1", "AY.2",
          "BA.1.1",
          "BA.2",
          "BA.2.12.1",
+         "BA.2.75",
          'BA.4',
          'BA.4.6',
          'BA.5',
@@ -96,6 +97,7 @@ voc2_additional = c(#"AY.1", "AY.2",
                     "BA.2.12",
                     "BA.2.12.1",
                     "BA.2.75",
+                    "BF.7",
                     # "BA.3",
                     'BA.4',
                     'BA.4.6',
@@ -126,6 +128,7 @@ voc3 = c("B.1.1.7",   # Alpha  # and Q.1 to 8*
          "B.1.1.529", # Omicron # and BA.*
          "BA.2",
          "BA.2.12.1",
+         "BA.2.75",
          "BA.4",
          "BA.4.6",
          "BA.5")
@@ -299,7 +302,7 @@ force_aggregate_B.1 <- TRUE
 # this can help avoid numerical overflow when trying to calculate prediction intervals.
 rescale_model_weights <- TRUE
 # how to rescale model weights
-rescale_model_weights_by <- 'max'
+rescale_model_weights_by <- "max"
 # options: "max", "mean", [number]
 
 # optionally remove UTAH PHL sequences (b/c they were causing issues with Region 8 estimates in January, 2022)
