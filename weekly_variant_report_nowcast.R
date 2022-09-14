@@ -2558,7 +2558,7 @@ if ( grepl("Run2",tag) ){
     # this returns all variants with "AY" in the name
     AY_vars = model_vars[grep("AY", model_vars)]
     # this returns all variants with BA. in the name (Omicron sublineages)
-    BA_vars = model_vars[grep("BA\\.|BC\\.|BD\\.|BE\\.|BF\\.|BG\\.", model_vars)]
+    BA_vars = model_vars[grep("BA\\.|BC\\.|BD\\.|BE\\.|BF\\.|BG\\.|BH\\.|BJ\\.|BK\\.|BL\\.", model_vars)]
 
     # get the names of the lineages included in Run1
     if(custom_lineages){
@@ -2615,15 +2615,26 @@ if ( grepl("Run2",tag) ){
         if (ll == 'BA.2') {
           # this will always aggregate BA.2.12 into BA.2
           if( length(grep("(BA\\.2)(?![0-9])",run1_lineages, perl = T, value = T)) == 1 ){
-            ll_agg <- grep("(BA\\.2)(?![0-9])|(BG\\.)",BA_vars, perl = T, value = T)
+            ll_agg <- grep("(BA\\.2)(?![0-9])|(BG\\.)|(BH\\.)|(BJ\\.)",BA_vars, perl = T, value = T)
           }
           # this will keep BA.2.12 seperate ONLY if BA.2.12 is *ALSO* listed in run1_lineages
           if( length(grep("(BA\\.2\\.12)",run1_lineages, perl = T, value = T)) == 1 ){
-            ll_agg <- grep("(BA\\.2)(?!([0-9])|(\\.12))",BA_vars, perl = T, value = T)
+            ll_agg <- grep("(BA\\.2)(?!([0-9])|(\\.12))|(BG\\.)|(BH\\.)|(BJ\\.)",BA_vars, perl = T, value = T)
+          }
+          # this will keep BA.2.75 seperate ONLY if BA.2.75 is *ALSO* listed in run1_lineages
+          if( length(grep("(BA\\.2\\.75)",run1_lineages, perl = T, value = T)) == 1 ){
+            ll_agg <- grep("(BA\\.2)(?!([0-9])|(\\.75))|(BG\\.)|(BH\\.)|(BJ\\.)",BA_vars, perl = T, value = T)
+          }
+          # this will keep ba.2.12 AND BA.2.75 seperate ONLY if BOTH BA.2.12 and BA.2.75 are both *ALSO* listed in run1_lineages
+          if( length(grep("(BA\\.2\\.75)",run1_lineages, perl = T, value = T)) == 1 && length(grep("(BA\\.2\\.12)",run1_lineages, perl = T, value = T)) == 1 ){
+            ll_agg <- grep("(BA\\.2)(?!([0-9])|(\\.75)|(\\.12))|(BG\\.)|(BH\\.)|(BJ\\.)",BA_vars, perl = T, value = T)
           }
         }
         if(ll == 'BA.2.12') {
           ll_agg <- grep("(BA\\.2\\.12)(?![0-9])",BA_vars, perl = T, value = T)
+        }
+        if(ll == 'BA.2.75') {
+          ll_agg <- grep("(BA\\.2\\.75)(?![0-9])|(BL\\.)",BA_vars, perl = T, value = T)
         }
         if (ll == 'BA.3') {
           ll_agg <- grep("(BA\\.3)(?![0-9])",BA_vars, perl = T, value = T)
@@ -2640,7 +2651,14 @@ if ( grepl("Run2",tag) ){
         }
         if(ll == 'BA.5') {
           #
-          ll_agg <- grep("(BA\\.5)(?![0-9])|(BF\\.)|(BE\\.)",BA_vars, perl = T, value = T)
+          ll_agg <- grep("(BA\\.5)(?![0-9])|(BF\\.)|(BE\\.)|(BK\\.)",BA_vars, perl = T, value = T)
+          # this will keep BF.7 seperate ONLY if BF.5 is *ALSO* listed in run1 lineages
+          if( length(grep("(BF\\.7)",run1_lineages, perl = T, value = T)) == 1 ){
+            ll_agg <- grep("(BA\\.5)(?![0-9])|(BE\\.)|(BK\\.)|(BF\\.)(?!7)",BA_vars, perl = T, value = T)
+          }
+        }
+        if(ll == 'BF.7') {
+          ll_agg <- grep("(BF\\.7)(?![0-9])",BA_vars, perl = T, value = T)
         }
 
         # add a row onto the agg_var_mat for this subvariant
