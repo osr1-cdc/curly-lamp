@@ -304,8 +304,10 @@ if(custom_lineages == TRUE) {
       -- THEN "AY.4.2+"
       -- WHEN P.lineage = "AY.35" AND udx.substr_range(A.aa_aln, "484") = "Q"
       -- THEN "AY.35+"
-      WHEN P.lineage = "BA.1" AND udx.substr_range(A.aa_aln, "346") = "K"
-      THEN "BA.1+"
+      -- WHEN P.lineage = "BA.1" AND udx.substr_range(A.aa_aln, "346") = "K"
+      -- THEN "BA.1+"
+      WHEN (regexp_like(P.lineage, "^B[AC-Z]") OR P.lineage = "B.1.1.529") AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T"
       ELSE P.lineage
   END as lineage,
   P.conflict,
@@ -336,8 +338,10 @@ if(custom_lineages == TRUE) {
             -- THEN "AY.4.2+"
             -- WHEN P.lineage = "AY.35" AND udx.substr_range(A.aa_aln, "484") = "Q"
             -- THEN "AY.35+"
-            WHEN P.lineage = "BA.1" AND udx.substr_range(A.aa_aln, "346") = "K"
-            THEN "BA.1+"
+            -- WHEN P.lineage = "BA.1" AND udx.substr_range(A.aa_aln, "346") = "K"
+            -- THEN "BA.1+"
+            WHEN (regexp_like(P.lineage, "^B[AC-Z]") OR P.lineage = "B.1.1.529") AND udx.substr_range(A.aa_aln, "346") = "T"
+            THEN "R346T"
             ELSE P.lineage
         END as lineage
         FROM sc2_archive.analytics_metadata_frozen as P
