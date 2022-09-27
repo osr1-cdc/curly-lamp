@@ -309,18 +309,7 @@ if(custom_lineages == TRUE) {
       WHEN (regexp_like(P.lineage, "^B[AC-Z]") OR P.lineage = "B.1.1.529") AND udx.substr_range(A.aa_aln, "346") = "T"
       THEN "R346T"
       ELSE P.lineage
-  END as lineage,
-  P.conflict,
-  P.ambiguity_score,
-  P.scorpio_call,
-  P.scorpio_support,
-  P.scorpio_conflict,
-  P.version,
-  P.pangolin_version,
-  P.class_date,
-  P.class_qc,
-  P.note,
-  P.scorpio_version
+  END as lineage
   FROM sc2_src.pangolin as P
   LEFT JOIN sc2_src.alignments as A
   ON P.nt_id = A.nt_id
