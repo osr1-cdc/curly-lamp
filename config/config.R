@@ -42,7 +42,7 @@ data_date <- Sys.Date()
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_folder <- paste0("results_", data_date, "_set1")
+results_folder <- paste0("results_", data_date, "_R346T")
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
@@ -258,7 +258,7 @@ calc_confirmed_infections <- TRUE
 # Option to just fit the nowcast model and avoid the slower parts of the script
 # (this is only valid if the run number == 2)
 # this can be removed eventually. It's here to make it easier to make updates to the Nowcast model.
-nowcast_only = TRUE
+nowcast_only = FALSE
 
 # This is an option that probably won't be used, but I don't want to delete it yet
 # so it's hiding here just in case I want to use it again.

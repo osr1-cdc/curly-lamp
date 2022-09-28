@@ -145,22 +145,22 @@ node = "10"
 # If the data was already pulled and you want to just use that data instead of re-pulling it, set here. 
 # This is useful if you aggregate some lab names at the end of this code and then want to re-run the
 # script after changing which labs get aggregated. 
-use_previously_imported_data <- FALSE
+use_previously_imported_data <- TRUE
 
 # use previously pulled data if it exists
 if(use_previously_imported_data &
-    file.exists(paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_data", custom_tag, ".RDS")) & 
-    file.exists(paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pangolin", custom_tag, ".RDS")) & 
-    file.exists(paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_baseline", custom_tag, ".RDS")) & 
-    file.exists(paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_tests", custom_tag, ".RDS")) & 
-    file.exists(paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pops", custom_tag, ".RDS"))){
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_data", custom_tag, ".RDS")) & 
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin", custom_tag, ".RDS")) & 
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline", custom_tag, ".RDS")) & 
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS")) & 
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS"))){
       
   print('Reading in previously pulled data')
-  dat <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_data", custom_tag, ".RDS"))
-  pangolin <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pangolin", custom_tag, ".RDS"))
-  baseline <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_baseline", custom_tag, ".RDS"))
-  tests <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_tests", custom_tag, ".RDS"))
-  pops <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pops", custom_tag, ".RDS"))
+  dat <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_data", custom_tag, ".RDS"))
+  pangolin <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin", custom_tag, ".RDS"))
+  baseline <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline", custom_tag, ".RDS"))
+  tests <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS"))
+  pops <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS"))
   print('Finished reading in data.')
 } else {
 
@@ -575,24 +575,24 @@ pops = read.delim(file = paste0(script.basename, "/resources/ACStable_B01001_40_
 
 # create a folder for the backup data (data that do not get used in "weekly_variant_report_nowcast.R")
 dir.create(
-  path = paste0(script.basename, "/data/backup_", data_date),
+  path = paste0(script.basename, "/data/backup_", data_date, custom_tag),
   showWarnings = FALSE
 )
 
 saveRDS(dat,
-  file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_data", custom_tag, ".RDS")
+  file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_data", custom_tag, ".RDS")
 )
 saveRDS(pangolin,
-  file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pangolin", custom_tag, ".RDS")
+  file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin", custom_tag, ".RDS")
 )
 saveRDS(baseline,
-  file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_baseline", custom_tag, ".RDS")
+  file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline", custom_tag, ".RDS")
 )
 saveRDS(tests,
-  file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_tests", custom_tag, ".RDS")
+  file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS")
 )
 saveRDS(pops,
-  file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pops", custom_tag, ".RDS")
+  file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS")
 )
 print('Finished reading in data.')
 }
