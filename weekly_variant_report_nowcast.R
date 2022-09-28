@@ -1979,13 +1979,20 @@ if ( grepl("Run2",tag) ){
   orpar <- par()
   par(mar = c(5.1, 4.1, 4.1, 4.1))
 
-  # filter out extremely rare variants from the plot
-  if (force_aggregate_omicron) {
+ # filter out extremely rare variants from the plot
+  if (force_aggregate_omicron && custom_lineages == FALSE) {
     gtp <- subset(gr_tab,
                   variant %in% c(voc1, "OTHER"))
   } else {
     gtp <- subset(gr_tab,
                   variant_share >= 0.01) # this is already a percent, so this is filtering out variants with less than 1/1000 of a percent (not 1 percent)
+  }
+
+  if (custom_lineages == TRUE) {
+    gtp$variant <- gsub("R346T_(B[AF])([1-9])([1-9]{2})([1-9]{1})", "\\1.\\2.\\3.\\4+R346T", gtp$variant)
+    gtp$variant <- gsub("R346T_(B[AF])([1-9])([1-9]{1,2})", "\\1.\\2.\\3+R346T", gtp$variant)
+    gtp$variant <- gsub("R346T_(B[AF])([1-9])", "\\1.\\2+R346T", gtp$variant)
+    gtp$variant <- gsub("R346T_B11529", "B.1.1.529+R346T", gtp$variant)
   }
 
   wow_x_scale <- floor(log(min(gtp$variant_share),10))
@@ -2299,14 +2306,22 @@ if ( grepl("Run2",tag) ){
     par(mar = c(5.1, 4.1, 4.1, 4.1))
 
     # filter out variants with proportions less than 0.01%
-    if (force_aggregate_omicron) {
+    if (force_aggregate_omicron && custom_lineages == FALSE) {
     gtphhs <- subset(gr_tab_hhs,
                   variant %in% c(voc1, "OTHER"))
     } else {
     gtphhs <- subset(gr_tab_hhs,
                   variant_share >= 0.01) # this is already a percent, so this is filtering out variants with less than 1/1000 of a percent (not 1 percent)
     }
-  
+
+    if (custom_lineages == TRUE) {
+      gtphhs$variant <- gsub("R346T_(B[AF])([1-9])([1-9]{2})([1-9]{1})", "\\1.\\2.\\3.\\4+R346T", gtphhs$variant)
+      gtphhs$variant <- gsub("R346T_(B[AF])([1-9])([1-9]{1,2})", "\\1.\\2.\\3+R346T", gtphhs$variant)
+      gtphhs$variant <- gsub("R346T_(B[AF])([1-9])", "\\1.\\2+R346T", gtphhs$variant)
+      gtphhs$variant <- gsub("R346T_B11529", "B.1.1.529+R346T", gtphhs$variant)
+    }
+
+
     wow_x_scale <- floor(log(min(gtphhs$variant_share),10))
     wow_x_min <- 5 * (10 ^ (wow_x_scale - 1)) 
   

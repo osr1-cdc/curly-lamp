@@ -37,12 +37,12 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 data_date <- Sys.Date()
-# data_date <- as.Date('2022-08-16')
+# data_date <- as.Date('2022-09-27')
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_folder <- paste0("results_", data_date, "_R346T")
+results_folder <- paste0("results_", data_date, "_R346T_individual")
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
@@ -56,7 +56,7 @@ results_folder <- paste0("results_", data_date, "_R346T")
 # All other lineages (including AY.4.2 and AY.35) are from default pangolin calls.
 
 # Set custom lineages
-custom_lineage_names <- c("R346T")
+custom_lineage_names <- c("R346T_BA1","R346T_BA275","R346T_BA2121","R346T_BA2","R346T_BA46","R346T_BA4","R346T_BF7","R346T_BA5","R346T_B11529")
 # NOTE! If you change the custom lineages, you much also change the "custom"
 #       pangolin sql query (lines 305-320) in variant_surveillance_system.R to match!
 
@@ -277,7 +277,7 @@ use_group_weights <- FALSE
 # "force_aggregate_omicron_except".
 # THIS WILL LIKELY NEED TO BE REPLACED IN THE FUTURE, BUT IT'S HERE TO AVOID
 # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
-force_aggregate_omicron <- FALSE
+force_aggregate_omicron <- TRUE
 # list omicron sublineages that will not be aggregated (if they are also in voc) (these are the only Omicron sublineages that will be permitted)
 force_aggregate_omicron_except <- c('BA.1','BA.2','BA.3','BA.4','BA.5','BA.2.12.1','BA.4.6', 'BA.2.75', 'BF.7') # 'BA.2.12', 'BA.1.1'
 
