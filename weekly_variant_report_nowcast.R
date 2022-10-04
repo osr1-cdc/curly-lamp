@@ -256,6 +256,12 @@ if ( grepl("Run3", tag) ) {
 if (custom_lineages == TRUE) {
   voc = unique(c(voc, custom_lineage_names))
 }
+# force-aggregate R346T lineages
+if (force_aggregate_R346T==TRUE)  {
+  R346T_sublineages <- voc[grepl('R346T', voc, ignore.case = TRUE)]
+  voc <- voc[ voc %notin% R346T_sublineages ]
+  voc <- c(voc, "R346T")
+}
 
 # force-aggregate omicron
 # (even if BA.1 is listed in voc2, this will force all BA sublineages of Omicron
@@ -664,6 +670,9 @@ if(B.1.1.529_agg==TRUE)  {
   src.dat[src.dat$VARIANT %in% B529.BE.1[B529.BE.1 %notin% voc],"VARIANT"] <- "BE.1"
   src.dat[src.dat$VARIANT %in% B529.BE.1.1[B529.BE.1.1 %notin% voc],"VARIANT"] <- "BE.1.1"
   src.dat[src.dat$VARIANT %in% B529.BE.3[B529.BE.3 %notin% voc],"VARIANT"] <- "BE.3"
+}
+if(force_aggregate_R346T==TRUE){
+  src.dat[src.dat$VARIANT %in% R346T_sublineages, "VARIANT"] <- "R346T"
 }
 
 # create another column for the varients of interest
