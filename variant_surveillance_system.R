@@ -562,7 +562,8 @@ FROM
              count(a.primary_virus_name) AS lineage_count,
              z.region_total,
              count(a.primary_virus_name) / z.region_total AS fraction,
-             if(count(a.primary_virus_name) / z.region_total >= 0.01, TRUE, FALSE) AS is_one_percent
+             if(count(a.primary_virus_name) / z.region_total >= 0.01, TRUE, FALSE) AS is_one_percent,
+             if(count(a.primary_virus_name) / z.region_total >= 0.005, TRUE, FALSE) AS is_zerofive_percent
       FROM sc2_air.analytics_metadata a
       LEFT JOIN
         (SELECT date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) AS week_ending,
@@ -584,6 +585,7 @@ FROM
                z.region_total --order by week_ending, b.hhs_region, lineage
 ) Q
    WHERE Q.is_one_percent IS TRUE --OR Q.variant_type is not null
+    OR (Q.is_zerofive_percent IS TRUE AND Q.week_ending = date_add(date_trunc('week', date_add(now(), 1)), -16))
 GROUP BY lineage) QQ
 LEFT JOIN sc2_air.analytics_lineage_corr cor ON QQ.lineage = cor.lineage
 WHERE cor.date_range_of_calc LIKE '%US:3mo'"

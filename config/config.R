@@ -36,13 +36,13 @@
 # custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
-# data_date <- Sys.Date()
-data_date <- as.Date('2022-10-04')
+data_date <- Sys.Date()
+# data_date <- as.Date('2022-10-04')
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_folder <- paste0("results_", data_date, "_R346T_addedBE11")
+results_folder <- paste0("results_", data_date, "_set1")
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
@@ -104,22 +104,8 @@ voc2_additional = c(#"AY.1", "AY.2",
                     'BA.4.6',
                     'BA.5',
                     "B.1.617.2", # Delta
-                    "B.1.1.529", # Omicron
-		    "BA.5.2.1", # from this below are lineages >0.5% for the last weighted week 09/17/22
-		    "BA.5.2",
-		    "BA.5.1",
-                    "BA.5.6",
-                    "BA.5.5",
-                    "BF.10",
-                    "BE.1.1",
-                    "BF.5",
-                    "BE.1",
-                    "BA.4.1",
-                    "BA.5.1.1",
-                    "BE.3",
-                    "BA.5.1.10",
-                    "BA.5.5.1",
-                    "BF.8")
+                    "B.1.1.529" # Omicron
+                    )
 # voc2_custom = c(voc2,
 #                custom_lineage_names)
 
