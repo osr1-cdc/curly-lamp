@@ -1999,7 +1999,7 @@ if ( grepl("Run2",tag) ){
 
   if (custom_lineages == TRUE) {
     gtp$variant <- gsub("R346T_(B[AF])([1-9])([1-9]{2})([1-9]{1})", "\\1.\\2.\\3.\\4+R346T", gtp$variant)
-    gtp$variant <- gsub("R346T_(B[AF])([1-9])([1-9]{1,2})", "\\1.\\2.\\3+R346T", gtp$variant)
+    gtp$variant <- gsub("R346T_(B[AFE])([1-9])([1-9]{1,2})", "\\1.\\2.\\3+R346T", gtp$variant)
     gtp$variant <- gsub("R346T_(B[AF])([1-9])", "\\1.\\2+R346T", gtp$variant)
     gtp$variant <- gsub("R346T_B11529", "B.1.1.529+R346T", gtp$variant)
   }
@@ -2325,7 +2325,7 @@ if ( grepl("Run2",tag) ){
 
     if (custom_lineages == TRUE) {
       gtphhs$variant <- gsub("R346T_(B[AF])([1-9])([1-9]{2})([1-9]{1})", "\\1.\\2.\\3.\\4+R346T", gtphhs$variant)
-      gtphhs$variant <- gsub("R346T_(B[AF])([1-9])([1-9]{1,2})", "\\1.\\2.\\3+R346T", gtphhs$variant)
+      gtphhs$variant <- gsub("R346T_(B[AFE])([1-9])([1-9]{1,2})", "\\1.\\2.\\3+R346T", gtphhs$variant)
       gtphhs$variant <- gsub("R346T_(B[AF])([1-9])", "\\1.\\2+R346T", gtphhs$variant)
       gtphhs$variant <- gsub("R346T_B11529", "B.1.1.529+R346T", gtphhs$variant)
     }
