@@ -58,6 +58,14 @@ options(
 
 # optparse option list (get command-line arguments)
 option_list <- list(
+  # Get lineage definition from sc2_dev.nextclade instead of the default sc2_src.pangolin
+  optparse::make_option(
+    opt_str = c("-n", "--nextclade_pango"),
+    type    = "character",
+    default = "F",
+    help    = "Whether or not to swith to get lineage defintion from sc2_dev.nextclade instead of sc2_src.pangolin (character value of T or F)",
+    metavar = "character"
+  ),
   # whether or not to use Custom Lineages
   optparse::make_option(
     opt_str = c("-c", "--custom_lineages"),
@@ -91,6 +99,7 @@ opts <- optparse::parse_args(optparse::OptionParser(option_list = option_list))
 # opts$custom_lineages = "F"
 # opts$user = ""
 # opts$password = ""
+
 
 # convert custom_lineages flag to logical value
 if(toupper(opts$custom_lineages) %in% c('T', 'TRUE', 'Y', 'YES')){
@@ -138,6 +147,16 @@ seq_table = "sc2_archive.analytics_metadata_frozen"
 # CDP cluster node to use
 # (you can use any node from 08 - 13. Sometimes nodes fail so if you get an error you can try another node)
 node = "10"
+
+# Set pangolineage definition source based on nextclade_pango flag
+if(toupper(opts$nextclade_pango) %in% c('T', 'TRUE', 'Y', 'YES')){
+  lineage_table = "sc2_dev.nextclade"
+  lineage_field = "nextclade_pango"
+  current_data  = TRUE   # If using nextclade_pango, there is no archived frozen data, only current data from nextclade_pango can be used
+} else {
+  lineage_table = "sc2_src.pangolin"
+  lineage_field = "lineage"
+}
 
 
 # Import Data ------------------------------------------------------------------
@@ -289,87 +308,61 @@ query = paste(
 dat = DBI::dbGetQuery(conn = impala,
                       statement = query)
 
-# Get the Pangolin lineages (at the time of the data)
+# Get the Pango lineages (at the time of the data) from the choosen source
 if(custom_lineages == TRUE) {
+  custom_lineages_sql = paste0('
+    CASE
+      -- WHEN P.', lineage_field, ' = "AY.4.2" AND udx.substr_range(A.aa_aln, "145;222") = "HV"
+      -- THEN "AY.4.2+"
+      -- WHEN P.', lineage_field, ' = "AY.35" AND udx.substr_range(A.aa_aln, "484") = "Q"
+      -- THEN "AY.35+"
+      -- WHEN P.', lineage_field, ' = "BA.1" AND udx.substr_range(A.aa_aln, "346") = "K"
+      -- THEN "BA.1+"
+      WHEN regexp_like(P.', lineage_field, ', "^BA.1.*|^BC.*|^BD.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BA1"
+      WHEN regexp_like(P.', lineage_field, ', "^BA.2.75.*|^B[LMNRY].*|^C[AB].*")  AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BA275"
+      WHEN regexp_like(P.', lineage_field, ', "^BA.2.12.1|^BG.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BA2121"
+      WHEN regexp_like(P.', lineage_field, ', "^BA.2.*|^B[HJPS]")  AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BA2"
+      WHEN regexp_like(P.', lineage_field, ', "^BA.4.6.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BA46"
+      WHEN regexp_like(P.', lineage_field, ', "^BA.4.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BA4"
+      WHEN regexp_like(P.', lineage_field, ', "^BF.7.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BF7"
+      WHEN regexp_like(P.', lineage_field, ', "^BE.1.1.*|^BQ.*|^CC.*") AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BE11"
+      WHEN regexp_like(P.', lineage_field, ', "^BA.5.*|^B[EFKTUVWZ].*|^C[DEFG].*")  AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BA5"
+      WHEN regexp_like(P.', lineage_field, ', "^BA.3.*|^B.1.1.529") AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_B11529"
+      ELSE P.', lineage_field, '
+  END as lineage')
   if(current_data){
     # if custom_lineages == TRUE & current_data == TRUE
     # define custom AY.35+ and AY.4.2+ lineages based on amino acid positions of interest
     pangolin = DBI::dbGetQuery(
       conn = impala,
-      statement = '
+      statement = paste0('
   SELECT DISTINCT
-  P.nt_id,
-  CASE
-      -- WHEN P.lineage = "AY.4.2" AND udx.substr_range(A.aa_aln, "145;222") = "HV"
-      -- THEN "AY.4.2+"
-      -- WHEN P.lineage = "AY.35" AND udx.substr_range(A.aa_aln, "484") = "Q"
-      -- THEN "AY.35+"
-      -- WHEN P.lineage = "BA.1" AND udx.substr_range(A.aa_aln, "346") = "K"
-      -- THEN "BA.1+"
-      WHEN regexp_like(P.lineage, "^BA.1.*|^BC.*|^BD.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BA1"
-      WHEN regexp_like(P.lineage, "^BA.2.75.*|^BL.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BA275"
-      WHEN regexp_like(P.lineage, "^BA.2.12.1|^BG.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BA2121"
-      WHEN regexp_like(P.lineage, "^BA.2.*|^BH.*|^BJ.*|^BL.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BA2"
-      WHEN regexp_like(P.lineage, "^BA.4.6.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BA46"
-      WHEN regexp_like(P.lineage, "^BA.4.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BA4"
-      WHEN regexp_like(P.lineage, "^BF.7.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BF7"
-      WHEN regexp_like(P.lineage, "^BE.1.1.*") AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BE11"
-      WHEN regexp_like(P.lineage, "^BA.5.*|^BE.*|^BF.*|^BK.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BA5"
-      WHEN regexp_like(P.lineage, "^BA.3.*|^B.1.1.529") AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_B11529"
-      ELSE P.lineage
-  END as lineage
-  FROM sc2_src.pangolin as P
+  P.nt_id,',
+  custom_lineages_sql,
+  ' FROM ', lineage_table, ' as P
   LEFT JOIN sc2_src.alignments as A
   ON P.nt_id = A.nt_id
   AND A.protein = "S"
-  ')
+  '))
   } else {
     # if custom_lineages = T & current_data = F
     pangolin = DBI::dbGetQuery(
       conn = impala,
       statement = paste0('
         SELECT DISTINCT
-        P.primary_nt_id as nt_id,
-        CASE
-            -- WHEN P.lineage = "AY.4.2" AND udx.substr_range(A.aa_aln, "145;222") = "HV"
-            -- THEN "AY.4.2+"
-            -- WHEN P.lineage = "AY.35" AND udx.substr_range(A.aa_aln, "484") = "Q"
-            -- THEN "AY.35+"
-            -- WHEN P.lineage = "BA.1" AND udx.substr_range(A.aa_aln, "346") = "K"
-            -- THEN "BA.1+"
-            WHEN regexp_like(P.lineage, "^BA.1.*|^BC.*|^BD.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
-            THEN "R346T_BA1"
-            WHEN regexp_like(P.lineage, "^BA.2.75.*|^BL.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
-            THEN "R346T_BA275"
-            WHEN regexp_like(P.lineage, "^BA.2.12.1|^BG.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
-            THEN "R346T_BA2121"
-            WHEN regexp_like(P.lineage, "^BA.2.*|^BH.*|^BJ.*|^BL.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
-            THEN "R346T_BA2"
-            WHEN regexp_like(P.lineage, "^BA.4.6.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
-            THEN "R346T_BA46"
-            WHEN regexp_like(P.lineage, "^BA.4.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
-            THEN "R346T_BA4"
-            WHEN regexp_like(P.lineage, "^BF.7.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
-            THEN "R346T_BF7"
-            WHEN regexp_like(P.lineage, "^BE.1.1.*") AND udx.substr_range(A.aa_aln, "346") = "T"
-            THEN "R346T_BE11"
-            WHEN regexp_like(P.lineage, "^BA.5.*|^BE.*|^BF.*|^BK.*")  AND udx.substr_range(A.aa_aln, "346") = "T"
-            THEN "R346T_BA5"
-            WHEN regexp_like(P.lineage, "^BA.3.*|^B.1.1.529") AND udx.substr_range(A.aa_aln, "346") = "T"
-            THEN "R346T_B11529"
-            ELSE P.lineage
-        END as lineage
-        FROM sc2_archive.analytics_metadata_frozen as P
+        P.primary_nt_id as nt_id,',
+        custom_lineages_sql,
+        ' FROM sc2_archive.analytics_metadata_frozen as P
         LEFT JOIN sc2_src.alignments as A
         ON P.primary_nt_id = A.nt_id
         AND A.protein = "S"
@@ -381,10 +374,10 @@ if(custom_lineages == TRUE) {
     # if custom_lineages = F & current_data = T
     pangolin = DBI::dbGetQuery(
       conn = impala,
-      statement = '
-      SELECT DISTINCT *
-      FROM sc2_src.pangolin
-      ')
+      statement = paste0(
+      'SELECT DISTINCT nt_id, ', lineage_field, ' as lineage
+      FROM ', lineage_table
+      ))
   } else {
     # if custom_lineages = F & current_data = F
     pangolin = DBI::dbGetQuery(
@@ -556,7 +549,7 @@ FROM
           max(lineage_count) AS max_virus_count,
           to_timestamp('", data_date, "', 'yyyy-MM-dd') AS pull_date
    FROM
-     (SELECT a.lineage,
+     (SELECT l.", lineage_field, " as lineage,
              c.variant_type,
              date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) AS week_ending,
              count(a.primary_virus_name) AS lineage_count,
@@ -565,6 +558,7 @@ FROM
              if(count(a.primary_virus_name) / z.region_total >= 0.01, TRUE, FALSE) AS is_one_percent,
              if(count(a.primary_virus_name) / z.region_total >= 0.005, TRUE, FALSE) AS is_zerofive_percent
       FROM sc2_air.analytics_metadata a
+      LEFT JOIN ", lineage_table, " l on a.primary_nt_id = l.nt_id
       LEFT JOIN
         (SELECT date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) AS week_ending,
                 count(za.primary_virus_name) AS region_total
@@ -579,7 +573,7 @@ FROM
         AND datediff(date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), 5), date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5))< 98
         AND (a.contractor_vendor_id IS NOT NULL OR a.cdceventid = '1771')
         AND a.primary_country = 'United States'
-      GROUP BY a.lineage,
+      GROUP BY l.", lineage_field, ",
                c.variant_type,
                week_ending,
                z.region_total --order by week_ending, b.hhs_region, lineage
