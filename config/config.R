@@ -36,13 +36,13 @@
 # custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
-# data_date <- Sys.Date()
-data_date <- as.Date('2022-10-04')
+data_date <- Sys.Date()
+# data_date <- as.Date('2022-10-04')
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_folder <- paste0("results_", data_date, "_test_nextclade")
+results_folder <- paste0("results_", data_date, "_set1")
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
@@ -92,6 +92,9 @@ voc2_manual = c(NA)
 # from the SQL query in "variant_surveillance_system.R"
 # (this will not have any effect if "voc2_manual" is used)
 voc2_additional = c(#"AY.1", "AY.2",
+                    "BA.2.75.2",
+                    "BQ.1",
+                    "BQ.1.1",
                     "BA.1",
                     "BA.1.1",
                     "BA.2",

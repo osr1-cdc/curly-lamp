@@ -164,7 +164,7 @@ if(toupper(opts$nextclade_pango) %in% c('T', 'TRUE', 'Y', 'YES')){
 # If the data was already pulled and you want to just use that data instead of re-pulling it, set here. 
 # This is useful if you aggregate some lab names at the end of this code and then want to re-run the
 # script after changing which labs get aggregated. 
-use_previously_imported_data <- TRUE
+use_previously_imported_data <- FALSE
 
 # use previously pulled data if it exists
 if(use_previously_imported_data &
@@ -297,9 +297,10 @@ query = paste(
   paste0(
     ' FROM sc2_archive.analytics_metadata_frozen as A
     INNER JOIN
-    (SELECT max(', date_frozen, ') as max_frozen
-    FROM sc2_archive.analytics_metadata_frozen) as M
-    ON to_date(A.date_frozen) = M.max_frozen'
+    (SELECT max(date_frozen) as max_frozen
+    FROM sc2_archive.analytics_metadata_frozen ma
+    WHERE to_date(ma.date_frozen) = ', date_frozen, ') as M
+    ON A.date_frozen = M.max_frozen'
   ),
   'WHERE A.primary_country in ("United States", "USA")'
 ) # if unavailable, use test_deduplication_cdcncbigisaid_auto for testing
@@ -413,10 +414,11 @@ tests = DBI::dbGetQuery(
   H.POSITIVE
   FROM sc2_archive.hhs_protect_testing_frozen as H
   INNER JOIN
-  (SELECT max(', date_frozen, ') as max_frozen
-    FROM sc2_archive.hhs_protect_testing_frozen
+  (SELECT max(date_frozen) as max_frozen
+    FROM sc2_archive.hhs_protect_testing_frozen hf
+    WHERE to_date(hf.date_frozen) = ', date_frozen, '
   ) as F
-  ON to_date(H.date_frozen) = F.max_frozen
+  ON H.date_frozen = F.max_frozen
   WHERE H.collection_date is NOT NULL'
   ))
 
