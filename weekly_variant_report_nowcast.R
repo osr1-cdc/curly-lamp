@@ -2685,13 +2685,14 @@ if ( grepl("Run2",tag) ){
             ll_agg <- grep("(^BA\\.2)(?!([0-9])|(\\.75))",BA_vars, perl = T, value = T)
           }
           # this will keep ba.2.12.1 AND BA.2.75 and BA.2.75.* seperate ONLY if BOTH BA.2.12.1 and BA.2.75 are both *ALSO* listed in run1_lineages
-          if( length(grep("(^A\\.2\\.75)",run1_lineages, perl = T, value = T)) >= 1 && length(grep("(BA\\.2\\.12\\.1)",run1_lineages, perl = T, value = T)) == 1 ){
+          if( length(grep("(^BA\\.2\\.75)",run1_lineages, perl = T, value = T)) >= 1 && length(grep("(BA\\.2\\.12\\.1)",run1_lineages, perl = T, value = T)) == 1 ){
             ll_agg <- grep("(^BA\\.2)(?!([0-9])|(\\.75)|(\\.12\\.1))",BA_vars, perl = T, value = T)
           }
         }
         if(ll == 'BA.2.12.1') {
           ll_agg <- grep("(^BG\\.)(?![0-9])",BA_vars, perl = T, value = T)
         }
+
         if(ll == 'BA.2.75') {
           ll_agg <- grep("(^BA\\.2\\.75)(?![0-9])",BA_vars, perl = T, value = T)
           # this will keep BA.2.75 .2 seperate ONLY if BA.2.75.2 is *ALSO* listed in run1_lineages
