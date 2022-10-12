@@ -1767,7 +1767,7 @@ saveRDS(object = check_count,
          write.csv(x = temp,
                    file = paste0(script.basename,
                                  "/data/backup_",
-                                 data_date, "/", data_date,
+                                 data_date, custom_tag, "/", data_date,
                                  "_lost_sequences",
                                  custom_tag, ".csv"),
                    row.names = F)
@@ -1784,7 +1784,7 @@ saveRDS(object = check_count,
          write.csv(x = temp,
                    file = paste0(script.basename,
                                  "/data/backup_",
-                                 data_date, "/", data_date,
+                                 data_date, custom_tag, "/", data_date,
                                  "_old_sequence_additions",
                                  custom_tag, ".csv"),
                    row.names = F)
@@ -1802,7 +1802,7 @@ saveRDS(object = check_count,
    saveRDS(object = counts_by_week,
            file = paste0(script.basename,
                          "/data/backup_",
-                         data_date,
+                         data_date, custom_tag,
                          "/", data_date,
                          "_sequence_counts_by_lab_week",
                          custom_tag,
@@ -1859,7 +1859,7 @@ svy.dat <- svy.dat[LAB2 %notin% c("CDC",low_lab), ]
 
 # save the dropped_sequences counts b/c that's all that's calculated in this script
 write.csv(x = dropped_sequences,
-          file = paste0(script.basename, "/data/backup_",data_date, "/dropped_sequence_counts_", data_date, custom_tag, "_v1.csv"),
+          file = paste0(script.basename, "/data/backup_",data_date, custom_tag, "/dropped_sequence_counts_", data_date, custom_tag, "_v1.csv"),
           row.names = F)
 
 # print('table of omicron sequences from labs with > 100 sequences:')
@@ -1926,7 +1926,7 @@ if(TRUE){
                'tests_4weeks' = tests_state_bins_list),
           file = paste0(script.basename,
                         "/data/backup_",
-                        data_date, "/",
+                        data_date, custom_tag, "/",
                         data_date, "_tests_aggregated",
                         custom_tag, ".RDS"))
 }
