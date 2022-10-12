@@ -36,13 +36,13 @@
 # custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
-data_date <- Sys.Date()
-# data_date <- as.Date('2022-10-04')
+# data_date <- Sys.Date()
+data_date <- as.Date('2022-10-11')
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_folder <- paste0("results_", data_date, "_R346T_individual")
+results_folder <- paste0("results_", data_date, "_set2")
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
@@ -66,10 +66,13 @@ voc1 = c(# "AY.1", "AY.2",
          "BA.2",
          "BA.2.12.1",
          "BA.2.75",
+         "BA.2.75.2",
          "BF.7",
          'BA.4',
          'BA.4.6',
          'BA.5',
+         "BQ.1",
+         "BQ.1.1",
          "B.1.617.2", # Delta
          "B.1.1.529") # Omicron
 # define an alternate set of vocs
@@ -133,10 +136,13 @@ voc3 = c("B.1.1.7",   # Alpha  # and Q.1 to 8*
          "BA.2",
          "BA.2.12.1",
          "BA.2.75",
+         "BA.2.75.2",
          "BA.4",
          "BA.4.6",
          "BA.5",
-         "BF.7")
+         "BF.7",
+         "BQ.1",
+         "BQ.1.1")
 # define an alternate set of vocs
 voc3_reduced = voc1_reduced
 

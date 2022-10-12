@@ -2719,11 +2719,19 @@ if ( grepl("Run2",tag) ){
           if( length(grep("(^BF\\.7)",run1_lineages, perl = T, value = T)) == 1 ){
             ll_agg <- grep("(^BA\\.5)(?![0-9])|(^B[EQ]\\.)|(^BF\\.)(?!7)",BA_vars, perl = T, value = T)
           }
+          if( length(grep("(^BF\\.7)|(^BQ\\.1)",run1_lineages, perl = T, value = T)) == 3 ){
+            ll_agg <- grep("(^BA\\.5)(?![0-9])|(^BE\\.)|(^BF\\.)(?!7)",BA_vars, perl = T, value = T)
+          }
         }
         if(ll == 'BF.7') {
           ll_agg <- grep("(^BF\\.7)(?![0-9])",BA_vars, perl = T, value = T)
         }
-
+        if(ll == 'BQ.1') {
+          ll_agg <- grep("(^BQ\\.1)(?![0-9]|(\\.1))",BA_vars, perl = T, value = T)
+        }
+        if(ll == 'BQ.1.1') {
+          ll_agg <- grep("(^BQ\\.1\\.1)(?![0-9])",BA_vars, perl = T, value = T)
+        }
         # add a row onto the agg_var_mat for this subvariant
         if(exists('ll_agg')){
           # if ll_agg contains subvariants of ll, then add a new row to agg_var_mat
