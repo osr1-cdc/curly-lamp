@@ -5,14 +5,14 @@
 # This is the same as adding these lines to the actual qsub line
 #
 # save the standard output text to this file instead of the the default jobID.o file
-#$ -o Run2_set1_trim.out
+#$ -o Run2_WOW.out
 #
 # save the standard error text to this file instead of the the default jobID.e file
-#$ -e Run2_set1_trim.err
+#$ -e Run2_WOW.err
 # 
 # Rename the job to be this string instead of the default which is the name of the script
 # -N Run2_trim_proportion_modeling
-#$ -N run2_set1
+#$ -N run2_WOW
 # 
 # Refer all file reference to work the current working directory which is
 # the directory from which the script was qsubbed
@@ -20,7 +20,7 @@
 #
 # Set up mail address for script
 # -M ncy6@cdc.gov,fep2@cdc.gov,nyy7@cdc.gov,qiu5@cdc.gov,rsv4@cdc.gov,oow9@cdc.gov
-#$ -M ncy6@cdc.gov,qiu5@cdc.gov
+#$ -M qiu5@cdc.gov
 # ncy6 = Norman Hassell
 # fep2 = Clinton Paden
 # nyy7 = Sandra Seby
