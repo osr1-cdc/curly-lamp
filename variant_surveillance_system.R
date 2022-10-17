@@ -620,7 +620,7 @@ s1_groups = DBI::dbGetQuery(
     "SELECT DISTINCT
     CASE
     WHEN(GP.group_key = SUBSTRING(LREP.aa_aln, 14, 677)) THEN '", ref_lineage, "'
-    ELSE concat('", ref_lineage, "_', replace(udx.mutation_list(GP.dominant_aa_aln, LREP.aa_aln,'14..677'),', ','_'))
+    ELSE concat('", ref_lineage, "_', replace(udx.mutation_list(LREP.aa_aln, GP.dominant_aa_aln, '14..677'),', ','_'))
     END as group_name,
     GP.group_key
 FROM geni.prod_sc2_group_proportionality as GP
