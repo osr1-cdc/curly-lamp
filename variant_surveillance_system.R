@@ -58,6 +58,14 @@ options(
 
 # optparse option list (get command-line arguments)
 option_list <- list(
+  # Get reference lineage (pango lineage name) to generate S1 mutation s1_id names
+  optparse::make_option(
+    opt_str = c("-r", "--reference_lineage"),
+    type    = "character",
+    default = "BA.5",
+    help    = "Reference lineage (pango lineage name) to be used to generate S1 mutation group names",
+    metavar = "character"
+  ),
   # Get lineage definition from sc2_dev.nextclade instead of the default sc2_src.pangolin
   optparse::make_option(
     opt_str = c("-n", "--nextclade_pango"),
@@ -158,6 +166,7 @@ if(toupper(opts$nextclade_pango) %in% c('T', 'TRUE', 'Y', 'YES')){
   lineage_field = "lineage"
 }
 
+ref_lineage = opts$reference_lineage
 
 # Import Data ------------------------------------------------------------------
 
@@ -172,14 +181,16 @@ if(use_previously_imported_data &
     file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin", custom_tag, ".RDS")) & 
     file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline", custom_tag, ".RDS")) & 
     file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS")) & 
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS"))){
-      
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS")) &
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_s1_groups", custom_tag, ".RDS"))){
+     
   print('Reading in previously pulled data')
   dat <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_data", custom_tag, ".RDS"))
   pangolin <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin", custom_tag, ".RDS"))
   baseline <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline", custom_tag, ".RDS"))
   tests <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS"))
   pops <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS"))
+  s1_groups <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_s1_groups", custom_tag, ".RDS"))
   print('Finished reading in data.')
 } else {
 
@@ -291,11 +302,17 @@ if(seq_table == "sc2_archive.analytics_metadata_frozen"){
 
 # specify the database query to run
 # (Subset to US sequences for faster download)
+# add in geni include or exclude info and S1_key for S1_id based proportion analysis - 2022-10-13
 query = paste(
-  'SELECT',
+  "SELECT
+    CASE
+      WHEN (( NOT A.spike_aln LIKE '%XX%' AND NOT A.spike_aln LIKE '%..%' ) AND NOT regexp_like( A.spike_aln, '~' ) AND LENGTH( A.spike_aln ) = 1274) THEN 'TRUE'
+      ELSE 'FALSE'
+      END as geni_included,
+    SUBSTRING(A.spike_aln, 14, 677) as s1_key,",
   paste0('A.', get.vars, collapse=', '),
   paste0(
-    ' FROM sc2_archive.analytics_metadata_frozen as A
+    'FROM sc2_archive.analytics_metadata_frozen as A
     INNER JOIN
     (SELECT max(date_frozen) as max_frozen
     FROM sc2_archive.analytics_metadata_frozen ma
@@ -596,6 +613,31 @@ WHERE cor.date_range_of_calc LIKE '%US:3mo'"
                         "/data/voc2_auto_", data_date, custom_tag, ".RDS"))
 }
 
+# Get the group_keys to be included in S1 proportion analysis
+s1_groups = DBI::dbGetQuery(
+    conn = impala,
+    statement = paste0(
+    "SELECT DISTINCT
+    CASE
+    WHEN(GP.group_key = SUBSTRING(LREP.aa_aln, 14, 677)) THEN '", ref_lineage, "'
+    ELSE concat('", ref_lineage, "_', replace(udx.mutation_list(GP.dominant_aa_aln, LREP.aa_aln,'14..677'),', ','_'))
+    END as group_name,
+    GP.group_key
+FROM geni.prod_sc2_group_proportionality as GP
+INNER JOIN
+  (SELECT max(report_week) as max_week
+    FROM geni.prod_sc2_group_proportionality
+  ) as F
+  ON GP.report_week = F.max_week
+LEFT JOIN geni.reference_info AS INFO ON GP.protein = INFO.sub_protein
+LEFT JOIN geni.sc2_lineage_rep AS LREP ON GP.protein = LREP.protein
+    AND '", ref_lineage, "' = LREP.lineage
+WHERE NOT GP.exclusions
+    AND GP.protein = 'S'
+    AND GP.geo_region = 'North America - USA'
+    AND GP.context = 's1_id'
+    AND GP.geo_sub_region = 'all'"))
+
 # end the database connection
 DBI::dbDisconnect(conn = impala)
 
@@ -625,9 +667,15 @@ saveRDS(baseline,
 saveRDS(tests,
   file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS")
 )
+saveRDS(s1_groups,
+  file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_s1_groups", custom_tag, ".RDS")
+)
 saveRDS(pops,
   file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS")
 )
+write.csv(x = s1_groups,
+          file = paste0(script.basename, '/data/backup_', data_date, '/s1_groups', data_date, '.csv'),
+          row.names = F)
 print('Finished reading in data.')
 }
 # Data Cleaning ----------------------------------------------------------------
@@ -875,6 +923,17 @@ us.dat = merge(x = us.dat,
                by.x = "primary_state_abv",
                by.y = "STUSAB",
                all.x = TRUE)
+
+# Add in s1_group names to us.dat
+us.dat = merge(x = us.dat,
+               y = s1_groups,
+               by.x = "s1_key",
+               by.y = "group_key",
+               all.x = TRUE)
+
+# For samples included in geni analysis, replace NA s1_group names with "other"
+# So samples with group_name NA should be excluded from analysis in weekly_s1_variant_report_nowcast.R
+us.dat[ is.na(group_name) & geni_included == TRUE, group_name := "Other"]
 
 # Aggregate state testing data -------------------------------------------------
 # Test data are aggregated by week for weighting.
@@ -1235,7 +1294,9 @@ svy.dat = data.table::data.table(
   SGTF_UPSAMPLING = (us.dat$contractor_targeted_sequencing %in% "Screened for S dropout"),
   # SOURCE  = us.dat$source,
   VARIANT = us.dat$lineage,
-  S_MUT   = us.dat$s_mut
+  S_MUT   = us.dat$s_mut,
+  S1_GROUP = us.dat$group_name,   # s1_group names, only the groups > 0.05% in the analysis weeks will have names based on comparison to chosen reference lineage
+  S1_GROUP_KEY = us.dat$group_key # s1_group_keys
 )
 
 # replace NAs with "other
