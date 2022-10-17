@@ -2120,10 +2120,11 @@ if ( grepl("Run2",tag) ){
 # the same amount of columns and rows (model_vars as column name and row names) and empty  matrix.
 
   agg_var_mat <- matrix(data = 0,
-                        nrow = (length(model_vars)+1),
+                        nrow = 1,
                         ncol = (length(model_vars)+1))
   colnames(agg_var_mat) <- c(model_vars,"Other")
-  rownames(agg_var_mat) <- c(model_vars,"Other Aggregated")
+  rownames(agg_var_mat) <- c("Other Aggregated")
+  agg_var_mat['Other Aggregated','Other'] <- 1
 
   ### Fortnightly estimates -----
   #define fortnights and regions to get nowcasts for
@@ -2555,64 +2556,64 @@ if ( grepl("Run2",tag) ){
   # Format output for the run 1 lineage list
   # exclude variants that have been aggregated into other groups (i.e. have value > 0 in the matrix)
   # run_1 = proj.res[proj.res$Variant %notin% colnames(agg_var_mat)[colSums(agg_var_mat)>0],]
-  agg_lineages <- colnames(agg_var_mat)[colSums(agg_var_mat)>0] # need to make sure that run1 keeps either "Other" or Other aggregated! (not both or neither)
-  if("Other" %notin% agg_lineages) agg_lineages <- c(agg_lineages, "Other Aggregated")
-  run_1 = proj.res[Variant %notin% agg_lineages]
+  # agg_lineages <- colnames(agg_var_mat)[colSums(agg_var_mat)>0] # need to make sure that run1 keeps either "Other" or Other aggregated! (not both or neither)
+  # if("Other" %notin% agg_lineages) agg_lineages <- c(agg_lineages, "Other Aggregated")
+  # run_1 = proj.res[Variant %notin% agg_lineages]
 
-  # change the name of "Other Aggregated" to "Other" to match other output files
-  run_1[run_1$Variant == "Other Aggregated","Variant"] <- "Other"
+  # # change the name of "Other Aggregated" to "Other" to match other output files
+  # run_1[run_1$Variant == "Other Aggregated","Variant"] <- "Other"
 
-  # weekly results = remove daily results & daily columns
-  run_1_weekly <- data.table:::subset.data.table(x = run_1,
-                                                 subset = model_week %% 1 == 0,
-                                                 select = !names(run_1) %in% c('total_test_positives_daily', 'cases_daily', 'cases_lo_daily', 'cases_hi_daily'))
-  # daily results = remove weekly columns
-  run_1_daily <- data.table:::subset.data.table(x = run_1,
-                                                select = !names(run_1) %in% c('total_test_positives_weekly', 'cases_weekly', 'cases_lo_weekly', 'cases_hi_weekly'))
+  # # weekly results = remove daily results & daily columns
+  # run_1_weekly <- data.table:::subset.data.table(x = run_1,
+  #                                                subset = model_week %% 1 == 0,
+  #                                                select = !names(run_1) %in% c('total_test_positives_daily', 'cases_daily', 'cases_lo_daily', 'cases_hi_daily'))
+  # # daily results = remove weekly columns
+  # run_1_daily <- data.table:::subset.data.table(x = run_1,
+  #                                               select = !names(run_1) %in% c('total_test_positives_weekly', 'cases_weekly', 'cases_lo_weekly', 'cases_hi_weekly'))
 
-  # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
-  if (!all(run_1_weekly[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Week_ending')][,unique(round(total_share, 5))] == 1)){
-    warning(paste(
-      paste0(script.basename,
-             output_folder, "/updated_nowcast_weekly_",
-             data_date,
-             sub(pattern = '2', replacement = '1', x = tag),
-             ".csv"),
-      'results are invalid! The total proportion does not add up to 100% in all weeks!')
-    )
-  } else {
-    # only save the results to file if the proportions add up to 100% each week
-    # save the results to file
-    write.csv(x = run_1_weekly,
-              file = paste0(script.basename,
-                            output_folder, "/updated_nowcast_weekly_",
-                            data_date,
-                            sub(pattern = '2', replacement = '1', x = tag),
-                            ".csv"),
-              row.names = FALSE)
-  }
-  # daily results
-  # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
-  if (!all(run_1_daily[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'date')][,unique(round(total_share, 5))] == 1)){
-    warning(paste(
-      paste0(script.basename,
-             output_folder, "/updated_nowcast_weekly_",
-             data_date,
-             sub(pattern = '2', replacement = '1', x = tag),
-             "_daily.csv"),
-      'results are invalid! The total proportion does not add up to 100% in all weeks!')
-    )
-  } else {
-    # only save the results to file if the proportions add up to 100% each week
-    # save the results to file
-    write.csv(x = run_1_daily,
-              file = paste0(script.basename,
-                            output_folder, "/updated_nowcast_weekly_",
-                            data_date,
-                            sub(pattern = '2', replacement = '1', x = tag),
-                            "_daily.csv"),
-              row.names = FALSE)
-  }
+  # # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
+  # if (!all(run_1_weekly[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Week_ending')][,unique(round(total_share, 5))] == 1)){
+  #   warning(paste(
+  #     paste0(script.basename,
+  #            output_folder, "/updated_nowcast_weekly_",
+  #            data_date,
+  #            sub(pattern = '2', replacement = '1', x = tag),
+  #            ".csv"),
+  #     'results are invalid! The total proportion does not add up to 100% in all weeks!')
+  #   )
+  # } else {
+  #   # only save the results to file if the proportions add up to 100% each week
+  #   # save the results to file
+  #   write.csv(x = run_1_weekly,
+  #             file = paste0(script.basename,
+  #                           output_folder, "/updated_nowcast_weekly_",
+  #                           data_date,
+  #                           sub(pattern = '2', replacement = '1', x = tag),
+  #                           ".csv"),
+  #             row.names = FALSE)
+  # }
+  # # daily results
+  # # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
+  # if (!all(run_1_daily[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'date')][,unique(round(total_share, 5))] == 1)){
+  #   warning(paste(
+  #     paste0(script.basename,
+  #            output_folder, "/updated_nowcast_weekly_",
+  #            data_date,
+  #            sub(pattern = '2', replacement = '1', x = tag),
+  #            "_daily.csv"),
+  #     'results are invalid! The total proportion does not add up to 100% in all weeks!')
+  #   )
+  # } else {
+  #   # only save the results to file if the proportions add up to 100% each week
+  #   # save the results to file
+  #   write.csv(x = run_1_daily,
+  #             file = paste0(script.basename,
+  #                           output_folder, "/updated_nowcast_weekly_",
+  #                           data_date,
+  #                           sub(pattern = '2', replacement = '1', x = tag),
+  #                           "_daily.csv"),
+  #             row.names = FALSE)
+  # }
 
   # Format output for the run2 lineage list
   # exclude the lineages that were aggregated (other than "Other")
