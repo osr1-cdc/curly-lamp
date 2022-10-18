@@ -442,11 +442,15 @@ src.dat = subset(x = src.dat,
 # currently no aggregation is needed -- 2011-10-14
 # Use S1_GROUP_KEY for VARIANT names, so in Run2 they could be sorted based on raw proportion and added top 10 to modeling
 # This is to prevent potential issue generated to the modeling analysis when there is only a handful dominant groups
-src.dat$VARIANT <- ifelse(as.character(src.dat$S1_GROUP) != "Other", as.character(src.dat$S1_GROUP), as.character(src.dat$S1_GROUP_KEY))
-
+#If not include "Other" as anaggregated group into model
+#src.dat$VARIANT <- ifelse(as.character(src.dat$S1_GROUP) != "Other", as.character(src.dat$S1_GROUP), as.character(src.dat$S1_GROUP_KEY))
+#If include "Other" as an aggregated group into model
+src.dat$VARIANT = as.character(src.dat$S1_GROUP)
+voc <- c(voc, 'Other')
 # create another column for the varients of interest
 # this is only used to get (unweighted) counts of the sequences by lineage (used in all runs)
-src.dat$VARIANT2 = as.character(src.dat$S1_GROUP)
+#src.dat$VARIANT2 = as.character(src.dat$S1_GROUP)
+src.dat$VARIANT2 = as.character(src.dat$VARIANT)
 
 ### survey design --------------------------------------------------------------
 # (used in "Not Run3" and "Run3" below. The trimmed weights that are calculated
@@ -1659,7 +1663,7 @@ if ( grepl("Run2",tag) ){
   doubling_time_hi = log(2)/gr_hi_link * 7
 
   # create a dataframe of variant shares & growth rates
-  gr_tab = data.frame(variant          = c(model_vars, "OTHER"),
+  gr_tab = data.frame(variant          = unique(model_vars, "Other"),
                       variant_share    = (100 * us.summary$p_i),
                       variant_share_lo = 100 * (us.summary$p_i - 1.96 * us.summary$se.p_i),
                       variant_share_hi = 100 * (us.summary$p_i + 1.96 * us.summary$se.p_i),
@@ -1976,7 +1980,7 @@ if ( grepl("Run2",tag) ){
     doubling_time_hi = log(2)/gr_hi_link * 7
 
     # create a dataframe of variant shares & growth rates
-    gr_tab_hhs = data.frame(variant          = c(model_vars, "OTHER"),
+    gr_tab_hhs = data.frame(variant          = unique(model_vars, "Other"),
                             variant_share    = (100 * hhs.summary$p_i),
                             variant_share_lo = 100 * (hhs.summary$p_i - 1.96 * hhs.summary$se.p_i),
                             variant_share_hi = 100 * (hhs.summary$p_i + 1.96 * hhs.summary$se.p_i),
@@ -2118,13 +2122,21 @@ if ( grepl("Run2",tag) ){
 # Aggregation is currently not needed for s1_group proportion analysis. 
 # But in order to modify the codes to the least amount and for future compatibility, generate a agg_var_mat with
 # the same amount of columns and rows (model_vars as column name and row names) and empty  matrix.
-
+if ('Other' %in% model_vars) {
+  agg_var_mat <- matrix(data = 0,
+                        nrow = 1,
+                        ncol = length(model_vars))
+  colnames(agg_var_mat) <- model_vars
+  rownames(agg_var_mat) <- c("Other Aggregated")
+  agg_var_mat['Other Aggregated','Other'] <- 1
+} else {
   agg_var_mat <- matrix(data = 0,
                         nrow = 1,
                         ncol = (length(model_vars)+1))
   colnames(agg_var_mat) <- c(model_vars,"Other")
   rownames(agg_var_mat) <- c("Other Aggregated")
   agg_var_mat['Other Aggregated','Other'] <- 1
+}
 
   ### Fortnightly estimates -----
   #define fortnights and regions to get nowcasts for
@@ -2196,8 +2208,7 @@ if ( grepl("Run2",tag) ){
       ests = data.table::data.table(
         USA_or_HHSRegion = rgn,
         Fortnight_ending = as.Date(ftn, origin="1970-01-01"),
-        Variant = c(model_vars,
-                    "Other",
+        Variant = c(unique(model_vars, "Other"),
                     row.names(ests$composite_variant$matrix)),
         Share = c(ests$p_i,
                   ests$composite_variant$p_i),
@@ -2431,8 +2442,7 @@ if ( grepl("Run2",tag) ){
       ests = data.table::data.table(
         USA_or_HHSRegion = rgn,
         Week_ending = week_ending, # this no longer identifies a single estimate.
-        Variant = c(model_vars,
-                    "Other",
+        Variant = c(unique(model_vars, "Other"),
                     row.names(ests$composite_variant$matrix)),
         Share = c(ests$p_i,
                   ests$composite_variant$p_i),
