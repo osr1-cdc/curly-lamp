@@ -36,13 +36,13 @@
 # custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
-# data_date <- Sys.Date()
-data_date <- as.Date('2022-10-11')
+data_date <- Sys.Date()
+# data_date <- as.Date('2022-10-11')
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_folder <- paste0("results_", data_date, "_set2")
+results_folder <- paste0("results_", data_date, "_set1")
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
@@ -243,7 +243,7 @@ week0day1 = get0("week0day1",
 current_week = as.numeric(as.Date(data_date) - week0day1) %/% 7
 
 # Specify the variants to include in plots. Either "top7" or "voc"
-display_option = c("top7", "voc")[1]
+display_option = c("top7", "voc")[2]
 
 # number of weeks (up to current_week) to include in plots
 display_lookback = 8
