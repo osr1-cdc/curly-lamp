@@ -5,14 +5,14 @@
 # This is the same as adding these lines to the actual qsub line
 #
 # save the standard output text to this file instead of the the default jobID.o file
-#$ -o Run2_trim_custom.out
+#$ -o Run2_trim_custom_individual.out
 #
 # save the standard error text to this file instead of the the default jobID.e file
-#$ -e Run2_trim_custom.err
+#$ -e Run2_trim_custom_individual.err
 # 
 # Rename the job to be this string instead of the default which is the name of the script
 # -N Run2_trim_custom_proportion_modeling
-#$ -N Run2_trim_custom
+#$ -N Run2_trim_custom_individual
 # 
 # Refer all file reference to work the current working directory which is
 # the directory from which the script was qsubbed
