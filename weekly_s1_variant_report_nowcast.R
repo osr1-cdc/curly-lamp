@@ -264,23 +264,23 @@ if(state_source == "state_tag_included"){
     # fill in 0's for rows that didn't have any sequences dropped
     dropped_sequences[is.na(count) & reason == 'n_dropped_dropped_geni_excluded_samples', 'count' := 0]
 
-    # samples with S1_group 'Other' should be dropped
-    ov_by_wk <- svy.dat[ other_variant, .(count = .N), by = yr_wk]
-    ov_by_wk[,'yr_wk' := as.Date(yr_wk)]
-    # merge in the counts of dropped_geni_excluded_samples
-    if(nrow(ov_by_wk) > 0)
-      dropped_sequences <- rbind(
-        dropped_sequences[!(week %in% ov_by_wk$yr_wk & reason == 'n_dropped_other_s1id_samples')],
-        ov_by_wk[, .('week' = yr_wk, 'reason' = 'n_dropped_dropped_other_s1id_samples', 'count' = count)]
-      )
-    # fill in 0's for rows that didn't have any sequences dropped
-    dropped_sequences[is.na(count) & reason == 'n_dropped_dropped_other_s1id_samples', 'count' := 0]
+    # # samples with S1_group 'Other' should be dropped
+    # ov_by_wk <- svy.dat[ other_variant, .(count = .N), by = yr_wk]
+    # ov_by_wk[,'yr_wk' := as.Date(yr_wk)]
+    # # merge in the counts of dropped_geni_excluded_samples
+    # if(nrow(ov_by_wk) > 0)
+    #   dropped_sequences <- rbind(
+    #     dropped_sequences[!(week %in% ov_by_wk$yr_wk & reason == 'n_dropped_other_s1id_samples')],
+    #     ov_by_wk[, .('week' = yr_wk, 'reason' = 'n_dropped_dropped_other_s1id_samples', 'count' = count)]
+    #   )
+    # # fill in 0's for rows that didn't have any sequences dropped
+    # dropped_sequences[is.na(count) & reason == 'n_dropped_dropped_other_s1id_samples', 'count' := 0]
   }
   # only include samples where both the lab and the variant are defined
   src.dat = subset(x = svy.dat,
                    !invalid_labname & # SOURCE != "OTHER"
                      !invalid_variant & # !is.na(S1_GROUP)
-                     !other_variant & # s1_group is not 'Other'
+                     #!other_variant & # s1_group is not 'Other'
                      yr_wk >= time_start) # filter out old sequences to speed everything up
 } else {
   # only include samples from these labs (i.e. no state-tagged data)
@@ -298,8 +298,7 @@ if(state_source == "state_tag_included"){
                                  "MAKO MEDICAL"))
   # exclude samples where the variant has not been identified
   src.dat = subset(x = src.dat,
-                   !is.na(S1_GROUP) &
-                   S1_GROUP != 'Other')
+                   !is.na(S1_GROUP) )
   # this *might* be adequate for identifying the FULGENT sequences that were NOT
   # part of NS3 or CDC sequencing
   #    & !is.na(src.dat$covv_accession_id)
