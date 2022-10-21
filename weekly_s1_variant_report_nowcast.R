@@ -203,10 +203,6 @@ output_folder <- paste0("/results/", results_folder)
 # create a tag for the filenames to differentiate results from different runs
 tag <- paste0("_",state_source,"_Run", opts$run_number, custom_tag)
 
-# ### choose vocs ----------------------------------------------------------------
-# Here, voc refers to the s1_groups to be analyzed
-voc <- setdiff(unique(svy.dat$S1_GROUP), c('Other'))
-voc <- voc[!is.na(voc)]
 
 ############# REMOVE specified labs
 if (remove_utahphl){
@@ -236,6 +232,8 @@ if(state_source == "state_tag_included"){
   invalid_labname <- svy.dat$SOURCE == 'OTHER'
   # index of sequences to be excluded b/c they were excluded in geni analysis due to sequence quality
   invalid_variant <- is.na(svy.dat$S1_GROUP)
+  # index of sequences to be excluded b/c they do not belong to any s1_group > 0.5% (thus assigned as 'Other')
+  other_variant <- svy.dat$S1_GROUP == 'Other'
 
   # count sequences that are excluded by week
   if(file.exists(paste0(script.basename, "/data/backup_",data_date, "/dropped_sequence_counts_", data_date, custom_tag, "_v1.csv"))){
@@ -254,8 +252,6 @@ if(state_source == "state_tag_included"){
     # fill in 0's for rows that didn't have any sequences dropped
     dropped_sequences[is.na(count) & reason == 'n_dropped_invalid_lab_name', 'count' := 0]
 
-
-
     # samples excluded in geni analysis should be dropped
     iv_by_wk <- svy.dat[ invalid_variant, .(count = .N), by = yr_wk]
     iv_by_wk[,'yr_wk' := as.Date(yr_wk)]
@@ -267,11 +263,24 @@ if(state_source == "state_tag_included"){
       )
     # fill in 0's for rows that didn't have any sequences dropped
     dropped_sequences[is.na(count) & reason == 'n_dropped_dropped_geni_excluded_samples', 'count' := 0]
+
+    # samples with S1_group 'Other' should be dropped
+    ov_by_wk <- svy.dat[ other_variant, .(count = .N), by = yr_wk]
+    ov_by_wk[,'yr_wk' := as.Date(yr_wk)]
+    # merge in the counts of dropped_geni_excluded_samples
+    if(nrow(ov_by_wk) > 0)
+      dropped_sequences <- rbind(
+        dropped_sequences[!(week %in% ov_by_wk$yr_wk & reason == 'n_dropped_other_s1id_samples')],
+        ov_by_wk[, .('week' = yr_wk, 'reason' = 'n_dropped_dropped_other_s1id_samples', 'count' = count)]
+      )
+    # fill in 0's for rows that didn't have any sequences dropped
+    dropped_sequences[is.na(count) & reason == 'n_dropped_dropped_other_s1id_samples', 'count' := 0]
   }
   # only include samples where both the lab and the variant are defined
   src.dat = subset(x = svy.dat,
                    !invalid_labname & # SOURCE != "OTHER"
                      !invalid_variant & # !is.na(S1_GROUP)
+                     !other_variant & # s1_group is not 'Other'
                      yr_wk >= time_start) # filter out old sequences to speed everything up
 } else {
   # only include samples from these labs (i.e. no state-tagged data)
@@ -289,11 +298,20 @@ if(state_source == "state_tag_included"){
                                  "MAKO MEDICAL"))
   # exclude samples where the variant has not been identified
   src.dat = subset(x = src.dat,
-                   !is.na(S1_GROUP))
+                   !is.na(S1_GROUP) &
+                   S1_GROUP != 'Other')
   # this *might* be adequate for identifying the FULGENT sequences that were NOT
   # part of NS3 or CDC sequencing
   #    & !is.na(src.dat$covv_accession_id)
 }
+
+# ### choose vocs ----------------------------------------------------------------
+# Here, voc refers to the s1_groups to be analyzed
+# voc <- setdiff(unique(svy.dat$S1_GROUP), c('Other'))
+# voc <- voc[!is.na(voc)]
+# Remove S1_GROUP that is "Other" from the analysis
+voc <- unique(src.dat$S1_GROUP)
+#voc <- voc[voc != 'Other' & !is.na(voc)]
 
 
 ### SGTF weights ---------------------------------------------------------------
@@ -446,7 +464,7 @@ src.dat = subset(x = src.dat,
 #src.dat$VARIANT <- ifelse(as.character(src.dat$S1_GROUP) != "Other", as.character(src.dat$S1_GROUP), as.character(src.dat$S1_GROUP_KEY))
 #If include "Other" as an aggregated group into model
 src.dat$VARIANT = as.character(src.dat$S1_GROUP)
-voc <- c(voc, 'Other')
+
 # create another column for the varients of interest
 # this is only used to get (unweighted) counts of the sequences by lineage (used in all runs)
 #src.dat$VARIANT2 = as.character(src.dat$S1_GROUP)
@@ -655,7 +673,7 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
 
   # get the relevant fortnights from the data
   # (should this be sorted?)
-  ftnts = (unique(dat2$FORTNIGHT_END))
+  ftnts = sort((unique(dat2$FORTNIGHT_END)))
 
   # skip running this if only running/testing the nowcast model.
   # (This section takes 90+% of the time required to run this script.)
@@ -737,63 +755,63 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
                      cv.mean  = ests[6,],
                      deff     = ests[7,])
 
-    ## make predictions for the "other" variants (following the same steps)
-    others = expand.grid(Variant          = "Other",
-                         Fortnight_ending = ftnts,
-                         USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
+    # ## make predictions for the "other" variants (following the same steps)
+    # others = expand.grid(Variant          = "Other",
+    #                      Fortnight_ending = ftnts,
+    #                      USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
 
-    # function to get the proportion estimates & CI (for "other" variants)
-    others_ftnt_ests_function <- function(others, svyDES){
-      ests.others = apply(X = others,
-                          MARGIN = 1,
-                          FUN = function(rr) myciprop(voc = voc, # "Other" isn't in the Nowcast model; if voc is a vector, myciprop will return the aggregated proportion. So feed in all the vocs, then subtract from 1 to get "Other" estimates.
-                                                      geoid = rr[1],
-                                                      svy = subset(svyDES,
-                                                                   FORTNIGHT_END == rr[2]),
-                                                      str = FALSE))
-      return(ests.others)
-    }
+    # # function to get the proportion estimates & CI (for "other" variants)
+    # others_ftnt_ests_function <- function(others, svyDES){
+    #   ests.others = apply(X = others,
+    #                       MARGIN = 1,
+    #                       FUN = function(rr) myciprop(voc = voc, # "Other" isn't in the Nowcast model; if voc is a vector, myciprop will return the aggregated proportion. So feed in all the vocs, then subtract from 1 to get "Other" estimates.
+    #                                                   geoid = rr[1],
+    #                                                   svy = subset(svyDES,
+    #                                                                FORTNIGHT_END == rr[2]),
+    #                                                   str = FALSE))
+    #   return(ests.others)
+    # }
 
-    if(use_parallel){
-      # use a tryCatch just in case the parallel operation fails
-      ests.others <- tryCatch(expr = { # "expr" is what we want to run (not in a function form, unlike "error" and "warning")
-        # split the rows of data into "ncores" sets
-        cut_list <- split(x = others,
-                          f = rep(1:ncores,
-                                  each = ceiling(nrow(others)/ncores),
-                                  length.out = nrow(others)))
+    # if(use_parallel){
+    #   # use a tryCatch just in case the parallel operation fails
+    #   ests.others <- tryCatch(expr = { # "expr" is what we want to run (not in a function form, unlike "error" and "warning")
+    #     # split the rows of data into "ncores" sets
+    #     cut_list <- split(x = others,
+    #                       f = rep(1:ncores,
+    #                               each = ceiling(nrow(others)/ncores),
+    #                               length.out = nrow(others)))
 
-        # perform the calculations on the cluster
-        others_list <- parallel::parLapply(cl = cl,
-                                           X = cut_list,
-                                           fun = others_ftnt_ests_function,
-                                           svyDES = svyDES)
+    #     # perform the calculations on the cluster
+    #     others_list <- parallel::parLapply(cl = cl,
+    #                                        X = cut_list,
+    #                                        fun = others_ftnt_ests_function,
+    #                                        svyDES = svyDES)
 
-        # combine the results into a single dataframe
-        do.call(what = 'cbind', args = others_list)
-      },
-      error = function(cond) { # if "expr" throws an error, do this instead of actually stopping
-        message('Parallel execution of biweekly "other" weighted proportions failed. Running in series instead.')
-        message("Here's the original error message:")
-        message(cond)
-        # Choose a return value in case of error
-        return(others_ftnt_ests_function(others = others, svyDES = svyDES))
-      })
-    } else ests.others <- others_ftnt_ests_function(others = others, svyDES = svyDES)
+    #     # combine the results into a single dataframe
+    #     do.call(what = 'cbind', args = others_list)
+    #   },
+    #   error = function(cond) { # if "expr" throws an error, do this instead of actually stopping
+    #     message('Parallel execution of biweekly "other" weighted proportions failed. Running in series instead.')
+    #     message("Here's the original error message:")
+    #     message(cond)
+    #     # Choose a return value in case of error
+    #     return(others_ftnt_ests_function(others = others, svyDES = svyDES))
+    #   })
+    # } else ests.others <- others_ftnt_ests_function(others = others, svyDES = svyDES)
 
-    # add in the estimates to the dataframe (for "other" variants)
-    others = cbind(others,
-                   Share    = 1-ests.others[1,],
-                   Share_lo = 1-ests.others[3,],
-                   Share_hi = 1-ests.others[2,],
-                   DF       = ests.others[4,],
-                   eff.size = ests.others[5,],
-                   cv.mean  = ests.others[6,],
-                   deff     = ests.others[7,])
+    # # add in the estimates to the dataframe (for "other" variants)
+    # others = cbind(others,
+    #                Share    = 1-ests.others[1,],
+    #                Share_lo = 1-ests.others[3,],
+    #                Share_hi = 1-ests.others[2,],
+    #                DF       = ests.others[4,],
+    #                eff.size = ests.others[5,],
+    #                cv.mean  = ests.others[6,],
+    #                deff     = ests.others[7,])
 
-    # combine the estimates for the vocs with the estimates for "other" variants
-    all.ftnt = rbind(all.ftnt,
-                     others)
+    # # combine the estimates for the vocs with the estimates for "other" variants
+    # all.ftnt = rbind(all.ftnt,
+    #                  others)
 
     # create a table of counts by variant, time period, and HHS region
     raw_counts_REG <- aggregate(count ~ VARIANT2 + FORTNIGHT_END + HHS,
@@ -1046,68 +1064,68 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
                      eff.size = ests[5,],
                      cv.mean  = ests[6,])
 
-    # get predictions for the non-focal ("other") variants grouped together
-    # (and reorder columns for convenience)
-    others = expand.grid(Variant = "Other",
-                         Week_of = wks,
-                         USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
+    # # get predictions for the non-focal ("other") variants grouped together
+    # # (and reorder columns for convenience)
+    # others = expand.grid(Variant = "Other",
+    #                      Week_of = wks,
+    #                      USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
 
-    # function to get the proportion estimates & CI (for "other" variants)
-    # get predictions & CI for "other" (grouped) variant in each week and region
-    # (using survey design but NOT multinomial nowcast model)
-    others_wkly_ests_function <- function(others, svyDES){
-      ests.others <- apply(X = others,
-                           MARGIN = 1,
-                           FUN = function(rr) myciprop(voc = voc,
-                                                       geoid = rr[1],
-                                                       svy = subset(svyDES, yr_wk == rr[2]),
-                                                       str =  FALSE))
-      return(ests.others)
-    }
+    # # function to get the proportion estimates & CI (for "other" variants)
+    # # get predictions & CI for "other" (grouped) variant in each week and region
+    # # (using survey design but NOT multinomial nowcast model)
+    # others_wkly_ests_function <- function(others, svyDES){
+    #   ests.others <- apply(X = others,
+    #                        MARGIN = 1,
+    #                        FUN = function(rr) myciprop(voc = voc,
+    #                                                    geoid = rr[1],
+    #                                                    svy = subset(svyDES, yr_wk == rr[2]),
+    #                                                    str =  FALSE))
+    #   return(ests.others)
+    # }
 
-    if(use_parallel){
-      # use a tryCatch just in case the parallel operation fails
-      ests.others <- tryCatch(expr = { # "expr" is what we want to run (not in a function form, unlike "error" and "warning")
-        # split the rows of data into "ncores" sets
-        cut_list <- split(x = others,
-                          f = rep(1:ncores,
-                                  each = ceiling(nrow(others)/ncores),
-                                  length.out = nrow(others)))
+    # if(use_parallel){
+    #   # use a tryCatch just in case the parallel operation fails
+    #   ests.others <- tryCatch(expr = { # "expr" is what we want to run (not in a function form, unlike "error" and "warning")
+    #     # split the rows of data into "ncores" sets
+    #     cut_list <- split(x = others,
+    #                       f = rep(1:ncores,
+    #                               each = ceiling(nrow(others)/ncores),
+    #                               length.out = nrow(others)))
 
-        # perform the calculations on the cluster
-        others_list <- parallel::parLapply(cl = cl,
-                                           X = cut_list,
-                                           fun = others_wkly_ests_function,
-                                           svyDES = svyDES)
+    #     # perform the calculations on the cluster
+    #     others_list <- parallel::parLapply(cl = cl,
+    #                                        X = cut_list,
+    #                                        fun = others_wkly_ests_function,
+    #                                        svyDES = svyDES)
 
-        # close the cluster
-        parallel::stopCluster(cl)
+    #     # close the cluster
+    #     parallel::stopCluster(cl)
 
-        # combine the results into a single dataframe
-        do.call(what = 'cbind', args = others_list)
-      },
-      error = function(cond) { # if "expr" throws an error, do this instead of actually stopping
-        message('Parallel execution of weekly "other" weighted proportions failed. Running in series instead.')
-        message("Here's the original error message:")
-        message(cond)
-        # Choose a return value in case of error
-        return(others_wkly_ests_function(others = others, svyDES = svyDES))
-      })
-    } else ests.others <- others_wkly_ests_function(others = others, svyDES = svyDES)
+    #     # combine the results into a single dataframe
+    #     do.call(what = 'cbind', args = others_list)
+    #   },
+    #   error = function(cond) { # if "expr" throws an error, do this instead of actually stopping
+    #     message('Parallel execution of weekly "other" weighted proportions failed. Running in series instead.')
+    #     message("Here's the original error message:")
+    #     message(cond)
+    #     # Choose a return value in case of error
+    #     return(others_wkly_ests_function(others = others, svyDES = svyDES))
+    #   })
+    # } else ests.others <- others_wkly_ests_function(others = others, svyDES = svyDES)
 
-    # add the predictions into the dataframe
-    others = cbind(others,
-                   Share    = 1-ests.others[1,],
-                   Share_lo = 1-ests.others[3,],
-                   Share_hi = 1-ests.others[2,],
-                   DF       = ests.others[4,],
-                   eff.size = ests.others[5,],
-                   cv.mean  = ests.others[6,])
+    # # add the predictions into the dataframe
+    # others = cbind(others,
+    #                Share    = 1-ests.others[1,],
+    #                Share_lo = 1-ests.others[3,],
+    #                Share_hi = 1-ests.others[2,],
+    #                DF       = ests.others[4,],
+    #                eff.size = ests.others[5,],
+    #                cv.mean  = ests.others[6,])
 
-    # combine estimates for individual variants with the estimates for the "other"
-    # (grouped) variants
-    all.wkly = rbind(all.wkly,
-                     others)
+    # # combine estimates for individual variants with the estimates for the "other"
+    # # (grouped) variants
+    # all.wkly = rbind(all.wkly,
+    #                  others)
 
     # Add a column for the last day of each week
     all.wkly$WEEK_END = as.Date(all.wkly$Week_of) + 6
@@ -1663,7 +1681,7 @@ if ( grepl("Run2",tag) ){
   doubling_time_hi = log(2)/gr_hi_link * 7
 
   # create a dataframe of variant shares & growth rates
-  gr_tab = data.frame(variant          = unique(model_vars, "Other"),
+  gr_tab = data.frame(variant          = model_vars,
                       variant_share    = (100 * us.summary$p_i),
                       variant_share_lo = 100 * (us.summary$p_i - 1.96 * us.summary$se.p_i),
                       variant_share_hi = 100 * (us.summary$p_i + 1.96 * us.summary$se.p_i),
@@ -1980,7 +1998,7 @@ if ( grepl("Run2",tag) ){
     doubling_time_hi = log(2)/gr_hi_link * 7
 
     # create a dataframe of variant shares & growth rates
-    gr_tab_hhs = data.frame(variant          = unique(model_vars, "Other"),
+    gr_tab_hhs = data.frame(variant          = model_vars,
                             variant_share    = (100 * hhs.summary$p_i),
                             variant_share_lo = 100 * (hhs.summary$p_i - 1.96 * hhs.summary$se.p_i),
                             variant_share_hi = 100 * (hhs.summary$p_i + 1.96 * hhs.summary$se.p_i),
@@ -2122,21 +2140,21 @@ if ( grepl("Run2",tag) ){
 # Aggregation is currently not needed for s1_group proportion analysis. 
 # But in order to modify the codes to the least amount and for future compatibility, generate a agg_var_mat with
 # the same amount of columns and rows (model_vars as column name and row names) and empty  matrix.
-if ('Other' %in% model_vars) {
-  agg_var_mat <- matrix(data = 0,
-                        nrow = 1,
-                        ncol = length(model_vars))
-  colnames(agg_var_mat) <- model_vars
-  rownames(agg_var_mat) <- c("Other Aggregated")
-  agg_var_mat['Other Aggregated','Other'] <- 1
-} else {
-  agg_var_mat <- matrix(data = 0,
-                        nrow = 1,
-                        ncol = (length(model_vars)+1))
-  colnames(agg_var_mat) <- c(model_vars,"Other")
-  rownames(agg_var_mat) <- c("Other Aggregated")
-  agg_var_mat['Other Aggregated','Other'] <- 1
-}
+# if ('Other' %in% model_vars) {
+#   agg_var_mat <- matrix(data = 0,
+#                         nrow = 1,
+#                         ncol = length(model_vars))
+#   colnames(agg_var_mat) <- model_vars
+#   rownames(agg_var_mat) <- c("Other Aggregated")
+#   agg_var_mat['Other Aggregated','Other'] <- 1
+# } else {
+#   agg_var_mat <- matrix(data = 0,
+#                         nrow = 1,
+#                         ncol = (length(model_vars)+1))
+#   colnames(agg_var_mat) <- c(model_vars,"Other")
+#   rownames(agg_var_mat) <- c("Other Aggregated")
+#   agg_var_mat['Other Aggregated','Other'] <- 1
+# }
 
   ### Fortnightly estimates -----
   #define fortnights and regions to get nowcasts for
@@ -2178,7 +2196,7 @@ if ('Other' %in% model_vars) {
                            model_week = wk,
                            HHS = geoid
                          ),
-                         composite_variant = agg_var_mat)
+                         composite_variant = NULL)
 
       # calculate the SE of the growth rate
       se.gr = with(data = ests,
@@ -2208,7 +2226,7 @@ if ('Other' %in% model_vars) {
       ests = data.table::data.table(
         USA_or_HHSRegion = rgn,
         Fortnight_ending = as.Date(ftn, origin="1970-01-01"),
-        Variant = c(unique(model_vars, "Other"),
+        Variant = c(model_vars,
                     row.names(ests$composite_variant$matrix)),
         Share = c(ests$p_i,
                   ests$composite_variant$p_i),
@@ -2331,15 +2349,15 @@ if ('Other' %in% model_vars) {
 
   # Format output for the run2 lineage list
   # exclude the lineages that were aggregated (other than "Other")
-  drop_lin <- row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"]
+  # drop_lin <- row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"]
   # alternatively, just include only the variants that are in c(voc, "Other Aggregated")
 
   # Only include variants that are NOT in the list provided
   # (also use "Other Aggregated" instead of "Other"; this requires dropping the variants that were aggregated into "Other Aggregated")
-  run_2 = proj.res[Variant %notin% c(drop_lin, "Other", colnames(agg_var_mat['Other Aggregated',,drop=F])[agg_var_mat['Other Aggregated',,drop=F] > 0])]
-
+  # run_2 = proj.res[Variant %notin% c(drop_lin, "Other", colnames(agg_var_mat['Other Aggregated',,drop=F])[agg_var_mat['Other Aggregated',,drop=F] > 0])]
+  run_2 = proj.res
   # change the name of "Other Aggregated" to "Other" to match other output files
-  run_2[run_2$Variant=="Other Aggregated","Variant"] <- "Other"
+  # run_2[run_2$Variant=="Other Aggregated","Variant"] <- "Other"
 
   # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
   if (!all(run_2[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Fortnight_ending')][,unique(round(total_share, 5))] == 1)){
@@ -2412,7 +2430,7 @@ if ('Other' %in% model_vars) {
                            model_week = wk,
                            HHS = geoid
                          ),
-                         composite_variant = agg_var_mat)
+                         composite_variant = NULL)
 
       # calculate the SE of the growth rate
       se.gr = with(data = ests,
@@ -2442,7 +2460,7 @@ if ('Other' %in% model_vars) {
       ests = data.table::data.table(
         USA_or_HHSRegion = rgn,
         Week_ending = week_ending, # this no longer identifies a single estimate.
-        Variant = c(unique(model_vars, "Other"),
+        Variant = c(model_vars,
                     row.names(ests$composite_variant$matrix)),
         Share = c(ests$p_i,
                   ests$composite_variant$p_i),
@@ -2627,15 +2645,15 @@ if ('Other' %in% model_vars) {
 
   # Format output for the run2 lineage list
   # exclude the lineages that were aggregated (other than "Other")
-  drop_lin <- row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"]
+  #drop_lin <- row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"]
   # alternatively, just include only the variants that are in c(voc, "Other Aggregated")
 
   # Only include variants that are NOT in the list provided
   # (also use "Other Aggregated" instead of "Other"; this requires dropping the variants that were aggregated into "Other Aggregated")
-  run_2 = proj.res[Variant %notin% c(drop_lin, "Other", colnames(agg_var_mat['Other Aggregated',,drop=F])[agg_var_mat['Other Aggregated',,drop=F] > 0])]
-
+  #run_2 = proj.res[Variant %notin% c(drop_lin, "Other", colnames(agg_var_mat['Other Aggregated',,drop=F])[agg_var_mat['Other Aggregated',,drop=F] > 0])]
+  run_2 = proj.res
   # change the name of "Other Aggregated" to "Other" to match other output files
-  run_2[run_2$Variant=="Other Aggregated","Variant"] <- "Other"
+  #run_2[run_2$Variant=="Other Aggregated","Variant"] <- "Other"
 
   # weekly results = remove daily results & daily columns
   run_2_weekly <- data.table:::subset.data.table(x = run_2,
