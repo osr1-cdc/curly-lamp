@@ -42,7 +42,7 @@ data_date <- Sys.Date()
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_folder <- paste0("results_", data_date, "_R346T_individual")
+results_folder <- paste0("results_", data_date, "_set1")
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
@@ -68,9 +68,11 @@ voc1 = c(# "AY.1", "AY.2",
          "BA.2.75",
          "BA.2.75.2",
          "BF.7",
+         "BF.11",
          'BA.4',
          'BA.4.6',
          'BA.5',
+         'BA.5.2.6',
          "BQ.1",
          "BQ.1.1",
          "B.1.617.2", # Delta
@@ -94,21 +96,24 @@ voc2_manual = c(NA)
 # optionally specify additional variants that will be added on to the lineages
 # from the SQL query in "variant_surveillance_system.R"
 # (this will not have any effect if "voc2_manual" is used)
-voc2_additional = c(#"AY.1", "AY.2",
-                    "BA.2.75.2",
-                    "BQ.1",
-                    "BQ.1.1",
-                    "BA.1",
-                    "BA.1.1",
-                    "BA.2",
-                    "BA.2.12",
-                    "BA.2.12.1",
-                    "BA.2.75",
-                    "BF.7",
+voc2_additional = c(
+                    'BA.2.75.2',
+                    'BQ.1',
+                    'BQ.1.1',
+                    'BA.1',
+                    'BA.1.1',
+                    'BA.2',
+                    'BA.2.12',
+                    'BA.2.12.1',
+                    'BA.2.75',
+                    'BF.7',
+                    'BF.11',
                     # "BA.3",
                     'BA.4',
                     'BA.4.6',
                     'BA.5',
+                    'BA.5.2.6',
+                    'XBB',
                     "B.1.617.2", # Delta
                     "B.1.1.529" # Omicron
                     )
@@ -140,7 +145,9 @@ voc3 = c("B.1.1.7",   # Alpha  # and Q.1 to 8*
          "BA.4",
          "BA.4.6",
          "BA.5",
+         'BA.5.2.6',
          "BF.7",
+         "BF.11",
          "BQ.1",
          "BQ.1.1")
 # define an alternate set of vocs
@@ -209,7 +216,7 @@ Q.1_3_agg   = TRUE
 B.1.621_agg = TRUE
 B429_7_agg  = TRUE
 B.1.1.529_agg = TRUE  # aggregate omicrons
-
+XBB_agg_to_other = TRUE  # aggregate XBB to Other
 
 # Argument determining whether figures should be output as jpgs
 fig_gen_run = TRUE
@@ -291,9 +298,9 @@ force_aggregate_R346T <- FALSE
 # "force_aggregate_omicron_except".
 # THIS WILL LIKELY NEED TO BE REPLACED IN THE FUTURE, BUT IT'S HERE TO AVOID
 # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
-force_aggregate_omicron <- TRUE
+force_aggregate_omicron <- FALSE
 # list omicron sublineages that will not be aggregated (if they are also in voc) (these are the only Omicron sublineages that will be permitted)
-force_aggregate_omicron_except <- c('BA.1','BA.2','BA.3','BA.4','BA.5','BA.2.12.1','BA.4.6', 'BA.2.75', 'BF.7', 'BA.2.75.2', 'BQ.1', 'BQ.1.1') # 'BA.2.12', 'BA.1.1'
+force_aggregate_omicron_except <- c('BA.1','BA.2','BA.3','BA.4','BA.5','BA.5.2.6', 'BA.2.12.1','BA.4.6', 'BA.2.75', 'BF.7', 'BF.11', 'BA.2.75.2', 'BQ.1', 'BQ.1.1') # 'BA.2.12', 'BA.1.1'
 
 
 # force-aggregate Delta sublineages
