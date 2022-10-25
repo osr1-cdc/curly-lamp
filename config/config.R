@@ -42,7 +42,7 @@ data_date <- Sys.Date()
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_folder <- paste0("results_", data_date, "_WOW")
+results_folder <- paste0("results_", data_date, "_set3")
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
@@ -106,12 +106,14 @@ voc2_additional = c(
                     'BA.2.12',
                     'BA.2.12.1',
                     'BA.2.75',
+                    'BN.1',
                     'BF.7',
                     'BF.11',
                     # "BA.3",
                     'BA.4',
                     'BA.4.6',
                     'BA.5',
+                    'BA.5.1.27',
                     'BA.5.2.6',
                     'XBB',
                     "B.1.617.2", # Delta
@@ -216,7 +218,7 @@ Q.1_3_agg   = TRUE
 B.1.621_agg = TRUE
 B429_7_agg  = TRUE
 B.1.1.529_agg = TRUE  # aggregate omicrons
-XBB_agg_to_other = TRUE  # aggregate XBB to Other
+XBB_agg_to_other = FALSE  # aggregate XBB to Other
 
 # Argument determining whether figures should be output as jpgs
 fig_gen_run = TRUE
@@ -298,7 +300,7 @@ force_aggregate_R346T <- FALSE
 # "force_aggregate_omicron_except".
 # THIS WILL LIKELY NEED TO BE REPLACED IN THE FUTURE, BUT IT'S HERE TO AVOID
 # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
-force_aggregate_omicron <- TRUE
+force_aggregate_omicron <- FALSE
 # list omicron sublineages that will not be aggregated (if they are also in voc) (these are the only Omicron sublineages that will be permitted)
 force_aggregate_omicron_except <- c('BA.1','BA.2','BA.3','BA.4','BA.5','BA.5.2.6', 'BA.2.12.1','BA.4.6', 'BA.2.75', 'BF.7', 'BF.11', 'BA.2.75.2', 'BQ.1', 'BQ.1.1') # 'BA.2.12', 'BA.1.1'
 
