@@ -2749,15 +2749,21 @@ if ( grepl("Run2",tag) ){
           if( length(grep("(^BF\\.7)",run1_lineages, perl = T, value = T)) == 1 ){
             ll_agg <- grep("(^BA\\.5)(?![0-9])|(^B[EQ]\\.)|(^BF\\.)(?!7)",BA_vars, perl = T, value = T)
           }
-          if( length(grep("(^BF\\.7)|(^BQ\\.1)",run1_lineages, perl = T, value = T)) == 3 ){
-            ll_agg <- grep("(^BA\\.5)(?![0-9])|(^BE\\.)|(^BF\\.)(?!7)",BA_vars, perl = T, value = T)
+          if( length(grep("(^BF\\.7)|(^BQ\\.1)|(^BA\\.5\\.2\\.6)|(^BF\\.11)",run1_lineages, perl = T, value = T)) == 5 ){
+            ll_agg <- grep("(^BA\\.5)(?!(\\.2\\.6(?![0-9]))|[0-9])|(^BE\\.)|(^BF\\.)(?!7(?![0-9])|11(?![0-9]))",BA_vars, perl = T, value = T)
           }
+        }
+        if(ll == 'BA.5.2.6') {
+          ll_agg <- grep("(^BA\\.5\\.2\\.6)(?![0-9])",BA_vars, perl = T, value = T)
+        }
+        if(ll == 'BF.11') {
+          ll_agg <- grep("(^BF\\.11)(?![0-9])",BA_vars, perl = T, value = T)
         }
         if(ll == 'BF.7') {
           ll_agg <- grep("(^BF\\.7)(?![0-9])",BA_vars, perl = T, value = T)
         }
         if(ll == 'BQ.1') {
-          ll_agg <- grep("(^BQ\\.1)(?![0-9]|(\\.1))",BA_vars, perl = T, value = T)
+          ll_agg <- grep("(^BQ\\.1)(?![0-9]|(\\.1(?![0-9])))",BA_vars, perl = T, value = T)
         }
         if(ll == 'BQ.1.1') {
           ll_agg <- grep("(^BQ\\.1\\.1)(?![0-9])",BA_vars, perl = T, value = T)
