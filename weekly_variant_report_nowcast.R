@@ -2753,17 +2753,21 @@ if ( grepl("Run2",tag) ){
         if(ll == 'BA.5') {
           #
           ll_agg <- grep("(^BA\\.5)(?![0-9])|(^B[EFQ]\\.)",BA_vars, perl = T, value = T)
-          # this will keep BF.7 seperate ONLY if BF.5 is *ALSO* listed in run1 lineages
-          if( length(grep("(^BF\\.7)",run1_lineages, perl = T, value = T)) == 1 ){
-            ll_agg <- grep("(^BA\\.5)(?![0-9])|(^B[EQ]\\.)|(^BF\\.)(?!7)",BA_vars, perl = T, value = T)
-          }
-          if( length(grep("(^BF\\.7)|(^BQ\\.1)|(^BA\\.5\\.2\\.6)|(^BF\\.11)",run1_lineages, perl = T, value = T)) == 5 ){
-            if('BA.5.1.27' %in% run1_lineages) {
-              ll_agg <- grep("(^BA\\.5)(?!(\\.2\\.6(?![0-9]))|(\\.1\\.27(?![0-9]))|[0-9])|(^BE\\.)|(^BF\\.)(?!7(?![0-9])|11(?![0-9]))",BA_vars, perl = T, value = T)
-            } else {
-              ll_agg <- grep("(^BA\\.5)(?!(\\.2\\.6(?![0-9]))|[0-9])|(^BE\\.)|(^BF\\.)(?!7(?![0-9])|11(?![0-9]))",BA_vars, perl = T, value = T)
-            }
-          }
+          # this will keep the sublineage seperate if it is ALSO listed in run1 lineages
+          
+          if('BF.7' %in% run1_lineages)      ll_agg <- setdiff(ll_agg, c('BF.7'))
+          if('BQ.1' %in% run1_lineages)      ll_agg <- setdiff(ll_agg, c('BQ.1'))
+          if('BQ.1.1' %in% run1_lineages)    ll_agg <- setdiff(ll_agg, c('BQ.1.1'))
+          if('BA.5.2.6' %in% run1_lineages)  ll_agg <- setdiff(ll_agg, c('BA.5.2.6'))
+          if('BF.11' %in% run1_lineages)     ll_agg <- setdiff(ll_agg, c('BF.11'))
+          if('BA.5.1.27' %in% run1_lineages) ll_agg <- setdiff(ll_agg, c('BA.5.1.27'))
+          # if( length(grep("(^BF\\.7)|(^BQ\\.1)|(^BA\\.5\\.2\\.6)|(^BF\\.11)",run1_lineages, perl = T, value = T)) == 4 ){
+          #   if('BA.5.1.27' %in% run1_lineages) {
+          #     ll_agg <- grep("(^BA\\.5)(?!(\\.2\\.6(?![0-9]))|(\\.1\\.27(?![0-9]))|[0-9])|(^BE\\.)|(^BF\\.)(?!7(?![0-9])|11(?![0-9]))",BA_vars, perl = T, value = T)
+          #   } else {
+          #     ll_agg <- grep("(^BA\\.5)(?!(\\.2\\.6(?![0-9]))|[0-9])|(^BE\\.)|(^BF\\.)(?!7(?![0-9])|11(?![0-9]))",BA_vars, perl = T, value = T)
+          #   }
+          # }
         }
         if(ll == 'BA.5.2.6') {
           ll_agg <- grep("(^BA\\.5\\.2\\.6)(?![0-9])",BA_vars, perl = T, value = T)
