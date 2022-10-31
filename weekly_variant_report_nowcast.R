@@ -279,6 +279,11 @@ if ( force_aggregate_omicron & ('B.1.1.529' %in% voc) ){
   voc <- voc[ voc %notin% omicron_sublineages ]
 }
 
+# force aggregate XBB to other before analysis
+if (XBB_agg_to_other==TRUE) {
+  voc <- setdiff(voc, c('XBB'))
+}
+
 if (force_aggregate_delta){
   # Delta sublineages to exclude
   delta_sublineages <- voc[ grepl('^AY', voc, ignore.case = TRUE)]
@@ -738,7 +743,7 @@ if(B.1.1.529_agg==TRUE)  {
 # if XBB is in voc, aggregate its sublineages
 if('XBB' %in% voc) src.dat[src.dat$VARIANT %in% XBB[XBB %notin% voc],"VARIANT"] <- "XBB"
 
-if(force_aggregate_R346T==TRUE){
+if(force_aggregate_R346T==TRUE & length(grep("^R346T", unique(src.dat$VARIANT), perl=T))> 0){
   src.dat[src.dat$VARIANT %in% R346T_sublineages, "VARIANT"] <- "R346T"
 }
 
@@ -1297,6 +1302,48 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
                             ".csv"),
               row.names = FALSE)
 
+    # process dataframe and save to a format for direct hadoop upload
+    all.ftnt2_hadoop = data.frame(all.ftnt2[,c("USA_or_HHSRegion",
+                              "Fortnight_ending",
+                              "Variant",
+                              "Share",
+                              "Share_lo",
+                              "Share_hi",
+                              "count",
+                              "denom_count",
+                              "DF",
+                              "eff.size",
+                              "CI_width",
+                              "nchs_flag",
+                              "nchs_flag_wodf")])
+    all.ftnt2_hadoop[is.na(all.ftnt2_hadoop)] = '\\N'
+    all.ftnt2_hadoop[,14:15] = '\\N'
+    all.ftnt2_hadoop[,16] = 'weighted'
+    all.ftnt2_hadoop[,17] = 'biweekly'
+    all.ftnt2_hadoop[,18] = data_date
+    all.ftnt2_hadoop[,19] = paste0(results_tag, '_Run', opts$run_number)
+    all.ftnt2_hadoop[,20] = 1
+    all.ftnt2_hadoop[,21:24] = all.ftnt2[,c("cases", "cases_hi", "cases_lo")]
+    # all.ftnt2_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', all.ftnt2_hadoop[,3])
+    # all.ftnt2_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', all.ftnt2_hadoop[,3])
+    # all.ftnt2_hadoop[,3] = gsub(' Aggregated', '', all.ftnt2_hadoop[,3])
+    write.table(x = all.ftnt2_hadoop,
+              file = paste0(script.basename,
+                            output_folder, "/variant_share_weighted_",
+                            ci.type,
+                            "CI_",
+                            svy.type,
+                            "_",
+                            data_date,
+                            tag,
+                            "_",
+                            results_tag,
+                            "_hadoop.csv"),
+              quote = FALSE,
+              row.names = FALSE,
+              col.names = FALSE,
+              sep =  ",")
+
 
     ### Weekly estimates
     # (repeat of above code, but with weeks instead of fortnights)
@@ -1624,6 +1671,36 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
                             tag,
                             ".csv"),
               row.names=FALSE)
+
+    # process dataframe and save to a format for direct hadoop upload
+    all.wkly2_hadoop = data.frame(all.wkly2[,c(1:15)])
+    all.wkly2_hadoop[is.na(all.wkly2_hadoop)] = '\\N'
+    all.wkly2_hadoop[,16] = 'weighted'
+    all.wkly2_hadoop[,17] = 'weekly'
+    all.wkly2_hadoop[,18] = data_date
+    all.wkly2_hadoop[,19] = paste0(results_tag, '_Run', opts$run_number)
+    all.wkly2_hadoop[,20] = 1
+    all.wkly2_hadoop[,21:24] = all.wkly2[,c("cases", "cases_hi", "cases_lo")]
+    all.wkly2_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', all.wkly2_hadoop[,3])
+    all.wkly2_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', all.wkly2_hadoop[,3])
+    all.wkly2_hadoop[,3] = gsub(' Aggregated', '', all.wkly2_hadoop[,3])
+    write.table(x = all.wkly2_hadoop,
+              file = paste0(script.basename,
+                            output_folder, "/variant_share_weekly_weighted_",
+                            ci.type,
+                            "CI_",
+                            svy.type,
+                            "_",
+                            data_date,
+                            tag,
+                            "_",
+                            results_tag,
+                            "_hadoop.csv"),
+              quote = FALSE,
+              row.names = FALSE,
+              col.names = FALSE,
+              sep = ",")
+
   }
 } # end run (not 3)
 
@@ -2647,9 +2724,9 @@ if ( grepl("Run2",tag) ){
   if(TRUE) {
     # Check to see which lineages are in model_vars
     # this returns all variants with "AY" in the name
-    AY_vars = model_vars[grep("AY", model_vars)]
+    AY_vars = model_vars[grep("AY\\.", model_vars, perl=T)]
     # this returns all variants with BA. in the name (Omicron sublineages)
-    BA_vars = model_vars[grep("B[ACDEFGHJKLMNPQRSTUVWYZ]\\.|C[ABCDEFG]\\.", model_vars)]
+    BA_vars = model_vars[grep("^B[ACDEFGHJKLMNPQRSTUVWYZ]\\.|^C[ABCDEFG]\\.", model_vars, perl=T)]
 
     # get the names of the lineages included in Run1
     if(custom_lineages){
@@ -2669,7 +2746,7 @@ if ( grepl("Run2",tag) ){
     # all other variants to be aggregated (used for Run 1 & Run 2 results)
     Other_agg = model_vars[model_vars %notin% c(voc, 'B.1.617.2', 'B.1.1.529')] # also have to exclude any variants that have their own row in agg_var_mat. If delta is not included in VOC, then it gets included in both the delta row and the Other row.
     # Include XBB into Other_agg so it will be aggregated to Other for Run 1 results if XBB_agg
-    if (XBB_agg_to_other==TRUE) Other_agg = c(Other_agg, 'XBB')
+    if (XBB_agg_to_other==TRUE & 'XBB' %in% model_vars) Other_agg = c(Other_agg, 'XBB')
 
     # generate a matrix that indicates which lineages to aggregate for the nowcast
     # Columns are the lineages in the nowcast model, so all the defined lineages
@@ -2705,37 +2782,40 @@ if ( grepl("Run2",tag) ){
           ll_agg <- grep("(^BA\\.1\\.1)(?![0-9])",BA_vars, perl = T, value = T)
         }
         if (ll == 'BA.2') {
-          # this will always aggregate BA.2.12 into BA.2
-          if( length(grep("(^BA\\.2)(?![0-9])",run1_lineages, perl = T, value = T)) == 1 ){
-            ll_agg <- grep("(^BA\\.2)(?![0-9])",BA_vars, perl = T, value = T)
-          }
-          # this will keep BA.2.12.1 seperate ONLY if BA.2.12.1 is *ALSO* listed in run1_lineages
-          if( length(grep("(^BA\\.2\\.12\\.1)",run1_lineages, perl = T, value = T)) == 1 ){
-            ll_agg <- grep("(^BA\\.2)(?!([0-9])|(\\.12\\.1))",BA_vars, perl = T, value = T)
-          }
-          # this will keep BA.2.75 and BA.2.75.* seperate ONLY if BA.2.75 is *ALSO* listed in run1_lineages
-          if( length(grep("(^BA\\.2\\.75)",run1_lineages, perl = T, value = T)) >= 1 ){
-            ll_agg <- grep("(^BA\\.2)(?!([0-9])|(\\.75))",BA_vars, perl = T, value = T)
-          }
-          # this will keep ba.2.12.1 AND BA.2.75 and BA.2.75.* seperate ONLY if BOTH BA.2.12.1 and BA.2.75 are both *ALSO* listed in run1_lineages
-          if( length(grep("(^BA\\.2\\.75)",run1_lineages, perl = T, value = T)) >= 1 && length(grep("(BA\\.2\\.12\\.1)",run1_lineages, perl = T, value = T)) == 1 ){
-            if('BN.1' %in% run1_lineages) {
-              ll_agg <- grep("(^BA\\.2)(?!([0-9])|(\\.75)|(\\.12\\.1))",BA_vars, perl = T, value = T)
-            } else {
-              ll_agg <- grep("(^BA\\.2)(?!([0-9])|(\\.75)|(\\.12\\.1))|(^BN\\.1)(?![0-9])",BA_vars, perl = T, value = T)
-              }
-          }
+          ll_agg <- grep("(^BA\\.2)(?![0-9])",BA_vars, perl = T, value = T)
+          ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
+          # # this will always aggregate BA.2.12 into BA.2
+          # if( length(grep("(^BA\\.2)(?![0-9])",run1_lineages, perl = T, value = T)) == 1 ){
+          #   ll_agg <- grep("(^BA\\.2)(?![0-9])",BA_vars, perl = T, value = T)
+          # }
+          # # this will keep BA.2.12.1 seperate ONLY if BA.2.12.1 is *ALSO* listed in run1_lineages
+          # if( length(grep("(^BA\\.2\\.12\\.1)",run1_lineages, perl = T, value = T)) == 1 ){
+          #   ll_agg <- grep("(^BA\\.2)(?!([0-9])|(\\.12\\.1))",BA_vars, perl = T, value = T)
+          # }
+          # # this will keep BA.2.75 and BA.2.75.* seperate ONLY if BA.2.75 is *ALSO* listed in run1_lineages
+          # if( length(grep("(^BA\\.2\\.75)",run1_lineages, perl = T, value = T)) >= 1 ){
+          #   ll_agg <- grep("(^BA\\.2)(?!([0-9])|(\\.75))",BA_vars, perl = T, value = T)
+          # }
+          # # this will keep ba.2.12.1 AND BA.2.75 and BA.2.75.* seperate ONLY if BOTH BA.2.12.1 and BA.2.75 are both *ALSO* listed in run1_lineages
+          # if( length(grep("(^BA\\.2\\.75)",run1_lineages, perl = T, value = T)) >= 1 && length(grep("(BA\\.2\\.12\\.1)",run1_lineages, perl = T, value = T)) == 1 ){
+          #   if('BN.1' %in% run1_lineages) {
+          #     ll_agg <- grep("(^BA\\.2)(?!([0-9])|(\\.75)|(\\.12\\.1))",BA_vars, perl = T, value = T)
+          #   } else {
+          #     ll_agg <- grep("(^BA\\.2)(?!([0-9])|(\\.75)|(\\.12\\.1))|(^BN\\.1)(?![0-9])",BA_vars, perl = T, value = T)
+          #     }
+          # }
         }
         if(ll == 'BA.2.12.1') {
           ll_agg <- grep("(^BG\\.)(?![0-9])",BA_vars, perl = T, value = T)
         }
 
         if(ll == 'BA.2.75') {
-          ll_agg <- grep("(^BA\\.2\\.75)(?![0-9])",BA_vars, perl = T, value = T)
-          # this will keep BA.2.75 .2 seperate ONLY if BA.2.75.2 is *ALSO* listed in run1_lineages
-          if (length(grep("^BA\\.2\\.75\\.2",run1_lineages, perl=T, value = T)) == 1 ){
-          ll_agg <- grep("(^BA\\.2\\.75)(?![0-9]|(\\.2))",BA_vars, perl = T, value = T)
-          }
+          ll_agg <- grep("(^BA\\.2\\.75)(?![0-9])|(^BN\\.)(?![0-9])",BA_vars, perl = T, value = T)
+          ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
+          # # this will keep BA.2.75 .2 seperate ONLY if BA.2.75.2 is *ALSO* listed in run1_lineages
+          # if (length(grep("^BA\\.2\\.75\\.2",run1_lineages, perl=T, value = T)) == 1 ){
+          # ll_agg <- grep("(^BA\\.2\\.75)(?![0-9]|(\\.2))",BA_vars, perl = T, value = T)
+          # }
         }
         if (ll == 'BA.3') {
           ll_agg <- grep("(^BA\\.3)(?![0-9])",BA_vars, perl = T, value = T)
@@ -2750,17 +2830,27 @@ if ( grepl("Run2",tag) ){
         if (ll == 'BA.4.6'){
           ll_agg <- grep("(^BA\\.4\\.6)(?![0-9])",BA_vars, perl = T, value = T)
         }
+        if(ll == 'BQ.1.1') {
+          ll_agg <- grep("(^BQ\\.1\\.1)(?![0-9])",BA_vars, perl = T, value = T)
+        }
+        if(ll == 'BQ.1') {
+          ll_agg <- grep("(^BQ\\.1)(?![0-9])",BA_vars, perl = T, value = T)
+          ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
+        }
+        # if(ll == 'BA.5.2.6') {
+        #   ll_agg <- grep("(^BA\\.5\\.2\\.6)(?![0-9])",BA_vars, perl = T, value = T)
+        # }
+        if(ll == 'BF.11') {
+          ll_agg <- grep("(^BF\\.11)(?![0-9])",BA_vars, perl = T, value = T)
+        }
+        if(ll == 'BF.7') {
+          ll_agg <- grep("(^BF\\.7)(?![0-9])",BA_vars, perl = T, value = T)
+        }
         if(ll == 'BA.5') {
-          #
           ll_agg <- grep("(^BA\\.5)(?![0-9])|(^B[EFQ]\\.)",BA_vars, perl = T, value = T)
           # this will keep the sublineage seperate if it is ALSO listed in run1 lineages
-          
-          if('BF.7' %in% run1_lineages)      ll_agg <- setdiff(ll_agg, c('BF.7'))
-          if('BQ.1' %in% run1_lineages)      ll_agg <- setdiff(ll_agg, c('BQ.1'))
-          if('BQ.1.1' %in% run1_lineages)    ll_agg <- setdiff(ll_agg, c('BQ.1.1'))
-          if('BA.5.2.6' %in% run1_lineages)  ll_agg <- setdiff(ll_agg, c('BA.5.2.6'))
-          if('BF.11' %in% run1_lineages)     ll_agg <- setdiff(ll_agg, c('BF.11'))
-          if('BA.5.1.27' %in% run1_lineages) ll_agg <- setdiff(ll_agg, c('BA.5.1.27'))
+          ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
+          # if('BF.7' %in% run1_lineages)      ll_agg <- setdiff(ll_agg, c('BF.7'))
           # if( length(grep("(^BF\\.7)|(^BQ\\.1)|(^BA\\.5\\.2\\.6)|(^BF\\.11)",run1_lineages, perl = T, value = T)) == 4 ){
           #   if('BA.5.1.27' %in% run1_lineages) {
           #     ll_agg <- grep("(^BA\\.5)(?!(\\.2\\.6(?![0-9]))|(\\.1\\.27(?![0-9]))|[0-9])|(^BE\\.)|(^BF\\.)(?!7(?![0-9])|11(?![0-9]))",BA_vars, perl = T, value = T)
@@ -2768,21 +2858,6 @@ if ( grepl("Run2",tag) ){
           #     ll_agg <- grep("(^BA\\.5)(?!(\\.2\\.6(?![0-9]))|[0-9])|(^BE\\.)|(^BF\\.)(?!7(?![0-9])|11(?![0-9]))",BA_vars, perl = T, value = T)
           #   }
           # }
-        }
-        if(ll == 'BA.5.2.6') {
-          ll_agg <- grep("(^BA\\.5\\.2\\.6)(?![0-9])",BA_vars, perl = T, value = T)
-        }
-        if(ll == 'BF.11') {
-          ll_agg <- grep("(^BF\\.11)(?![0-9])",BA_vars, perl = T, value = T)
-        }
-        if(ll == 'BF.7') {
-          ll_agg <- grep("(^BF\\.7)(?![0-9])",BA_vars, perl = T, value = T)
-        }
-        if(ll == 'BQ.1') {
-          ll_agg <- grep("(^BQ\\.1)(?![0-9]|(\\.1(?![0-9])))",BA_vars, perl = T, value = T)
-        }
-        if(ll == 'BQ.1.1') {
-          ll_agg <- grep("(^BQ\\.1\\.1)(?![0-9])",BA_vars, perl = T, value = T)
         }
         # add a row onto the agg_var_mat for this subvariant
         if(exists('ll_agg')){
@@ -3016,6 +3091,31 @@ if ( grepl("Run2",tag) ){
                             sub(pattern = '2', replacement = '1', x = tag),
                             ".csv"),
               row.names = FALSE)
+    # process dataframe and save to a format for direct hadoop upload
+    run_1_hadoop = data.frame(run_1[,1:6])
+    run_1_hadoop[is.na(run_1_hadoop)] = '\\N'
+    run_1_hadoop[,7:15] = '\\N'
+    run_1_hadoop[,16] = 'smoothed'
+    run_1_hadoop[,17] = 'biweekly'
+    run_1_hadoop[,18] = data_date
+    run_1_hadoop[,19] = paste0(results_tag, '_Run1')
+    run_1_hadoop[,20] = 1
+    run_1_hadoop[,21:24] = run_1[,14:17]
+    run_1_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_1_hadoop[,3])
+    run_1_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_1_hadoop[,3])
+    run_1_hadoop[,3] = gsub(' Aggregated', '', run_1_hadoop[,3])
+    write.table(x = run_1_hadoop,
+              file = paste0(script.basename,
+                            output_folder, "/updated_nowcast_fortnightly_",
+                            data_date,
+                            sub(pattern = '2', replacement = '1', x = tag),
+                            "_",
+                            results_tag,
+                            "_hadoop.csv"),
+              quote = FALSE,
+              row.names = FALSE,
+              col.names = FALSE,
+              sep = ",")
   }
 
   # Format output for the run2 lineage list
@@ -3049,6 +3149,31 @@ if ( grepl("Run2",tag) ){
                             tag,
                             ".csv"),
               row.names = FALSE)
+    # process dataframe and save to a format for direct hadoop upload
+    run_2_hadoop = data.frame(run_2[,1:6])
+    run_2_hadoop[is.na(run_2_hadoop)] = '\\N'
+    run_2_hadoop[,7:15] = '\\N'
+    run_2_hadoop[,16] = 'smoothed'
+    run_2_hadoop[,17] = 'biweekly'
+    run_2_hadoop[,18] = data_date
+    run_2_hadoop[,19] = paste0(results_tag, '_Run2')
+    run_2_hadoop[,20] = 1
+    run_2_hadoop[,21:24] = run_2[,14:17]
+    run_2_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_2_hadoop[,3])
+    run_2_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_2_hadoop[,3])
+    run_2_hadoop[,3] = gsub(' Aggregated', '', run_2_hadoop[,3])
+    write.table(x = run_2_hadoop,
+              file = paste0(script.basename,
+                            output_folder, "/updated_nowcast_fortnightly_",
+                            data_date,
+                            tag,
+                            "_",
+                            results_tag,
+                            "_hadoop.csv"),
+              quote = FALSE,
+              row.names = FALSE,
+              col.names = FALSE,
+              sep = ",")
   }
 
   ### Weekly estimates ----
@@ -3291,6 +3416,31 @@ if ( grepl("Run2",tag) ){
                             sub(pattern = '2', replacement = '1', x = tag),
                             ".csv"),
               row.names = FALSE)
+    # process dataframe and save to a format for direct hadoop upload
+    run_1_weekly_hadoop = data.frame(run_1_weekly[,c(1:2,4:7)])
+    run_1_weekly_hadoop[is.na(run_1_weekly_hadoop)] = '\\N'
+    run_1_weekly_hadoop[,7:15] = '\\N'
+    run_1_weekly_hadoop[,16] = 'smoothed'
+    run_1_weekly_hadoop[,17] = 'weekly'
+    run_1_weekly_hadoop[,18] = data_date
+    run_1_weekly_hadoop[,19] = paste0(results_tag, '_Run1')
+    run_1_weekly_hadoop[,20] = 1
+    run_1_weekly_hadoop[,21:24] = run_1_weekly[,17:20]
+    run_1_weekly_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_1_weekly_hadoop[,3])
+    run_1_weekly_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_1_weekly_hadoop[,3])
+    run_1_weekly_hadoop[,3] = gsub(' Aggregated', '', run_1_weekly_hadoop[,3])
+    write.table(x = run_1_weekly_hadoop,
+              file = paste0(script.basename,
+                            output_folder, "/updated_nowcast_weekly_",
+                            data_date,
+                            sub(pattern = '2', replacement = '1', x = tag),
+                            "_",
+                            results_tag,
+                            "_hadoop.csv"),
+              quote = FALSE,
+              row.names = FALSE,
+              col.names = FALSE,
+              sep = ",")
   }
   # daily results
   # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
@@ -3355,6 +3505,31 @@ if ( grepl("Run2",tag) ){
                             tag,
                             ".csv"),
               row.names = FALSE)
+    # process dataframe and save to a format for direct hadoop upload
+    run_2_weekly_hadoop = data.frame(run_2_weekly[,c(1:2,4:7)])
+    run_2_weekly_hadoop[is.na(run_2_weekly_hadoop)] = '\\N'
+    run_2_weekly_hadoop[,7:15] = '\\N'
+    run_2_weekly_hadoop[,16] = 'smoothed'
+    run_2_weekly_hadoop[,17] = 'weekly'
+    run_2_weekly_hadoop[,18] = data_date
+    run_2_weekly_hadoop[,19] = paste0(results_tag, '_Run2')
+    run_2_weekly_hadoop[,20] = 1
+    run_2_weekly_hadoop[,21:24] = run_2_weekly[,17:20]
+    run_2_weekly_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_2_weekly_hadoop[,3])
+    run_2_weekly_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_2_weekly_hadoop[,3])
+    run_2_weekly_hadoop[,3] = gsub(' Aggregated', '', run_2_weekly_hadoop[,3])
+    write.table(x = run_2_weekly_hadoop,
+              file = paste0(script.basename,
+                            output_folder, "/updated_nowcast_weekly_",
+                            data_date,
+                            tag,
+                            "_",
+                            results_tag,
+                            "_hadoop.csv"),
+              quote = FALSE,
+              row.names = FALSE,
+              col.names = FALSE,
+              sep = ",")
   }
   # daily results
   # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
