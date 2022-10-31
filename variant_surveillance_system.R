@@ -145,7 +145,7 @@ node = "10"
 # If the data was already pulled and you want to just use that data instead of re-pulling it, set here. 
 # This is useful if you aggregate some lab names at the end of this code and then want to re-run the
 # script after changing which labs get aggregated. 
-use_previously_imported_data <- TRUE
+use_previously_imported_data <- FALSE
 # use previously pulled data if it exists
 if(use_previously_imported_data &
     file.exists(paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_data", custom_tag, ".RDS")) & 

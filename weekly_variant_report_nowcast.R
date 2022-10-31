@@ -263,7 +263,7 @@ if (custom_lineages == TRUE) {
 if ( force_aggregate_omicron & ('B.1.1.529' %in% voc) ){
 
   # omicron sub-lineages to exclude/aggregate
-  omicron_sublineages <- voc[ grepl('(BA\\.[0-9])|(BD\\.[0-9])|(BE\\.[0-9])|(BF\\.[0-9])|(BG\\.[0-9])', voc, ignore.case = TRUE) ]
+  omicron_sublineages <- voc[ grepl('(BA\\.[0-9])|(BD\\.[0-9])|(BE\\.[0-9])|(BF\\.[0-9])|(BG\\.[0-9])|(BH\\.[0-9])|(BJ\\.[0-9])|(BK\\.[0-9])|(BL\\.[0-9])', voc, ignore.case = TRUE) ]
 
   # but don't force-aggregate any sublineages in "force_aggregate_omicron_except"
   # if they are also in the vocs.
@@ -316,8 +316,9 @@ if(state_source == "state_tag_included"){
 
   # index of sequences to be excluded b/c of invalid lab name
   # NOTE! This does not include labs that are explicity excluded above by "remove_utahphl" and "remove_broad"
-  invalid_labname <- svy.dat$SOURCE == 'OTHER'
-  # index of sequences to be excluded b/c of invalid variant name
+  #invalid_labname <- svy.dat$SOURCE == 'OTHER'
+   invalid_labname <- is.na(svy.dat$SOURCE)  
+# index of sequences to be excluded b/c of invalid variant name
   invalid_variant <- is.na(svy.dat$VARIANT) | svy.dat$VARIANT == "None" | svy.dat$VARIANT == "Unassigned"
 
   # count sequences that are excluded by week
@@ -554,17 +555,18 @@ if('BA.1' %in% voc){
 } else B529.BA1 <- NULL
 if('BA.2.3' %in% voc) B529.BA2.3 <- sort(grep("(BA\\.2\\.3)(?![0-9])",  unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.3 <- NULL
 if('BA.2.9' %in% voc) B529.BA2.9 <- sort(grep("(BA\\.2\\.9)(?![0-9])",  unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.9 <- NULL
-if('BA.2.10' %in% voc) B529.BA2.10 <- sort(grep("(BA\\.2\\.10)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.10 <- NULL
+if('BA.2.10' %in% voc) B529.BA2.10 <- sort(grep("(BA\\.2\\.10)(?![0-9])|BJ\\.", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.10 <- NULL
 if('BA.2.18' %in% voc) B529.BA2.18 <- sort(grep("(BA\\.2\\.18)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.18 <- NULL
 if('BA.2.12.1' %in% voc) B529.BA2.12.1 <- sort(grep("BG\\.|(BA\\.2\\.12\\.1)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.12.1 <- NULL
+if('BA.2.75' %in% voc) B529.BA2.75 <- sort(grep("(BA\\.2\\.75)(?![0-9])|BL\\.", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.75 <- NULL
 if('BA.2.12' %in% voc) {
   B529.BA2.12 <- sort(grep("BG\\.|(BA\\.2\\.12)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
   B529.BA2.12 <- setdiff(B529.BA2.12, c(B529.BA2.12.1))
 } else B529.BA2.12 <- NULL
 if('BA.2' %in% voc){
-  B529.BA2 <- sort(grep("BG\\.|(BA\\.2)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
+  B529.BA2 <- sort(grep("BJ\\.|BL\\.|BH\\.|BG\\.|(BA\\.2)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
   # BA.2 subvariants do not include subvariants already included in B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA2.12.1, B529.BA2.12
-  B529.BA2 <- setdiff(B529.BA2, c(B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA2.12.1, B529.BA2.12, B529.BA2.18))
+  B529.BA2 <- setdiff(B529.BA2, c(B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA2.12.1, B529.BA2.12, B529.BA2.18, B529.BA2.75))
 } else B529.BA2 <- NULL
 if('BA.3' %in% voc) B529.BA3 <- sort(grep("(BA\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA3 <- NULL
 if('BA.4.4' %in% voc) B529.BA4.4 <- sort(grep("(BA\\.4\\.4)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA4.4 <- NULL
@@ -587,26 +589,28 @@ if('BE.1' %in% voc) {
 } else B529.BE.1 <- NULL
 if('BE.3' %in% voc) B529.BE.3 <- sort(grep("(BE\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BE.3 <- NULL
 if('BF.5' %in% voc) B529.BF.5 <- sort(grep("(BF\\.5)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.5 <- NULL
+if('BF.7' %in% voc) B529.BF.7 <- sort(grep("(BF\\.7)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.7 <- NULL
 if('BF.10' %in% voc) B529.BF.10 <- sort(grep("(BF\\.10)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.10 <- NULL
 if('BA.5.2.1' %in% voc) {
   B529.BA5.2.1 <- sort(grep("BF\\.|(BA\\.5\\.2\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA5.2.1 <- setdiff(B529.BA5.2.1, c(B529.BF.5, B529.BF.10))
+  B529.BA5.2.1 <- setdiff(B529.BA5.2.1, c(B529.BF.5, B529.BF.7, B529.BF.10))
 } else B529.BA5.2.1 <- NULL
 if('BA.5.1.1' %in% voc) B529.BA5.1.1 <- sort(grep("(BA\\.5\\.1\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.1.1 <- NULL
 if('BA.5.6' %in% voc) B529.BA5.6 <- sort(grep("(BA\\.5\\.6)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.6 <- NULL
 if('BA.5.5' %in% voc) B529.BA5.5 <- sort(grep("(BA\\.5\\.5)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.5 <- NULL
+if('BA.5.1.10' %in% voc) B529.BA5.1.10 <- sort(grep("(BA\\.5\\.1\\.10)(?![0-9])|BK\\.",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.1.10 <- NULL
 if('BA.5.1' %in% voc) {
-  B529.BA5.1 <- sort(grep("(BA\\.5\\.1)(?![0-9])|BA\\.5\\.1\\.",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA5.1 <- setdiff(B529.BA5.1, c(B529.BA5.1.1))
+  B529.BA5.1 <- sort(grep("(BA\\.5\\.1)(?![0-9])|BA\\.5\\.1\\.|BK\\.",unique(src.dat$VARIANT), perl = T, value = T))
+  B529.BA5.1 <- setdiff(B529.BA5.1, c(B529.BA5.1.1, B529.BA5.1.10))
 } else B529.BA5.1 <- NULL
 if('BA.5.2' %in% voc) {
   B529.BA5.2 <- sort(grep("(BA\\.5\\.2)(?![0-9])|BA\\.5\\.2\\.|BF\\.",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA5.2 <- setdiff(B529.BA5.2, c(B529.BA5.2.1, B529.BF.5, B529.BF.10))
+  B529.BA5.2 <- setdiff(B529.BA5.2, c(B529.BA5.2.1, B529.BF.5, B529.BF.7, B529.BF.10))
 } else B529.BA5.2 <- NULL
 if('BA.5' %in% voc){
-  B529.BA5 <- sort(grep("(BF\\.)|(BE\\.)|((BA\\.5)(?![0-9]))",unique(src.dat$VARIANT), perl = T, value = T))
+  B529.BA5 <- sort(grep("(BK\\.)|(BF\\.)|(BE\\.)|((BA\\.5)(?![0-9]))",unique(src.dat$VARIANT), perl = T, value = T))
   B529.BA5 <- setdiff(B529.BA5, c(B529.BE.1, B529.BE.1.1, B529.BE.3, B529.BA5.1, B529.BA5.1.1, B529.BA5.3.1, B529.BA5.2,
-                      B529.BF.5, B529.BF.10, B529.BA5.2.1, B529.BA5.6, B529.BA5.5))
+                      B529.BF.5, B529.BF.7, B529.BF.10, B529.BA5.2.1, B529.BA5.6, B529.BA5.5, B529.BA5.1.10))
 } else B529.BA5 <- NULL
 
 # safety check: make sure that no variants are in the multiple sublineage groups
@@ -614,10 +618,10 @@ B.529.all <- c(B529.BA1, B529.BA1.1, B529.BA1.15, B529.BA2, B529.BA2.3, B529.BA2
                 B529.BA2.10, B529.BA2.12, B529.BA2.12.1, B529.BA2.18, B529.BA3, B529.BA4,
                 B529.BA4.1, B529.BA4.4, B529.BA4.6, B529.BA5, B529.BE.1, B529.BE.1.1,
                 B529.BE.3, B529.BA5.3.1, B529.BA5.2, B529.BA5.2.1, B529.BA5.5, B529.BA5.1,
-                B529.BA5.1.1, B529.BA5.6, B529.BF.5, B529.BF.10)
+                B529.BA5.1.1, B529.BA5.1.10, B529.BA5.6, B529.BF.5, B529.BF.7, B529.BF.10, B529.BA2.75)
 
-if(any(duplicated(B.529.all))) stop(message = paste0(B.529.all[duplicate(B.529.all)], ' appear in multiple BA sublineage groups. Check B529.BA1, B529.BA1.1, B529.BA.1.15, B529.BA2, B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA3, B529.BA4, B529.BA5.'))
-B529=sort(grep("(B\\.1\\.1\\.529)|(BA\\.[0-9])|(BC\\.[0-9])|(BD\\.[0-9])|(BE\\.[0-9])|(BF\\.[0-9])|(BG\\.[0-9])",unique(src.dat$VARIANT), value = T))
+if(any(duplicated(B.529.all))) stop(message = paste0(B.529.all[duplicated(B.529.all)], ' appear in multiple BA sublineage groups. Check B529.BA1, B529.BA1.1, B529.BA.1.15, B529.BA2, B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA3, B529.BA4, B529.BA5.'))
+B529=sort(grep("(B\\.1\\.1\\.529)|(BA\\.[0-9])|(BC\\.[0-9])|(BD\\.[0-9])|(BE\\.[0-9])|(BF\\.[0-9])|(BG\\.[0-9])|(BH\\.[0-9])|(BJ\\.[0-9])|(BK\\.[0-9])|(BL\\.[0-9])",unique(src.dat$VARIANT), value = T))
 B529=B529[ B529 %notin% c(voc, B.529.all) ] #vector of the B529s to aggregate
 
 
@@ -638,6 +642,7 @@ if(B.1.1.529_agg==TRUE)  {
   src.dat[src.dat$VARIANT %in% B529.BA2.9[ B529.BA2.9  %notin% voc],"VARIANT"] <- "BA.2.9"
   src.dat[src.dat$VARIANT %in% B529.BA2.10[B529.BA2.10 %notin% voc],"VARIANT"] <- "BA.2.10"
   src.dat[src.dat$VARIANT %in% B529.BA2.12[B529.BA2.12 %notin% voc],"VARIANT"] <- "BA.2.12"
+  src.dat[src.dat$VARIANT %in% B529.BA2.75[B529.BA2.75 %notin% voc],"VARIANT"] <- "BA.2.75"
   src.dat[src.dat$VARIANT %in% B529.BA2.12.1[B529.BA2.12.1 %notin% voc],"VARIANT"] <- "BA.2.12.1"
   src.dat[src.dat$VARIANT %in% B529.BA2.10[B529.BA2.18 %notin% voc],"VARIANT"] <- "BA.2.18"
   src.dat[src.dat$VARIANT %in% B529.BA3[B529.BA3 %notin% voc],"VARIANT"] <- "BA.3"
@@ -648,9 +653,11 @@ if(B.1.1.529_agg==TRUE)  {
   src.dat[src.dat$VARIANT %in% B529.BA5[B529.BA5 %notin% voc],"VARIANT"] <- "BA.5"
   src.dat[src.dat$VARIANT %in% B529.BA5.1[B529.BA5.1 %notin% voc],"VARIANT"] <- "BA.5.1"
   src.dat[src.dat$VARIANT %in% B529.BA5.1.1[B529.BA5.1.1 %notin% voc],"VARIANT"] <- "BA.5.1.1"
+  src.dat[src.dat$VARIANT %in% B529.BA5.1.10[B529.BA5.1.10 %notin% voc],"VARIANT"] <- "BA.5.1.10"
   src.dat[src.dat$VARIANT %in% B529.BA5.2[B529.BA5.2 %notin% voc],"VARIANT"] <- "BA.5.2"
   src.dat[src.dat$VARIANT %in% B529.BA5.2.1[B529.BA5.2.1 %notin% voc],"VARIANT"] <- "BA.5.2.1"
   src.dat[src.dat$VARIANT %in% B529.BF.5[B529.BF.5 %notin% voc],"VARIANT"] <- "BF.5"
+  src.dat[src.dat$VARIANT %in% B529.BF.7[B529.BF.7 %notin% voc],"VARIANT"] <- "BF.7"
   src.dat[src.dat$VARIANT %in% B529.BF.10[B529.BF.10 %notin% voc],"VARIANT"] <- "BF.10"
   src.dat[src.dat$VARIANT %in% B529.BA5.3.1[B529.BA5.3.1 %notin% voc],"VARIANT"] <- "BA.5.3.1"
   src.dat[src.dat$VARIANT %in% B529.BA5.5[B529.BA5.5 %notin% voc],"VARIANT"] <- "BA.5.5"
@@ -2552,7 +2559,7 @@ if ( grepl("Run2",tag) ){
     # this returns all variants with "AY" in the name
     AY_vars = model_vars[grep("AY", model_vars)]
     # this returns all variants with BA. in the name (Omicron sublineages)
-    BA_vars = model_vars[grep("BA\\.|BC\\.|BD\\.|BE\\.|BF\\.|BG\\.", model_vars)]
+    BA_vars = model_vars[grep("BA\\.|BC\\.|BD\\.|BE\\.|BF\\.|BG\\.|BH\\.|BJ\\.|BK\\.|BL\\.", model_vars)]
 
     # get the names of the lineages included in Run1
     if(custom_lineages){
@@ -2609,15 +2616,26 @@ if ( grepl("Run2",tag) ){
         if (ll == 'BA.2') {
           # this will always aggregate BA.2.12 into BA.2
           if( length(grep("(BA\\.2)(?![0-9])",run1_lineages, perl = T, value = T)) == 1 ){
-            ll_agg <- grep("(BA\\.2)(?![0-9])|(BG\\.)",BA_vars, perl = T, value = T)
+            ll_agg <- grep("(BA\\.2)(?![0-9])|(BG\\.)|(BH\\.)|(BJ\\.)",BA_vars, perl = T, value = T)
           }
           # this will keep BA.2.12 seperate ONLY if BA.2.12 is *ALSO* listed in run1_lineages
           if( length(grep("(BA\\.2\\.12)",run1_lineages, perl = T, value = T)) == 1 ){
-            ll_agg <- grep("(BA\\.2)(?!([0-9])|(\\.12))",BA_vars, perl = T, value = T)
+            ll_agg <- grep("(BA\\.2)(?!([0-9])|(\\.12))|(BG\\.)|(BH\\.)|(BJ\\.)",BA_vars, perl = T, value = T)
+          }
+          # this will keep BA.2.75 seperate ONLY if BA.2.75 is *ALSO* listed in run1_lineages
+          if( length(grep("(BA\\.2\\.75)",run1_lineages, perl = T, value = T)) == 1 ){
+            ll_agg <- grep("(BA\\.2)(?!([0-9])|(\\.75))|(BG\\.)|(BH\\.)|(BJ\\.)",BA_vars, perl = T, value = T)
+          }
+          # this will keep ba.2.12 AND BA.2.75 seperate ONLY if BOTH BA.2.12 and BA.2.75 are both *ALSO* listed in run1_lineages
+          if( length(grep("(BA\\.2\\.75)",run1_lineages, perl = T, value = T)) == 1 && length(grep("(BA\\.2\\.12)",run1_lineages, perl = T, value = T)) == 1 ){
+            ll_agg <- grep("(BA\\.2)(?!([0-9])|(\\.75)|(\\.12))|(BG\\.)|(BH\\.)|(BJ\\.)",BA_vars, perl = T, value = T)
           }
         }
         if(ll == 'BA.2.12') {
           ll_agg <- grep("(BA\\.2\\.12)(?![0-9])",BA_vars, perl = T, value = T)
+        }
+        if(ll == 'BA.2.75') {
+          ll_agg <- grep("(BA\\.2\\.75)(?![0-9])|(BL\\.)",BA_vars, perl = T, value = T)
         }
         if (ll == 'BA.3') {
           ll_agg <- grep("(BA\\.3)(?![0-9])",BA_vars, perl = T, value = T)
@@ -2634,7 +2652,14 @@ if ( grepl("Run2",tag) ){
         }
         if(ll == 'BA.5') {
           #
-          ll_agg <- grep("(BA\\.5)(?![0-9])|(BF\\.)|(BE\\.)",BA_vars, perl = T, value = T)
+          ll_agg <- grep("(BA\\.5)(?![0-9])|(BF\\.)|(BE\\.)|(BK\\.)",BA_vars, perl = T, value = T)
+          # this will keep BF.7 seperate ONLY if BF.5 is *ALSO* listed in run1 lineages
+          if( length(grep("(BF\\.7)",run1_lineages, perl = T, value = T)) == 1 ){
+            ll_agg <- grep("(BA\\.5)(?![0-9])|(BE\\.)|(BK\\.)|(BF\\.)(?!7)",BA_vars, perl = T, value = T)
+          }
+        }
+        if(ll == 'BF.7') {
+          ll_agg <- grep("(BF\\.7)(?![0-9])",BA_vars, perl = T, value = T)
         }
 
         # add a row onto the agg_var_mat for this subvariant
