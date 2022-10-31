@@ -37,12 +37,12 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 data_date <- Sys.Date()
-# data_date <- as.Date('2022-08-16')
+#data_date <- as.Date('2022-09-15')
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_folder <- paste0("results_", data_date, "_WOW")
+results_folder <- paste0("results_", data_date, "_newam")
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
@@ -60,11 +60,12 @@ custom_lineage_names <- c("BA.1+")
 # NOTE! If you change the custom lineages, you much also change the "custom"
 #       pangolin sql query (lines 305-320) in variant_surveillance_system.R to match!
 
-# Set voc's for Run1
 voc1 = c(# "AY.1", "AY.2",
          "BA.1.1",
          "BA.2",
          "BA.2.12.1",
+         "BA.2.75",
+         "BF.7",
          'BA.4',
          'BA.4.6',
          'BA.5',
@@ -95,6 +96,8 @@ voc2_additional = c(#"AY.1", "AY.2",
                     "BA.2",
                     "BA.2.12",
                     "BA.2.12.1",
+                    "BA.2.75",
+                    "BF.7",
                     # "BA.3",
                     'BA.4',
                     'BA.4.6',
@@ -125,9 +128,11 @@ voc3 = c("B.1.1.7",   # Alpha  # and Q.1 to 8*
          "B.1.1.529", # Omicron # and BA.*
          "BA.2",
          "BA.2.12.1",
+         "BA.2.75",
          "BA.4",
          "BA.4.6",
-         "BA.5")
+         "BA.5",
+         "BF.7")
 # define an alternate set of vocs
 voc3_reduced = voc1_reduced
 
@@ -271,7 +276,7 @@ use_group_weights <- FALSE
 # "force_aggregate_omicron_except".
 # THIS WILL LIKELY NEED TO BE REPLACED IN THE FUTURE, BUT IT'S HERE TO AVOID
 # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
-force_aggregate_omicron <- TRUE
+force_aggregate_omicron <- FALSE
 # list omicron sublineages that will not be aggregated (if they are also in voc) (these are the only Omicron sublineages that will be permitted)
 force_aggregate_omicron_except <- c('BA.1','BA.2','BA.3','BA.4','BA.5','BA.2.12.1','BA.4.6') # 'BA.2.12', 'BA.1.1'
 

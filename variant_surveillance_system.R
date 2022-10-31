@@ -134,7 +134,7 @@ jdbc_driver = paste0(script.basename, "/jdbc/ClouderaImpalaJDBC-2.6.20.1024/Clou
 # ~ "deduplication_cdcncbigisaid_auto": this data table is updated regularly but may be subject to cleaning issues
 # ~  "analytics_metadata_frozen": this data table is updated less frequently, but is the cleanest version of the sequence data
 # NOTE - if running the official Friday analysis use the "analytics_metadata_frozen" table
-seq_table = "sc2_archive.analytics_metadata_frozen"
+seq_table = "sc2_dev.frozen_am_new"
 # CDP cluster node to use
 # (you can use any node from 08 - 13. Sometimes nodes fail so if you get an error you can try another node)
 node = "10"
@@ -145,20 +145,19 @@ node = "10"
 # If the data was already pulled and you want to just use that data instead of re-pulling it, set here. 
 # This is useful if you aggregate some lab names at the end of this code and then want to re-run the
 # script after changing which labs get aggregated. 
-use_previously_imported_data <- FALSE
-
+use_previously_imported_data <- TRUE
 # use previously pulled data if it exists
 if(use_previously_imported_data &
     file.exists(paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_data", custom_tag, ".RDS")) & 
     file.exists(paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pangolin", custom_tag, ".RDS")) & 
-    file.exists(paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_baseline", custom_tag, ".RDS")) & 
+    #file.exists(paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_baseline", custom_tag, ".RDS")) & 
     file.exists(paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_tests", custom_tag, ".RDS")) & 
     file.exists(paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pops", custom_tag, ".RDS"))){
       
   print('Reading in previously pulled data')
   dat <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_data", custom_tag, ".RDS"))
   pangolin <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pangolin", custom_tag, ".RDS"))
-  baseline <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_baseline", custom_tag, ".RDS"))
+  #baseline <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_baseline", custom_tag, ".RDS"))
   tests <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_tests", custom_tag, ".RDS"))
   pops <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pops", custom_tag, ".RDS"))
   print('Finished reading in data.')
@@ -205,46 +204,45 @@ valid_data_dates <- DBI::dbGetQuery(
   conn = impala,
   statement = '
 SELECT DISTINCT to_date(date_frozen)
-FROM sc2_archive.analytics_metadata_frozen
+FROM sc2_dev.frozen_am_new
     ')
-# In order to get the tests data, "data_date" must be in the
-# sc2_archive.hhs_protect_testing_frozen table.
-# valid "data_date" values include:
-valid_tests_dates <- DBI::dbGetQuery(
-  conn = impala,
-  statement = '
-SELECT DISTINCT to_date(date_frozen)
-FROM sc2_archive.hhs_protect_testing_frozen
-    ')
+# # In order to get the tests data, "data_date" must be in the
+# # sc2_archive.hhs_protect_testing_frozen table.
+# # valid "data_date" values include:
+# valid_tests_dates <- DBI::dbGetQuery(
+#   conn = impala,
+#   statement = '
+# SELECT DISTINCT to_date(date_frozen)
+# FROM sc2_archive.hhs_protect_testing_frozen
+#     ')
 
-# throw an error if the data_date isn't in the
-# sc2_archive.analytics_metadata_frozen table.
-if( !((as.character(data_date) %in% unlist(valid_data_dates)) &
-      (as.character(data_date) %in% unlist(valid_tests_dates))) ){
-  errorCondition(paste0(
-    'The "data_date" provided (',
-    data_date,
-    ') is not in valid.\n
-    Valid options from sc2_archive.analytics_metadata_frozen.date_frozen include:\n',
-    paste(sort(valid_data_dates[,1]), collapse = '\n'),
-    '\nValid options from sc2_archive.hhs_protect_testing_frozen.date_frozen include:\n',
-    paste(sort(valid_tests_dates[,1]), collapse = '\n'),
-    '.'
-  ))
-}
+# # throw an error if the data_date isn't in the
+# # sc2_archive.analytics_metadata_frozen table.
+# if( !((as.character(data_date) %in% unlist(valid_data_dates)) &
+#       (as.character(data_date) %in% unlist(valid_tests_dates))) ){
+#   errorCondition(paste0(
+#     'The "data_date" provided (',
+#     data_date,
+#     ') is not in valid.\n
+#     Valid options from sc2_archive.analytics_metadata_frozen.date_frozen include:\n',
+#     paste(sort(valid_data_dates[,1]), collapse = '\n'),
+#     '\nValid options from sc2_archive.hhs_protect_testing_frozen.date_frozen include:\n',
+#     paste(sort(valid_tests_dates[,1]), collapse = '\n'),
+#     '.'
+#   ))
+# }
 
 
 # Get all field/column names from the table
-all.vars = DBI::dbGetQuery(impala, "DESCRIBE sc2_archive.analytics_metadata_frozen")[, 1]
+all.vars = DBI::dbGetQuery(impala, "DESCRIBE sc2_dev.frozen_am_new")[, 1]
 
 # specify the fields/columns that we want to get
-if(seq_table == "sc2_archive.analytics_metadata_frozen"){
+if(seq_table == "sc2_dev.frozen_am_new"){
   # get variables that:
-  #   - start with "csid", "primary", "covv", "ct"
-  #   - end with   "zip"
+  #   - start with "csid", "primary", "covv"
   #   - contain    "targeted", "vendor"
-  #   - equal to   "age"
-  get.vars = grep(pattern = "(^csid)|(^primary)|(^covv)|(^ct)|(zip$)|(targeted)|(vendor)|(^age$)",
+  #   - equal to   "spike_mutations", "eventid_all"
+  get.vars = grep(pattern = "(^csid)|(^primary)|(^covv)|(targeted)|(vendor)|(^spike_mutations$)|(^eventid_all$)",
                   x = all.vars,
                   value = TRUE)
 } else {
@@ -265,7 +263,10 @@ if(seq_table == "sc2_archive.analytics_metadata_frozen"){
     "covv_accession_id",
     "covv_orig_lab",
     "covv_add_host_info",
-    "primary_collection_date"
+    "primary_collection_date",
+    "primary_submitter",
+    "spike_mutations",
+    "lineage"
   )#,"patient_age_cl","covv_patient_age")
 }
 
@@ -273,16 +274,21 @@ if(seq_table == "sc2_archive.analytics_metadata_frozen"){
 # specify the database query to run
 # (Subset to US sequences for faster download)
 query = paste(
-  'SELECT',
+  'SELECT ',
   paste0('A.', get.vars, collapse=', '),
+  ', coalesce(A.contractor_vendor_name, A.primary_submitter) source',
+  ', lineage as pangolineage',
   paste0(
-    ' FROM sc2_archive.analytics_metadata_frozen as A
+    ' FROM sc2_dev.frozen_am_new as A
     INNER JOIN
     (SELECT max(', date_frozen, ') as max_frozen
-    FROM sc2_archive.analytics_metadata_frozen) as M
+    FROM sc2_dev.frozen_am_new) as M
     ON to_date(A.date_frozen) = M.max_frozen'
   ),
-  'WHERE A.primary_country in ("United States", "USA")'
+  ' WHERE A.primary_country in ("United States", "USA") 
+  AND A.primary_host = "Human" 
+  AND ( A.contractor_vendor_name IS NOT NULL OR A.eventid_all LIKE "%1771%" OR A.primary_sampling_strategy = "Baseline_Surveillance" )'
+  # AND A.primary_submitter IS NOT NULL'
 ) # if unavailable, use test_deduplication_cdcncbigisaid_auto for testing
 
 # pull the data from the CDP database to an R data.frame
@@ -340,7 +346,7 @@ if(custom_lineages == TRUE) {
             THEN "BA.1+"
             ELSE P.lineage
         END as lineage
-        FROM sc2_archive.analytics_metadata_frozen as P
+        FROM sc2_dev.frozen_am_new as P
         LEFT JOIN sc2_src.alignments as A
         ON P.primary_nt_id = A.nt_id
         AND A.protein = "S"
@@ -365,17 +371,17 @@ if(custom_lineages == TRUE) {
         SELECT DISTINCT
         P.primary_nt_id as nt_id,
         P.lineage
-        FROM sc2_archive.analytics_metadata_frozen as P
+        FROM sc2_dev.frozen_am_new as P
         WHERE to_date(P.date_frozen) = ', date_frozen
       ))
   }
 }
 
 # download S gene mutation lists, and source (for NS3 and labs)
-baseline = DBI::dbGetQuery(
-  conn = impala,
-  statement = 'SELECT nt_id, source, primary_virus_name, s_mut, collection_date FROM sc2_dev.baselineseq'
-)
+# baseline = DBI::dbGetQuery(
+#   conn = impala,
+#   statement = 'SELECT nt_id, source, primary_virus_name, s_mut, collection_date FROM sc2_dev.baselineseq'
+# )
 # state, zip available, also in dedup; S1 slower, built at query
 
 
@@ -592,9 +598,9 @@ saveRDS(dat,
 saveRDS(pangolin,
   file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pangolin", custom_tag, ".RDS")
 )
-saveRDS(baseline,
-  file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_baseline", custom_tag, ".RDS")
-)
+# saveRDS(baseline,
+#   file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_baseline", custom_tag, ".RDS")
+# )
 saveRDS(tests,
   file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_tests", custom_tag, ".RDS")
 )
@@ -605,9 +611,9 @@ print('Finished reading in data.')
 }
 # Data Cleaning ----------------------------------------------------------------
 
-# Things that this code filters on: [as of 2022-01-19]
-# 1) only human hosts
-# 2) only US sequences
+# Things that this code filters on: [as of 2022-09-08]
+# 1) only human hosts  # done in sql query
+# 2) only US sequences  # done in sql query
 # 3) drop invalid state abbreviations
 # 4) drop duplicates
 # 5) drop invalid dates (collection_date older than 2019-10-01 or newer than the final day in the analysis)
@@ -654,12 +660,12 @@ print('Finished reading in data.')
       expand.grid(
          'week'   = allwks,
          'reason' = c('n_original',
-                      'n_dropped_duplicates',
-                      'n_dropped_not_human',
-                      'n_dropped_not_US',
+                      #'n_dropped_duplicates',
+                      #'n_dropped_not_human',
+                      #'n_dropped_not_US',
                       'n_dropped_invalid_state',
                       'n_dropped_invalid_date',
-                      'n_dropped_CDC_lab',
+                      #'n_dropped_CDC_lab',
                       'n_dropped_labs_100_seqs',
                       'n_dropped_invalid_lab_name',
                       'n_dropped_invalid_variant_name',
@@ -677,20 +683,19 @@ print('Finished reading in data.')
    )
    # fill in 0's for rows that didn't have any sequences dropped
    dropped_sequences[is.na(count) & reason == 'n_original', 'count' := 0]
-
    # merge in the counts of dropped sequences
-   dropped_sequences <- rbind(
-      dropped_sequences[!(week %in% dups_by_wk$week & reason == 'n_dropped_duplicates')],
-      dups_by_wk[, .('week' = week, 'reason' = 'n_dropped_duplicates', 'count' = count)]
-   )
+  #  dropped_sequences <- rbind(
+  #     dropped_sequences[!(week %in% dups_by_wk$week & reason == 'n_dropped_duplicates')],
+  #     dups_by_wk[, .('week' = week, 'reason' = 'n_dropped_duplicates', 'count' = count)]
+  #  )
    # fill in 0's for rows that didn't have any sequences dropped
-   dropped_sequences[is.na(count) & reason == 'n_dropped_duplicates', 'count' := 0]
+   #dropped_sequences[is.na(count) & reason == 'n_dropped_duplicates', 'count' := 0]
 }
 
 ## exclude duplicates from each table
 dat      = distinct(dat.dt) # use the data.table version to speed up calculation of why sequences are being dropped
 pangolin = distinct(pangolin)
-baseline = distinct(baseline)
+#baseline = distinct(baseline)
 tests    = distinct(tests)
 pops     = distinct(pops)
 
@@ -730,44 +735,44 @@ hhs$HHS = sapply(X = hhs$STUSAB, FUN = grep, HHS_reg)
 # - reasonable collection date
 
 # U.S., legitimately coded states, human host
-# (dat may already be subset to US, but retained for backward compatibility)
-{
-   # count sequences being dropped by week
-   prim_country_US <- dat$primary_country %in% c("United States", "USA")
-   prim_host_human <- dat$primary_host == "Human"
+# (dat may already be subset to US and human host, but retained for backward compatibility)
+# {
+#    # count sequences being dropped by week
+#    prim_country_US <- dat$primary_country %in% c("United States", "USA")
+#    prim_host_human <- dat$primary_host == "Human"
 
-   # counts of non-US sequences by week
-   nonUS_by_wk <- dat[ (!prim_country_US) | is.na(prim_country_US), .('count' = .N), by = 'week']
-   # merge in the counts of non-US sequences
-   if(nrow(nonUS_by_wk) > 0)
-      dropped_sequences <- rbind(
-         dropped_sequences[!(week %in% nonUS_by_wk$week & reason == 'n_dropped_not_US')],
-         nonUS_by_wk[, .('week' = week, 'reason' = 'n_dropped_not_US', 'count' = count)]
-      )
-   # fill in 0's for rows that didn't have any sequences dropped
-   dropped_sequences[is.na(count) & reason == 'n_dropped_not_US', 'count' := 0]
+#    # counts of non-US sequences by week
+#    nonUS_by_wk <- dat[ (!prim_country_US) | is.na(prim_country_US), .('count' = .N), by = 'week']
+#    # merge in the counts of non-US sequences
+#    if(nrow(nonUS_by_wk) > 0)
+#       dropped_sequences <- rbind(
+#          dropped_sequences[!(week %in% nonUS_by_wk$week & reason == 'n_dropped_not_US')],
+#          nonUS_by_wk[, .('week' = week, 'reason' = 'n_dropped_not_US', 'count' = count)]
+#       )
+#    # fill in 0's for rows that didn't have any sequences dropped
+#    dropped_sequences[is.na(count) & reason == 'n_dropped_not_US', 'count' := 0]
 
-   # counts of non-human sequences by week
-   nonhuman_by_wk <- dat[ (!prim_host_human) | is.na(prim_host_human), .('count' = .N), by = 'week']
-   # merge in the counts of non-US sequences
-   if(nrow(nonhuman_by_wk) > 0)
-      dropped_sequences <- rbind(
-         dropped_sequences[!(week %in% nonhuman_by_wk$week & reason == 'n_dropped_not_human')],
-         nonhuman_by_wk[, .('week' = week, 'reason' = 'n_dropped_not_human', 'count' = count)]
-      )
-   # fill in 0's for rows that didn't have any sequences dropped
-   dropped_sequences[is.na(count) & reason == 'n_dropped_not_human', 'count' := 0]
-}
-us.dat = subset(x = dat,
-                prim_country_US & prim_host_human)
+#    # counts of non-human sequences by week
+#    nonhuman_by_wk <- dat[ (!prim_host_human) | is.na(prim_host_human), .('count' = .N), by = 'week']
+#    # merge in the counts of non-US sequences
+#    if(nrow(nonhuman_by_wk) > 0)
+#       dropped_sequences <- rbind(
+#          dropped_sequences[!(week %in% nonhuman_by_wk$week & reason == 'n_dropped_not_human')],
+#          nonhuman_by_wk[, .('week' = week, 'reason' = 'n_dropped_not_human', 'count' = count)]
+#       )
+#    # fill in 0's for rows that didn't have any sequences dropped
+#    dropped_sequences[is.na(count) & reason == 'n_dropped_not_human', 'count' := 0]
+# }
+# us.dat = subset(x = dat,
+#                 prim_country_US & prim_host_human)
 
 # Subset to exclude faulty state abbreviations
 {
    # get counts of faulty state abbreviations by week
-   valid_state_abb <- nchar(us.dat$primary_state_abv) == 2
+   valid_state_abb <- nchar(dat$primary_state_abv) == 2
 
    # counts of faulty state abbreviations by week
-   fs_by_wk <- us.dat[ (!valid_state_abb) | is.na(valid_state_abb), .('count' = .N), by = 'week']
+   fs_by_wk <- dat[ (!valid_state_abb) | is.na(valid_state_abb), .('count' = .N), by = 'week']
    # merge in the counts of faulty state abbreviations
    if(nrow(fs_by_wk) > 0)
       dropped_sequences <- rbind(
@@ -777,7 +782,7 @@ us.dat = subset(x = dat,
    # fill in 0's for rows that didn't have any sequences dropped
    dropped_sequences[is.na(count) & reason == 'n_dropped_invalid_state', 'count' := 0]
 }
-us.dat = subset(x = us.dat,
+us.dat = subset(x = dat,
                 valid_state_abb)
 
 ## Disambiguate and remove unreasonable dates
@@ -821,14 +826,13 @@ us.dat = subset(x = us.dat,
 
 # merge Pangolin lineage into us.dat
 us.dat = merge(x = us.dat,
-               y = pangolin[, c("nt_id", "lineage")],
-               by.x = "primary_nt_id",
-               by.y = "nt_id",
-               all.x = TRUE)
-
-# fill in missing lineage data with "covv_lineage"
-# (this line of code only works if using the dedupe table)
-if ("covv_lineage" %in% names(us.dat)) us.dat$lineage = with(us.dat, ifelse(is.na(lineage), covv_lineage, lineage))
+              y = pangolin[, c("nt_id", "lineage")],
+              by.x = "primary_nt_id",
+              by.y = "nt_id",
+              all.x = TRUE)
+# # fill in missing lineage data with "covv_lineage"
+# # (this line of code only works if using the dedupe table)
+#if ("covv_lineage" %in% names(us.dat)) us.dat$lineage = with(us.dat, ifelse(is.na(lineage), covv_lineage, lineage))
 
 # print out counts of omicron sequences
 # print('Table of all omicron sequences:')
@@ -836,11 +840,11 @@ if ("covv_lineage" %in% names(us.dat)) us.dat$lineage = with(us.dat, ifelse(is.n
 
 # Merge S-gene mutation (baseline) data into the us.dat
 # NS3 identifier in baseline$source:
-us.dat = merge(x = us.dat,
-               y = baseline[, c("nt_id", "source", "primary_virus_name", "s_mut")],
-               by.x = c("primary_nt_id", "primary_virus_name"),
-               by.y = c("nt_id", "primary_virus_name"),
-               all.x = TRUE)
+# us.dat = merge(x = us.dat,
+#                y = baseline[, c("nt_id", "source", "primary_virus_name", "s_mut")],
+#                by.x = c("primary_nt_id", "primary_virus_name"),
+#                by.y = c("nt_id", "primary_virus_name"),
+#                all.x = TRUE)
 
 # Add in HHS regions
 us.dat = merge(x = us.dat,
@@ -848,7 +852,6 @@ us.dat = merge(x = us.dat,
                by.x = "primary_state_abv",
                by.y = "STUSAB",
                all.x = TRUE)
-
 # Aggregate state testing data -------------------------------------------------
 # Test data are aggregated by week for weighting.
 
@@ -1001,7 +1004,6 @@ tests_state_bins_list <- lapply(X = state_time_end, FUN = function(dd){
 })
 
 names(tests_state_bins_list) <- state_time_end
-
 # Weighting---------------------------------------------------------------------
 # (weights are calculated here & recalculated in weekly_variant_report_nowcast.R
 #  after data are subset.)
@@ -1040,7 +1042,6 @@ test_tallies_wk = merge(x = merge(x = tests_wk,
                         y = data.frame(STUSAB = toupper(pops$STUSAB),
                                        state_population = pops$Total.),
                         all.x = TRUE)
-
 # by grouping
 test_tallies_gp = merge(x = merge(x = tests_group,
                                   y = hhs,
@@ -1048,7 +1049,6 @@ test_tallies_gp = merge(x = merge(x = tests_group,
                         y = data.frame(STUSAB = toupper(pops$STUSAB),
                                        state_population = pops$Total.),
                         all.x = TRUE)
-
 # by day
 test_tallies_dly = merge(x = merge(x = tests_dy,
                                    y = hhs,
@@ -1063,7 +1063,6 @@ test_tallies_fn = merge(x = merge(x = tests_fn,
                          y = data.frame(STUSAB = toupper(pops$STUSAB),
                                         state_population = pops$Total.),
                          all.x = TRUE)
-
 
 # adjust populations based on the number of weeks in each group
 test_tallies_gp$group_population = test_tallies_gp$state_population
@@ -1090,7 +1089,6 @@ test_tallies_gp = within(data = test_tallies_gp,
 # Number of weeks since start date
 test_tallies_wk$week = as.numeric(as.Date(test_tallies_wk$yr_wk) - week0day1)%/%7
 test_tallies_gp$week = as.numeric(as.Date(test_tallies_gp$group) - week0day1)%/%7
-
 # Aggregate infections & populations by HHS region
 incidence_by_region = merge(
   x = aggregate(formula = INFECTIONS ~ yr_wk + HHS,
@@ -1108,7 +1106,6 @@ incidence_by_region_gp = merge(
                 data = test_tallies_gp,
                 FUN = sum)
 )
-
 # calculate infection rate
 incidence_by_region$HHS_INCIDENCE = incidence_by_region$INFECTIONS / incidence_by_region$state_population
 incidence_by_region_gp$HHS_INCIDENCE_gp = incidence_by_region_gp$INFECTIONS / incidence_by_region_gp$group_population
@@ -1196,8 +1193,8 @@ svy.dat = data.table::data.table(
   yr_wk  = us.dat$yr_wk,
   DAY    = us.dat$DAY,
   date   = us.dat$collection_date,
-  # nt_id  = us.dat$primary_nt_id,
-  # csid   = us.dat$csid,
+  nt_id  = us.dat$primary_nt_id,
+  csid   = us.dat$csid,
   covv_accession_id = us.dat$covv_accession_id,
   # ID number just to help keep track of individual sequences
   myID = 1:nrow(us.dat),
@@ -1208,7 +1205,7 @@ svy.dat = data.table::data.table(
   SGTF_UPSAMPLING = (us.dat$contractor_targeted_sequencing %in% "Screened for S dropout"),
   # SOURCE  = us.dat$source,
   VARIANT = us.dat$lineage,
-  S_MUT   = us.dat$s_mut
+  S_MUT   = us.dat$spike_mutations
 )
 
 # replace NAs with "other
@@ -1219,7 +1216,6 @@ svy.dat[ is.na(LAB), LAB := "OTHER"]
 # add a column for number of weeks since start of 2020
 # svy.dat$week = as.numeric(as.Date(svy.dat$yr_wk) - week0day1)/7
 svy.dat[, 'week' := as.numeric(as.Date(svy.dat$yr_wk) - week0day1)/7]
-
 # merge in state population data
 svy.dat = merge(x = svy.dat,
                 y = data.table::data.table(
@@ -1277,14 +1273,14 @@ labnames_df_tx <- data.frame(old_name = TX_labs_to_agg,
 svy.dat[ LAB %in% TX_labs_to_agg, "LAB2" := "TX-DPH"]
 
 # Aggregate CDC lab names
-CDC_labs_to_agg <- grep(pattern = "Centers for Disease Control and Prevention",
-                        x = unique_labs,
-                        ignore.case = T,
-                        value = TRUE)
-labnames_df_cdc <- data.frame(old_name = CDC_labs_to_agg,
-                              new_name = "CDC")
-#svy.dat[svy.dat$LAB %in% CDC_labs_to_agg,"LAB2"] <- "CDC"
-svy.dat[ LAB %in% CDC_labs_to_agg, "LAB2" := "CDC"]
+# CDC_labs_to_agg <- grep(pattern = "Centers for Disease Control and Prevention",
+#                         x = unique_labs,
+#                         ignore.case = T,
+#                         value = TRUE)
+# labnames_df_cdc <- data.frame(old_name = CDC_labs_to_agg,
+#                               new_name = "CDC")
+# #svy.dat[svy.dat$LAB %in% CDC_labs_to_agg,"LAB2"] <- "CDC"
+# svy.dat[ LAB %in% CDC_labs_to_agg, "LAB2" := "CDC"]
 
 # Aggregate LSU lab names
 # As of 2022-05-26 this only returns "LSUHS EMERGING VIRAL THREAT LABORATORY", so I [Philip Shirk] removed it.
@@ -1585,7 +1581,7 @@ labnames_df <- rbind(
   labnames_df_md,
   labnames_df_nj,
   labnames_df_tx,
-  labnames_df_cdc,
+  # labnames_df_cdc,
   # labnames_df_lsu, # removed 2022-05-26
   labnames_df_oc,
   labnames_df_ll,
@@ -1800,21 +1796,21 @@ low_lab <- check_count$LAB2[ check_count$count < 100 ]
 #svy.dat <- svy.dat[svy.dat$LAB2 %notin% c("CDC",low_lab), ]
 {
    # sequences that were from "CDC"
-   cdc_seqs <- svy.dat$LAB2 == 'CDC'
+   #cdc_seqs <- svy.dat$LAB2 == 'CDC'
    # sequences from labs with few samples
    low_lab_seqs <- svy.dat$LAB2 %in% low_lab
 
-   # counts of CDC sequences by week
-   cdc_by_wk <- us.dat[ cdc_seqs, .('count' = .N), by = 'yr_wk']
-   cdc_by_wk[, 'yr_wk' := as.Date(yr_wk)]
-   # merge in the counts of CDC sequences by week
-   if(nrow(cdc_by_wk) > 0)
-      dropped_sequences <- rbind(
-         dropped_sequences[!(week %in% cdc_by_wk$yr_wk & reason == 'n_dropped_CDC_lab')],
-         cdc_by_wk[, .('week' = yr_wk, 'reason' = 'n_dropped_CDC_lab', 'count' = count)]
-      )
-   # fill in 0's for rows that didn't have any sequences dropped
-   dropped_sequences[is.na(count) & reason == 'n_dropped_CDC_lab', 'count' := 0]
+  #  # counts of CDC sequences by week
+  #  cdc_by_wk <- us.dat[ cdc_seqs, .('count' = .N), by = 'yr_wk']
+  #  cdc_by_wk[, 'yr_wk' := as.Date(yr_wk)]
+  #  # merge in the counts of CDC sequences by week
+  #  if(nrow(cdc_by_wk) > 0)
+  #     dropped_sequences <- rbind(
+  #        dropped_sequences[!(week %in% cdc_by_wk$yr_wk & reason == 'n_dropped_CDC_lab')],
+  #        cdc_by_wk[, .('week' = yr_wk, 'reason' = 'n_dropped_CDC_lab', 'count' = count)]
+  #     )
+  #  # fill in 0's for rows that didn't have any sequences dropped
+  #  dropped_sequences[is.na(count) & reason == 'n_dropped_CDC_lab', 'count' := 0]
 
    # counts of low lab sequences by week
    low_by_wk <- us.dat[ low_lab_seqs, .('count' = .N), by = 'yr_wk']
