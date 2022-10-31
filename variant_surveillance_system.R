@@ -58,6 +58,14 @@ options(
 
 # optparse option list (get command-line arguments)
 option_list <- list(
+  # Get lineage definition from sc2_dev.nextclade instead of the default sc2_src.pangolin
+  optparse::make_option(
+    opt_str = c("-n", "--nextclade_pango"),
+    type    = "character",
+    default = "F",
+    help    = "Whether or not to swith to get lineage defintion from sc2_dev.nextclade instead of sc2_src.pangolin (character value of T or F)",
+    metavar = "character"
+  ),
   # whether or not to use Custom Lineages
   optparse::make_option(
     opt_str = c("-c", "--custom_lineages"),
@@ -91,6 +99,7 @@ opts <- optparse::parse_args(optparse::OptionParser(option_list = option_list))
 # opts$custom_lineages = "F"
 # opts$user = ""
 # opts$password = ""
+
 
 # convert custom_lineages flag to logical value
 if(toupper(opts$custom_lineages) %in% c('T', 'TRUE', 'Y', 'YES')){
@@ -138,6 +147,16 @@ seq_table = "sc2_dev.frozen_am_new"
 # CDP cluster node to use
 # (you can use any node from 08 - 13. Sometimes nodes fail so if you get an error you can try another node)
 node = "10"
+
+# Set pangolineage definition source based on nextclade_pango flag
+if(toupper(opts$nextclade_pango) %in% c('T', 'TRUE', 'Y', 'YES')){
+  lineage_table = "sc2_dev.nextclade"
+  lineage_field = "nextclade_pango"
+  current_data  = TRUE   # If using nextclade_pango, there is no archived frozen data, only current data from nextclade_pango can be used
+} else {
+  lineage_table = "sc2_src.pangolin"
+  lineage_field = "lineage"
+}
 
 
 # Import Data ------------------------------------------------------------------
@@ -281,9 +300,10 @@ query = paste(
   paste0(
     ' FROM sc2_dev.frozen_am_new as A
     INNER JOIN
-    (SELECT max(', date_frozen, ') as max_frozen
-    FROM sc2_dev.frozen_am_new) as M
-    ON to_date(A.date_frozen) = M.max_frozen'
+    (SELECT max(date_frozen) as max_frozen
+    FROM sc2_dev.frozen_am_new ma
+    WHERE to_date(ma.date_frozen) = ', date_frozen, ') as M
+    ON A.date_frozen = M.max_frozen'
   ),
   ' WHERE A.primary_country in ("United States", "USA") 
   AND A.primary_host = "Human" 
@@ -295,58 +315,65 @@ query = paste(
 dat = DBI::dbGetQuery(conn = impala,
                       statement = query)
 
-# Get the Pangolin lineages (at the time of the data)
+# Get the Pango lineages (at the time of the data) from the choosen source
 if(custom_lineages == TRUE) {
+  custom_lineages_sql = paste0('
+    CASE
+      -- WHEN P.', lineage_field, ' = "AY.4.2" AND udx.substr_range(A.aa_aln, "145;222") = "HV"
+      -- THEN "AY.4.2+"
+      -- WHEN P.', lineage_field, ' = "AY.35" AND udx.substr_range(A.aa_aln, "484") = "Q"
+      -- THEN "AY.35+"
+      -- WHEN P.', lineage_field, ' = "BA.1" AND udx.substr_range(A.aa_aln, "346") = "K"
+      -- THEN "BA.1+"
+      WHEN regexp_like(P.', lineage_field, ', "^BA.1.{0,1}|^BC.{0,1}|^BD.{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BA1"
+      WHEN regexp_like(P.', lineage_field, ', "^BA.2.75.{0,1}|^B[LMNRY].{0,1}|^C[AB].{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BA275"
+      WHEN regexp_like(P.', lineage_field, ', "^BA.2.12.1.{0,1}|^BG.{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BA2121"
+      WHEN regexp_like(P.', lineage_field, ', "^BA.2.{0,1}|^B[HJPS].{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BA2"
+      WHEN regexp_like(P.', lineage_field, ', "^BA.4.6.{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BA46"
+      WHEN regexp_like(P.', lineage_field, ', "^BA.4.{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BA4"
+      WHEN regexp_like(P.', lineage_field, ', "^BF.7.{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BF7"
+      WHEN regexp_like(P.', lineage_field, ', "^BQ.1.1.{0,1}") AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BQ11"
+      WHEN regexp_like(P.', lineage_field, ', "^BQ.1.{0,1}") AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BQ1"
+      WHEN regexp_like(P.', lineage_field, ', "^BE.1.1.{0,1}|^BQ.{0,1}|^CC.{0,1}") AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BE11"
+      WHEN regexp_like(P.', lineage_field, ', "^BA.5.{0,1}|^B[EFKTUVWZ].{0,1}|^C[DEFG].{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_BA5"
+      WHEN regexp_like(P.', lineage_field, ', "^BA.3.{0,1}|^B.1.1.529") AND udx.substr_range(A.aa_aln, "346") = "T"
+      THEN "R346T_B11529"
+      ELSE P.', lineage_field, '
+  END as lineage')
   if(current_data){
     # if custom_lineages == TRUE & current_data == TRUE
     # define custom AY.35+ and AY.4.2+ lineages based on amino acid positions of interest
     pangolin = DBI::dbGetQuery(
       conn = impala,
-      statement = '
+      statement = paste0('
   SELECT DISTINCT
-  P.nt_id,
-  CASE
-      -- WHEN P.lineage = "AY.4.2" AND udx.substr_range(A.aa_aln, "145;222") = "HV"
-      -- THEN "AY.4.2+"
-      -- WHEN P.lineage = "AY.35" AND udx.substr_range(A.aa_aln, "484") = "Q"
-      -- THEN "AY.35+"
-      WHEN P.lineage = "BA.1" AND udx.substr_range(A.aa_aln, "346") = "K"
-      THEN "BA.1+"
-      ELSE P.lineage
-  END as lineage,
-  P.conflict,
-  P.ambiguity_score,
-  P.scorpio_call,
-  P.scorpio_support,
-  P.scorpio_conflict,
-  P.version,
-  P.pangolin_version,
-  P.class_date,
-  P.class_qc,
-  P.note,
-  P.scorpio_version
-  FROM sc2_src.pangolin as P
+  P.nt_id,',
+  custom_lineages_sql,
+  ' FROM ', lineage_table, ' as P
   LEFT JOIN sc2_src.alignments as A
   ON P.nt_id = A.nt_id
   AND A.protein = "S"
-  ')
+  '))
   } else {
     # if custom_lineages = T & current_data = F
     pangolin = DBI::dbGetQuery(
       conn = impala,
       statement = paste0('
         SELECT DISTINCT
-        P.primary_nt_id as nt_id,
-        CASE
-            -- WHEN P.lineage = "AY.4.2" AND udx.substr_range(A.aa_aln, "145;222") = "HV"
-            -- THEN "AY.4.2+"
-            -- WHEN P.lineage = "AY.35" AND udx.substr_range(A.aa_aln, "484") = "Q"
-            -- THEN "AY.35+"
-            WHEN P.lineage = "BA.1" AND udx.substr_range(A.aa_aln, "346") = "K"
-            THEN "BA.1+"
-            ELSE P.lineage
-        END as lineage
-        FROM sc2_dev.frozen_am_new as P
+        P.primary_nt_id as nt_id,',
+        custom_lineages_sql,
+        ' FROM sc2_dev.frozen_am_new as P
         LEFT JOIN sc2_src.alignments as A
         ON P.primary_nt_id = A.nt_id
         AND A.protein = "S"
@@ -358,10 +385,10 @@ if(custom_lineages == TRUE) {
     # if custom_lineages = F & current_data = T
     pangolin = DBI::dbGetQuery(
       conn = impala,
-      statement = '
-      SELECT DISTINCT *
-      FROM sc2_src.pangolin
-      ')
+      statement = paste0(
+      'SELECT DISTINCT nt_id, ', lineage_field, ' as lineage
+      FROM ', lineage_table
+      ))
   } else {
     # if custom_lineages = F & current_data = F
     pangolin = DBI::dbGetQuery(
@@ -397,10 +424,11 @@ tests = DBI::dbGetQuery(
   H.POSITIVE
   FROM sc2_archive.hhs_protect_testing_frozen as H
   INNER JOIN
-  (SELECT max(', date_frozen, ') as max_frozen
-    FROM sc2_archive.hhs_protect_testing_frozen
+  (SELECT max(date_frozen) as max_frozen
+    FROM sc2_archive.hhs_protect_testing_frozen hf
+    WHERE to_date(hf.date_frozen) = ', date_frozen, '
   ) as F
-  ON to_date(H.date_frozen) = F.max_frozen
+  ON H.date_frozen = F.max_frozen
   WHERE H.collection_date is NOT NULL'
   ))
 
@@ -533,14 +561,16 @@ FROM
           max(lineage_count) AS max_virus_count,
           to_timestamp('", data_date, "', 'yyyy-MM-dd') AS pull_date
    FROM
-     (SELECT a.lineage,
+     (SELECT l.", lineage_field, " as lineage,
              c.variant_type,
              date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) AS week_ending,
              count(a.primary_virus_name) AS lineage_count,
              z.region_total,
              count(a.primary_virus_name) / z.region_total AS fraction,
-             if(count(a.primary_virus_name) / z.region_total >= 0.01, TRUE, FALSE) AS is_one_percent
+             if(count(a.primary_virus_name) / z.region_total >= 0.01, TRUE, FALSE) AS is_one_percent,
+             if(count(a.primary_virus_name) / z.region_total >= 0.005, TRUE, FALSE) AS is_zerofive_percent
       FROM sc2_air.analytics_metadata a
+      LEFT JOIN ", lineage_table, " l on a.primary_nt_id = l.nt_id
       LEFT JOIN
         (SELECT date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) AS week_ending,
                 count(za.primary_virus_name) AS region_total
@@ -555,12 +585,13 @@ FROM
         AND datediff(date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), 5), date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5))< 98
         AND (a.contractor_vendor_id IS NOT NULL OR a.cdceventid = '1771')
         AND a.primary_country = 'United States'
-      GROUP BY a.lineage,
+      GROUP BY l.", lineage_field, ",
                c.variant_type,
                week_ending,
                z.region_total --order by week_ending, b.hhs_region, lineage
 ) Q
    WHERE Q.is_one_percent IS TRUE --OR Q.variant_type is not null
+    OR (Q.is_zerofive_percent IS TRUE AND Q.week_ending = date_add(date_trunc('week', date_add(now(), 1)), -16))
 GROUP BY lineage) QQ
 LEFT JOIN sc2_air.analytics_lineage_corr cor ON QQ.lineage = cor.lineage
 WHERE cor.date_range_of_calc LIKE '%US:3mo'"
@@ -588,24 +619,24 @@ pops = read.delim(file = paste0(script.basename, "/resources/ACStable_B01001_40_
 
 # create a folder for the backup data (data that do not get used in "weekly_variant_report_nowcast.R")
 dir.create(
-  path = paste0(script.basename, "/data/backup_", data_date),
+  path = paste0(script.basename, "/data/backup_", data_date, custom_tag),
   showWarnings = FALSE
 )
 
 saveRDS(dat,
-  file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_data", custom_tag, ".RDS")
+  file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_data", custom_tag, ".RDS")
 )
 saveRDS(pangolin,
-  file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pangolin", custom_tag, ".RDS")
+  file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin", custom_tag, ".RDS")
 )
 # saveRDS(baseline,
 #   file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_baseline", custom_tag, ".RDS")
 # )
 saveRDS(tests,
-  file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_tests", custom_tag, ".RDS")
+  file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS")
 )
 saveRDS(pops,
-  file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_pops", custom_tag, ".RDS")
+  file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS")
 )
 print('Finished reading in data.')
 }
@@ -1736,7 +1767,7 @@ saveRDS(object = check_count,
          write.csv(x = temp,
                    file = paste0(script.basename,
                                  "/data/backup_",
-                                 data_date, "/", data_date,
+                                 data_date, custom_tag, "/", data_date,
                                  "_lost_sequences",
                                  custom_tag, ".csv"),
                    row.names = F)
@@ -1753,7 +1784,7 @@ saveRDS(object = check_count,
          write.csv(x = temp,
                    file = paste0(script.basename,
                                  "/data/backup_",
-                                 data_date, "/", data_date,
+                                 data_date, custom_tag, "/", data_date,
                                  "_old_sequence_additions",
                                  custom_tag, ".csv"),
                    row.names = F)
@@ -1771,7 +1802,7 @@ saveRDS(object = check_count,
    saveRDS(object = counts_by_week,
            file = paste0(script.basename,
                          "/data/backup_",
-                         data_date,
+                         data_date, custom_tag,
                          "/", data_date,
                          "_sequence_counts_by_lab_week",
                          custom_tag,
@@ -1828,7 +1859,7 @@ svy.dat <- svy.dat[LAB2 %notin% c("CDC",low_lab), ]
 
 # save the dropped_sequences counts b/c that's all that's calculated in this script
 write.csv(x = dropped_sequences,
-          file = paste0(script.basename, "/data/backup_",data_date, "/dropped_sequence_counts_", data_date, custom_tag, "_v1.csv"),
+          file = paste0(script.basename, "/data/backup_",data_date, custom_tag, "/dropped_sequence_counts_", data_date, custom_tag, "_v1.csv"),
           row.names = F)
 
 # print('table of omicron sequences from labs with > 100 sequences:')
@@ -1895,7 +1926,7 @@ if(TRUE){
                'tests_4weeks' = tests_state_bins_list),
           file = paste0(script.basename,
                         "/data/backup_",
-                        data_date, "/",
+                        data_date, custom_tag, "/",
                         data_date, "_tests_aggregated",
                         custom_tag, ".RDS"))
 }

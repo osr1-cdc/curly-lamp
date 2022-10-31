@@ -36,13 +36,14 @@
 # custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
-#data_date <- Sys.Date()
-data_date <- as.Date('2022-09-20')
+# data_date <- Sys.Date()
+data_date <- as.Date('2022-10-25')
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_folder <- paste0("results_", data_date, "_wiOTHER")
+results_tag <- "test_set1"
+results_folder <- paste0("results_", data_date, '_', results_tag)
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
@@ -56,7 +57,7 @@ results_folder <- paste0("results_", data_date, "_wiOTHER")
 # All other lineages (including AY.4.2 and AY.35) are from default pangolin calls.
 
 # Set custom lineages
-custom_lineage_names <- c("BA.1+")
+custom_lineage_names <- c("R346T_BQ11","R346T_BQ1","R346T_BE11","R346T_BA1","R346T_BA275","R346T_BA2121","R346T_BA2","R346T_BA46","R346T_BA4","R346T_BF7","R346T_BA5","R346T_B11529")
 # NOTE! If you change the custom lineages, you much also change the "custom"
 #       pangolin sql query (lines 305-320) in variant_surveillance_system.R to match!
 
@@ -65,10 +66,14 @@ voc1 = c(# "AY.1", "AY.2",
          "BA.2",
          "BA.2.12.1",
          "BA.2.75",
+         "BA.2.75.2",
          "BF.7",
          'BA.4',
          'BA.4.6',
          'BA.5',
+         'BA.5.2.6',
+         "BQ.1",
+         "BQ.1.1",
          "B.1.617.2", # Delta
          "B.1.1.529") # Omicron
 # define an alternate set of vocs
@@ -90,23 +95,31 @@ voc2_manual = c(NA)
 # optionally specify additional variants that will be added on to the lineages
 # from the SQL query in "variant_surveillance_system.R"
 # (this will not have any effect if "voc2_manual" is used)
-voc2_additional = c(#"AY.1", "AY.2",
-                    "BA.1",
-                    "BA.1.1",
-                    "BA.2",
-                    "BA.2.12",
-                    "BA.2.12.1",
-                    "BA.2.75",
-                    "BF.7",
+voc2_additional = c(
+                    'BA.2.75.2',
+                    'BQ.1',
+                    'BQ.1.1',
+                    'BA.1',
+                    'BA.1.1',
+                    'BA.2',
+                    'BA.2.12',
+                    'BA.2.12.1',
+                    'BA.2.75',
+                    'BN.1',
+                    'BF.7',
+                    'BF.11',
                     # "BA.3",
                     'BA.4',
                     'BA.4.6',
                     'BA.5',
+                    'BA.5.1.27',
+                    'BA.5.2.6',
+                    'XBB',
                     "B.1.617.2", # Delta
                     "B.1.1.529" # Omicron
                     )
 # voc2_custom = c(voc2,
-#                 custom_lineage_names)
+#                custom_lineage_names)
 
 # define an alternate set of vocs
 voc2_reduced = voc1_reduced
@@ -129,10 +142,14 @@ voc3 = c("B.1.1.7",   # Alpha  # and Q.1 to 8*
          "BA.2",
          "BA.2.12.1",
          "BA.2.75",
+         "BA.2.75.2",
          "BA.4",
          "BA.4.6",
          "BA.5",
-         "BF.7")
+         'BA.5.2.6',
+         "BF.7",
+         "BQ.1",
+         "BQ.1.1")
 # define an alternate set of vocs
 voc3_reduced = voc1_reduced
 
@@ -199,7 +216,7 @@ Q.1_3_agg   = TRUE
 B.1.621_agg = TRUE
 B429_7_agg  = TRUE
 B.1.1.529_agg = TRUE  # aggregate omicrons
-
+XBB_agg_to_other = TRUE  # aggregate XBB to Other
 
 # Argument determining whether figures should be output as jpgs
 fig_gen_run = TRUE
@@ -233,7 +250,7 @@ week0day1 = get0("week0day1",
 current_week = as.numeric(as.Date(data_date) - week0day1) %/% 7
 
 # Specify the variants to include in plots. Either "top7" or "voc"
-display_option = c("top7", "voc")[1]
+display_option = c("top7", "voc")[2]
 
 # number of weeks (up to current_week) to include in plots
 display_lookback = 8
@@ -264,6 +281,11 @@ nowcast_only = FALSE
 # grouped weights = 3 most recent weeks (up to "time_end") are grouped together for weighting; 2 weeks prior are grouped; all weeks before that are single weeks. The purpose was to avoid extreme weights, but we went with weight trimming over this option.
 use_group_weights <- FALSE
 
+# force_aggregate_R346T will force all custom R346T lineages aggregate to a total "R346T" lineage, and include R346T in voc
+# This is to accompany the custom pull to have main lineages with R346T separately, and would like to have a combined R346T lineage analysis
+# With this option turned on, all Omicron with R346T will be grouped together before modeling analysis.
+force_aggregate_R346T <- FALSE
+
 # force_aggregate_xxx will REMOVE variants from the voc list, which will result
 # in their subsequent aggregation into a parent lineage *IF* the parent lineage
 # is included in VOC.
@@ -278,7 +300,20 @@ use_group_weights <- FALSE
 # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
 force_aggregate_omicron <- FALSE
 # list omicron sublineages that will not be aggregated (if they are also in voc) (these are the only Omicron sublineages that will be permitted)
-force_aggregate_omicron_except <- c('BA.1','BA.2','BA.3','BA.4','BA.5','BA.2.12.1','BA.4.6') # 'BA.2.12', 'BA.1.1'
+force_aggregate_omicron_except <- c(
+         "BA.1.1",
+         "BA.2",
+         "BA.2.12.1",
+         "BA.2.75",
+         "BA.2.75.2",
+         "BF.7",
+         'BA.4',
+         'BA.4.6',
+         'BA.5',
+         'BA.5.2.6',
+         "BQ.1",
+         "BQ.1.1") 
+#c('BA.1.1','BA.2','BA.3','BA.4','BA.5','BA.5.2.6', 'BA.2.12.1','BA.4.6', 'BA.2.75', 'BF.7', 'BA.2.75.2', 'BQ.1', 'BQ.1.1') # 'BA.2.12', 'BA.1.1'
 
 
 # force-aggregate Delta sublineages
@@ -303,7 +338,7 @@ force_aggregate_B.1 <- TRUE
 # this can help avoid numerical overflow when trying to calculate prediction intervals.
 rescale_model_weights <- TRUE
 # how to rescale model weights
-rescale_model_weights_by <- 'max'
+rescale_model_weights_by <- "max"
 # options: "max", "mean", [number]
 
 # optionally remove UTAH PHL sequences (b/c they were causing issues with Region 8 estimates in January, 2022)
