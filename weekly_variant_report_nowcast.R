@@ -327,8 +327,8 @@ if(state_source == "state_tag_included"){
 
   # index of sequences to be excluded b/c of invalid lab name
   # NOTE! This does not include labs that are explicity excluded above by "remove_utahphl" and "remove_broad"
-  #invalid_labname <- svy.dat$SOURCE == 'OTHER'
-   invalid_labname <- is.na(svy.dat$SOURCE)  
+  invalid_labname <- svy.dat$SOURCE == 'OTHER'
+  # invalid_labname <- is.na(svy.dat$SOURCE)  
 # index of sequences to be excluded b/c of invalid variant name
   invalid_variant <- is.na(svy.dat$VARIANT) | svy.dat$VARIANT == "None" | svy.dat$VARIANT == "Unassigned"
 

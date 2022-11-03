@@ -143,7 +143,7 @@ jdbc_driver = paste0(script.basename, "/jdbc/ClouderaImpalaJDBC-2.6.20.1024/Clou
 # ~ "deduplication_cdcncbigisaid_auto": this data table is updated regularly but may be subject to cleaning issues
 # ~  "analytics_metadata_frozen": this data table is updated less frequently, but is the cleanest version of the sequence data
 # NOTE - if running the official Friday analysis use the "analytics_metadata_frozen" table
-seq_table = "sc2_dev.frozen_am_new"
+seq_table = "sc2_dev.analytics_metadata_frozen"
 # CDP cluster node to use
 # (you can use any node from 08 - 13. Sometimes nodes fail so if you get an error you can try another node)
 node = "10"
@@ -223,7 +223,7 @@ valid_data_dates <- DBI::dbGetQuery(
   conn = impala,
   statement = '
 SELECT DISTINCT to_date(date_frozen)
-FROM sc2_dev.frozen_am_new
+FROM sc2_dev.analytics_metadata_frozen
     ')
 # # In order to get the tests data, "data_date" must be in the
 # # sc2_archive.hhs_protect_testing_frozen table.
@@ -253,10 +253,10 @@ FROM sc2_dev.frozen_am_new
 
 
 # Get all field/column names from the table
-all.vars = DBI::dbGetQuery(impala, "DESCRIBE sc2_dev.frozen_am_new")[, 1]
+all.vars = DBI::dbGetQuery(impala, "DESCRIBE sc2_dev.analytics_metadata_frozen")[, 1]
 
 # specify the fields/columns that we want to get
-if(seq_table == "sc2_dev.frozen_am_new"){
+if(seq_table == "sc2_dev.analytics_metadata_frozen"){
   # get variables that:
   #   - start with "csid", "primary", "covv"
   #   - contain    "targeted", "vendor"
@@ -295,13 +295,14 @@ if(seq_table == "sc2_dev.frozen_am_new"){
 query = paste(
   'SELECT ',
   paste0('A.', get.vars, collapse=', '),
-  ', coalesce(A.contractor_vendor_name, A.primary_submitter) source',
+  #', coalesce(A.contractor_vendor_name, A.primary_submitter) source',
+  ', COALESCE(IF(eventid_all LIKE "%1771%", "NS3", NULL), contractor_vendor_name, primary_submitter) source',
   ', lineage as pangolineage',
   paste0(
-    ' FROM sc2_dev.frozen_am_new as A
+    ' FROM sc2_dev.analytics_metadata_frozen as A
     INNER JOIN
     (SELECT max(date_frozen) as max_frozen
-    FROM sc2_dev.frozen_am_new ma
+    FROM sc2_dev.analytics_metadata_frozen ma
     WHERE to_date(ma.date_frozen) = ', date_frozen, ') as M
     ON A.date_frozen = M.max_frozen'
   ),
@@ -373,7 +374,7 @@ if(custom_lineages == TRUE) {
         SELECT DISTINCT
         P.primary_nt_id as nt_id,',
         custom_lineages_sql,
-        ' FROM sc2_dev.frozen_am_new as P
+        ' FROM sc2_dev.analytics_metadata_frozen as P
         LEFT JOIN sc2_src.alignments as A
         ON P.primary_nt_id = A.nt_id
         AND A.protein = "S"
@@ -398,7 +399,7 @@ if(custom_lineages == TRUE) {
         SELECT DISTINCT
         P.primary_nt_id as nt_id,
         P.lineage
-        FROM sc2_dev.frozen_am_new as P
+        FROM sc2_dev.analytics_metadata_frozen as P
         WHERE to_date(P.date_frozen) = ', date_frozen
       ))
   }
@@ -575,7 +576,9 @@ FROM
         (SELECT date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) AS week_ending,
                 count(za.primary_virus_name) AS region_total
          FROM sc2_air.analytics_metadata za
-         WHERE (za.contractor_vendor_id IS NOT NULL OR za.cdceventid = '1771')
+         WHERE
+         -- ( za.contractor_vendor_name IS NOT NULL OR za.eventid_all LIKE '%1771%' OR za.primary_sampling_strategy = 'Baseline_Surveillance' )
+         (za.contractor_vendor_id IS NOT NULL OR za.cdceventid = '1771')
            AND za.primary_country = 'United States'
          GROUP BY week_ending) z ON date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) = z.week_ending
       AND 1=1
@@ -584,6 +587,7 @@ FROM
         datediff(date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), 5), date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5))>=14
         AND datediff(date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), 5), date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5))< 98
         AND (a.contractor_vendor_id IS NOT NULL OR a.cdceventid = '1771')
+        -- AND ( a.contractor_vendor_name IS NOT NULL OR a.eventid_all LIKE '%1771%' OR a.primary_sampling_strategy = 'Baseline_Surveillance' )
         AND a.primary_country = 'United States'
       GROUP BY l.", lineage_field, ",
                c.variant_type,
@@ -696,6 +700,7 @@ print('Finished reading in data.')
                       #'n_dropped_not_US',
                       'n_dropped_invalid_state',
                       'n_dropped_invalid_date',
+                      'n_dropped_invalid_virus_name',
                       #'n_dropped_CDC_lab',
                       'n_dropped_labs_100_seqs',
                       'n_dropped_invalid_lab_name',
@@ -827,6 +832,23 @@ us.dat$collection_date = with(
                         no = collection_date),
                  origin = "1970-01-01")
 )
+
+# Subset to exclude NULL primary_virus_name entry
+{
+   # counts of invalid virus name by week
+   novirusname_by_wk <- us.dat[ is.na(us.dat$primary_virus_name), .('count' = .N), by = 'week']
+   # merge in the counts of invalid virus name
+   if(nrow(novirusname_by_wk) > 0)
+      dropped_sequences <- rbind(
+         dropped_sequences[!(week %in% novirusname_by_wk$week & reason == 'n_dropped_invalid_virus_name')],
+         novirusname_by_wk[, .('week' = week, 'reason' = 'n_dropped_invalid_virus_name', 'count' = count)]
+      )
+   # fill in 0's for rows that didn't have any sequences dropped
+   dropped_sequences[is.na(count) & reason == 'n_dropped_invalid_virus_name', 'count' := 0]
+}
+us.dat = subset(x = us.dat,
+                !is.na(primary_virus_name))
+
 # convert to date format
 if ("covv_subm_date" %in% names(us.dat)) us.dat$covv_subm_date = as.Date(us.dat$covv_subm_date)
 if ("contractor_receive_date_to_cdc" %in% names(us.dat)) {
