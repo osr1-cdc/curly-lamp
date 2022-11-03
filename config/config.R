@@ -42,7 +42,7 @@ data_date <- Sys.Date()
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "set2"
+results_tag <- "BO"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
@@ -217,7 +217,7 @@ Q.1_3_agg   = TRUE
 B.1.621_agg = TRUE
 B429_7_agg  = TRUE
 B.1.1.529_agg = TRUE  # aggregate omicrons
-XBB_agg_to_other = TRUE  # aggregate XBB to Other
+XBB_agg_to_other = FALSE  # aggregate XBB to Other
 
 # Argument determining whether figures should be output as jpgs
 fig_gen_run = TRUE
