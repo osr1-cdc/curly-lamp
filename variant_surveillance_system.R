@@ -1227,8 +1227,8 @@ svy.dat = data.table::data.table(
   yr_wk  = us.dat$yr_wk,
   DAY    = us.dat$DAY,
   date   = us.dat$collection_date,
-  # nt_id  = us.dat$primary_nt_id,
-  # csid   = us.dat$csid,
+  nt_id  = us.dat$primary_nt_id,
+  csid   = us.dat$csid,
   covv_accession_id = us.dat$covv_accession_id,
   # ID number just to help keep track of individual sequences
   myID = 1:nrow(us.dat),

@@ -36,13 +36,13 @@
 # custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
-# data_date <- Sys.Date()
-data_date <- as.Date('2022-10-25')
+data_date <- Sys.Date()
+# data_date <- as.Date('2022-10-25')
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "test_set1"
+results_tag <- "set2"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
@@ -299,7 +299,7 @@ force_aggregate_R346T <- FALSE
 # "force_aggregate_omicron_except".
 # THIS WILL LIKELY NEED TO BE REPLACED IN THE FUTURE, BUT IT'S HERE TO AVOID
 # SPLITTING OUT BA.1, WHICH IS OFTEN AUTOMATICALLY INCLUDED IN VOC2 B/C IT'S > 1% NATIONALLY.
-force_aggregate_omicron <- TRUE
+force_aggregate_omicron <- FALSE
 # list omicron sublineages that will not be aggregated (if they are also in voc) (these are the only Omicron sublineages that will be permitted)
 force_aggregate_omicron_except <- c(
          "BA.1.1",
