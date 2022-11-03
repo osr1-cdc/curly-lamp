@@ -221,6 +221,10 @@ if( grepl("Run2", tag) ) {
     voc = voc2_reduced
     # also need the voc1 vocs for the aggregation matrix from the nowcast model
     voc1 = voc1_reduced
+  } else if(pre_aggregation) {
+    # do all aggregation before analysis ~line 500, only voc1 lineages (already aggregated) 
+    # will be included weighted and nowcast estimates. This might not work when voc1 has a very small list.
+    voc = voc1
   } else {
     if( is.na(voc2_manual) ) {
       # read in the list of voc created in "variant_surveillance_system.R"
@@ -785,6 +789,29 @@ write.csv(
   row.names = F
 )
 
+# create a table of all the old and final (after aggregating) variant names
+write.csv(
+  x = src.dat[
+    , # no filtering
+    .(original = lineage, aggregated = VARIANT2), # create new columns with clearer names
+    by = c('lineage', 'VARIANT2') # group by lineage and Variant
+    ][
+      ,
+      .(original, aggregated) # select only these columns
+      ][
+        order(original), # reorder by the original lineage name
+        ],
+  file = paste0(script.basename,
+                output_folder, "/lineage_aggregations_summary_",
+                ci.type,
+                "CI_",
+                svy.type,
+                "_",
+                data_date,
+                tag,
+                ".csv"),
+  row.names = F
+)
 
 
 
@@ -1296,7 +1323,9 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
 
     # re-order results by HHS region [so that "other" variants are not listed seperately]
     all.ftnt2 <- all.ftnt2[order(all.ftnt2$USA_or_HHSRegion),]
-
+    
+    # output data file depends on NO change in all.ftnt2 column order!!!
+    # If new columns are to be added, they need to go to the end.
     # write results to file
     write.csv(x = all.ftnt2,
               file = paste0(script.basename,
@@ -1666,6 +1695,9 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
 
     # sort by HHS region
     all.wkly2 <- all.wkly2[order(all.wkly2$USA_or_HHSRegion),]
+
+    # output data file depends on NO change in all.wkly2 column order!!!
+    # If new columns are to be added, they need to go to the end.
 
     # save the results to file
     write.csv(x = all.wkly2,
@@ -3073,61 +3105,66 @@ if ( grepl("Run2",tag) ){
     }
   }
 
-  # Format output for the run 1 lineage list
-  # exclude variants that have been aggregated into other groups (i.e. have value > 0 in the matrix)
-  # run_1 = proj.res[proj.res$Variant %notin% colnames(agg_var_mat)[colSums(agg_var_mat)>0],]
-  agg_lineages <- colnames(agg_var_mat)[colSums(agg_var_mat)>0] # need to make sure that run1 keeps either "Other" or Other aggregated! (not both or neither)
-  if("Other" %notin% agg_lineages) agg_lineages <- c(agg_lineages, "Other Aggregated")
-  run_1 = proj.res[Variant %notin% agg_lineages]
+  if(pre_aggregation==FALSE){
+    # Format output for the run 1 lineage list
+    # exclude variants that have been aggregated into other groups (i.e. have value > 0 in the matrix)
+    # run_1 = proj.res[proj.res$Variant %notin% colnames(agg_var_mat)[colSums(agg_var_mat)>0],]
+    agg_lineages <- colnames(agg_var_mat)[colSums(agg_var_mat)>0] # need to make sure that run1 keeps either "Other" or Other aggregated! (not both or neither)
+    if("Other" %notin% agg_lineages) agg_lineages <- c(agg_lineages, "Other Aggregated")
+    run_1 = proj.res[Variant %notin% agg_lineages]
 
-  # change the name of "Other Aggregated" to "Other" to match other output files
-  run_1[run_1$Variant == "Other Aggregated","Variant"] <- "Other"
+    # change the name of "Other Aggregated" to "Other" to match other output files
+    run_1[run_1$Variant == "Other Aggregated","Variant"] <- "Other"
+    
+    # output data file depends on NO change in run_1 column order!!!
+    # If new columns are to be added, they need to go to the end.
 
-  # QA: make sure that the shares add up to 1 each time period to make sure that the aggregation is doing what I want it to:
-  if (!all(run_1[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Fortnight_ending')][,unique(round(total_share, 5))] == 1)){
-    warning(paste(
-      paste0(script.basename,
-             output_folder, "/updated_nowcast_fortnightly_",
-             data_date,
-             sub(pattern = '2', replacement = '1', x = tag),
-             ".csv"),
-      'results are invalid! The total proportion does not add up to 100% in each time period!')
-    )
-  } else {
-    # only save the results to file if the proportions add up to 100% each week
-    # save the results to file
-    write.csv(x = run_1,
-              file = paste0(script.basename,
-                            output_folder, "/updated_nowcast_fortnightly_",
-                            data_date,
-                            sub(pattern = '2', replacement = '1', x = tag),
-                            ".csv"),
-              row.names = FALSE)
-    # process dataframe and save to a format for direct hadoop upload
-    run_1_hadoop = data.frame(run_1[,1:6])
-    run_1_hadoop[is.na(run_1_hadoop)] = '\\N'
-    run_1_hadoop[,7:15] = '\\N'
-    run_1_hadoop[,16] = 'smoothed'
-    run_1_hadoop[,17] = 'biweekly'
-    run_1_hadoop[,18] = data_date
-    run_1_hadoop[,19] = paste0(results_tag, '_Run1')
-    run_1_hadoop[,20] = 1
-    run_1_hadoop[,21:24] = run_1[,14:17]
-    run_1_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_1_hadoop[,3])
-    run_1_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_1_hadoop[,3])
-    run_1_hadoop[,3] = gsub(' Aggregated', '', run_1_hadoop[,3])
-    write.table(x = run_1_hadoop,
-              file = paste0(script.basename,
-                            output_folder, "/updated_nowcast_fortnightly_",
-                            data_date,
-                            sub(pattern = '2', replacement = '1', x = tag),
-                            "_",
-                            results_tag,
-                            "_hadoop.csv"),
-              quote = FALSE,
-              row.names = FALSE,
-              col.names = FALSE,
-              sep = ",")
+    # QA: make sure that the shares add up to 1 each time period to make sure that the aggregation is doing what I want it to:
+    if (!all(run_1[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Fortnight_ending')][,unique(round(total_share, 5))] == 1)){
+      warning(paste(
+        paste0(script.basename,
+              output_folder, "/updated_nowcast_fortnightly_",
+              data_date,
+              sub(pattern = '2', replacement = '1', x = tag),
+              ".csv"),
+        'results are invalid! The total proportion does not add up to 100% in each time period!')
+      )
+    } else {
+      # only save the results to file if the proportions add up to 100% each week
+      # save the results to file
+      write.csv(x = run_1,
+                file = paste0(script.basename,
+                              output_folder, "/updated_nowcast_fortnightly_",
+                              data_date,
+                              sub(pattern = '2', replacement = '1', x = tag),
+                              ".csv"),
+                row.names = FALSE)
+      # process dataframe and save to a format for direct hadoop upload
+      run_1_hadoop = data.frame(run_1[,1:6])
+      run_1_hadoop[is.na(run_1_hadoop)] = '\\N'
+      run_1_hadoop[,7:15] = '\\N'
+      run_1_hadoop[,16] = 'smoothed'
+      run_1_hadoop[,17] = 'biweekly'
+      run_1_hadoop[,18] = data_date
+      run_1_hadoop[,19] = paste0(results_tag, '_Run1')
+      run_1_hadoop[,20] = 1
+      run_1_hadoop[,21:24] = run_1[,14:17]
+      run_1_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_1_hadoop[,3])
+      run_1_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_1_hadoop[,3])
+      run_1_hadoop[,3] = gsub(' Aggregated', '', run_1_hadoop[,3])
+      write.table(x = run_1_hadoop,
+                file = paste0(script.basename,
+                              output_folder, "/updated_nowcast_fortnightly_",
+                              data_date,
+                              sub(pattern = '2', replacement = '1', x = tag),
+                              "_",
+                              results_tag,
+                              "_hadoop.csv"),
+                quote = FALSE,
+                row.names = FALSE,
+                col.names = FALSE,
+                sep = ",")
+    }
   }
 
   # Format output for the run2 lineage list
@@ -3137,6 +3174,8 @@ if ( grepl("Run2",tag) ){
 
   # Only include variants that are NOT in the list provided
   # (also use "Other Aggregated" instead of "Other"; this requires dropping the variants that were aggregated into "Other Aggregated")
+  # output data file depends on NO change in run_2 column order!!!
+  # If new columns are to be added, they need to go to the end.
   run_2 = proj.res[Variant %notin% c(drop_lin, "Other", colnames(agg_var_mat['Other Aggregated',,drop=F])[agg_var_mat['Other Aggregated',,drop=F] > 0])]
 
   # change the name of "Other Aggregated" to "Other" to match other output files
@@ -3390,93 +3429,97 @@ if ( grepl("Run2",tag) ){
 
   }
 
-  # Format output for the run 1 lineage list
-  # exclude variants that have been aggregated into other groups (i.e. have value > 0 in the matrix)
-  # run_1 = proj.res[proj.res$Variant %notin% colnames(agg_var_mat)[colSums(agg_var_mat)>0],]
-  agg_lineages <- colnames(agg_var_mat)[colSums(agg_var_mat)>0] # need to make sure that run1 keeps either "Other" or Other aggregated! (not both or neither)
-  if("Other" %notin% agg_lineages) agg_lineages <- c(agg_lineages, "Other Aggregated")
-  run_1 = proj.res[Variant %notin% agg_lineages]
+  if(pre_aggregation==FALSE){
+    # Format output for the run 1 lineage list
+    # exclude variants that have been aggregated into other groups (i.e. have value > 0 in the matrix)
+    # run_1 = proj.res[proj.res$Variant %notin% colnames(agg_var_mat)[colSums(agg_var_mat)>0],]
+    agg_lineages <- colnames(agg_var_mat)[colSums(agg_var_mat)>0] # need to make sure that run1 keeps either "Other" or Other aggregated! (not both or neither)
+    if("Other" %notin% agg_lineages) agg_lineages <- c(agg_lineages, "Other Aggregated")
+    run_1 = proj.res[Variant %notin% agg_lineages]
 
-  # change the name of "Other Aggregated" to "Other" to match other output files
-  run_1[run_1$Variant == "Other Aggregated","Variant"] <- "Other"
+    # change the name of "Other Aggregated" to "Other" to match other output files
+    run_1[run_1$Variant == "Other Aggregated","Variant"] <- "Other"
 
-  # weekly results = remove daily results & daily columns
-  run_1_weekly <- data.table:::subset.data.table(x = run_1,
-                                                 subset = model_week %% 1 == 0,
-                                                 select = !names(run_1) %in% c('total_test_positives_daily', 'cases_daily', 'cases_lo_daily', 'cases_hi_daily'))
-  # daily results = remove weekly columns
-  run_1_daily <- data.table:::subset.data.table(x = run_1,
-                                                select = !names(run_1) %in% c('total_test_positives_weekly', 'cases_weekly', 'cases_lo_weekly', 'cases_hi_weekly'))
+    # weekly results = remove daily results & daily columns
+    # output data file depends on NO change in run_1_weekly column order!!!
+    # If new columns are to be added, they need to go to the end.
+    run_1_weekly <- data.table:::subset.data.table(x = run_1,
+                                                  subset = model_week %% 1 == 0,
+                                                  select = !names(run_1) %in% c('total_test_positives_daily', 'cases_daily', 'cases_lo_daily', 'cases_hi_daily'))
+    # daily results = remove weekly columns
+    run_1_daily <- data.table:::subset.data.table(x = run_1,
+                                                  select = !names(run_1) %in% c('total_test_positives_weekly', 'cases_weekly', 'cases_lo_weekly', 'cases_hi_weekly'))
 
-  # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
-  if (!all(run_1_weekly[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Week_ending')][,unique(round(total_share, 5))] == 1)){
-    warning(paste(
-      paste0(script.basename,
-             output_folder, "/updated_nowcast_weekly_",
-             data_date,
-             sub(pattern = '2', replacement = '1', x = tag),
-             ".csv"),
-      'results are invalid! The total proportion does not add up to 100% in all weeks!')
-    )
-  } else {
-    # only save the results to file if the proportions add up to 100% each week
-    # save the results to file
-    write.csv(x = run_1_weekly,
-              file = paste0(script.basename,
-                            output_folder, "/updated_nowcast_weekly_",
-                            data_date,
-                            sub(pattern = '2', replacement = '1', x = tag),
-                            ".csv"),
-              row.names = FALSE)
-    # process dataframe and save to a format for direct hadoop upload
-    run_1_weekly_hadoop = data.frame(run_1_weekly[,c(1:2,4:7)])
-    run_1_weekly_hadoop[is.na(run_1_weekly_hadoop)] = '\\N'
-    run_1_weekly_hadoop[,7:15] = '\\N'
-    run_1_weekly_hadoop[,16] = 'smoothed'
-    run_1_weekly_hadoop[,17] = 'weekly'
-    run_1_weekly_hadoop[,18] = data_date
-    run_1_weekly_hadoop[,19] = paste0(results_tag, '_Run1')
-    run_1_weekly_hadoop[,20] = 1
-    run_1_weekly_hadoop[,21:24] = run_1_weekly[,17:20]
-    run_1_weekly_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_1_weekly_hadoop[,3])
-    run_1_weekly_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_1_weekly_hadoop[,3])
-    run_1_weekly_hadoop[,3] = gsub(' Aggregated', '', run_1_weekly_hadoop[,3])
-    write.table(x = run_1_weekly_hadoop,
-              file = paste0(script.basename,
-                            output_folder, "/updated_nowcast_weekly_",
-                            data_date,
-                            sub(pattern = '2', replacement = '1', x = tag),
-                            "_",
-                            results_tag,
-                            "_hadoop.csv"),
-              quote = FALSE,
-              row.names = FALSE,
-              col.names = FALSE,
-              sep = ",")
+    # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
+    if (!all(run_1_weekly[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Week_ending')][,unique(round(total_share, 5))] == 1)){
+      warning(paste(
+        paste0(script.basename,
+              output_folder, "/updated_nowcast_weekly_",
+              data_date,
+              sub(pattern = '2', replacement = '1', x = tag),
+              ".csv"),
+        'results are invalid! The total proportion does not add up to 100% in all weeks!')
+      )
+    } else {
+      # only save the results to file if the proportions add up to 100% each week
+      # save the results to file
+      write.csv(x = run_1_weekly,
+                file = paste0(script.basename,
+                              output_folder, "/updated_nowcast_weekly_",
+                              data_date,
+                              sub(pattern = '2', replacement = '1', x = tag),
+                              ".csv"),
+                row.names = FALSE)
+      # process dataframe and save to a format for direct hadoop upload
+
+      run_1_weekly_hadoop = data.frame(run_1_weekly[,c(1:2,4:7)])
+      run_1_weekly_hadoop[is.na(run_1_weekly_hadoop)] = '\\N'
+      run_1_weekly_hadoop[,7:15] = '\\N'
+      run_1_weekly_hadoop[,16] = 'smoothed'
+      run_1_weekly_hadoop[,17] = 'weekly'
+      run_1_weekly_hadoop[,18] = data_date
+      run_1_weekly_hadoop[,19] = paste0(results_tag, '_Run1')
+      run_1_weekly_hadoop[,20] = 1
+      run_1_weekly_hadoop[,21:24] = run_1_weekly[,17:20]
+      run_1_weekly_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_1_weekly_hadoop[,3])
+      run_1_weekly_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_1_weekly_hadoop[,3])
+      run_1_weekly_hadoop[,3] = gsub(' Aggregated', '', run_1_weekly_hadoop[,3])
+      write.table(x = run_1_weekly_hadoop,
+                file = paste0(script.basename,
+                              output_folder, "/updated_nowcast_weekly_",
+                              data_date,
+                              sub(pattern = '2', replacement = '1', x = tag),
+                              "_",
+                              results_tag,
+                              "_hadoop.csv"),
+                quote = FALSE,
+                row.names = FALSE,
+                col.names = FALSE,
+                sep = ",")
+    }
+    # daily results
+    # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
+    if (!all(run_1_daily[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'date')][,unique(round(total_share, 5))] == 1)){
+      warning(paste(
+        paste0(script.basename,
+              output_folder, "/updated_nowcast_weekly_",
+              data_date,
+              sub(pattern = '2', replacement = '1', x = tag),
+              "_daily.csv"),
+        'results are invalid! The total proportion does not add up to 100% in all weeks!')
+      )
+    } else {
+      # only save the results to file if the proportions add up to 100% each week
+      # save the results to file
+      write.csv(x = run_1_daily,
+                file = paste0(script.basename,
+                              output_folder, "/updated_nowcast_weekly_",
+                              data_date,
+                              sub(pattern = '2', replacement = '1', x = tag),
+                              "_daily.csv"),
+                row.names = FALSE)
+    }
   }
-  # daily results
-  # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
-  if (!all(run_1_daily[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'date')][,unique(round(total_share, 5))] == 1)){
-    warning(paste(
-      paste0(script.basename,
-             output_folder, "/updated_nowcast_weekly_",
-             data_date,
-             sub(pattern = '2', replacement = '1', x = tag),
-             "_daily.csv"),
-      'results are invalid! The total proportion does not add up to 100% in all weeks!')
-    )
-  } else {
-    # only save the results to file if the proportions add up to 100% each week
-    # save the results to file
-    write.csv(x = run_1_daily,
-              file = paste0(script.basename,
-                            output_folder, "/updated_nowcast_weekly_",
-                            data_date,
-                            sub(pattern = '2', replacement = '1', x = tag),
-                            "_daily.csv"),
-              row.names = FALSE)
-  }
-
   # Format output for the run2 lineage list
   # exclude the lineages that were aggregated (other than "Other")
   drop_lin <- row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"]
@@ -3490,6 +3533,8 @@ if ( grepl("Run2",tag) ){
   run_2[run_2$Variant=="Other Aggregated","Variant"] <- "Other"
 
   # weekly results = remove daily results & daily columns
+  # output data file depends on NO change in run_2_weekly column order!!!
+  # If new columns are to be added, they need to go to the end.
   run_2_weekly <- data.table:::subset.data.table(x = run_2,
                                                  subset = model_week %% 1 == 0,
                                                  select = !names(run_2) %in% c('total_test_positives_daily', 'cases_daily', 'cases_lo_daily', 'cases_hi_daily'))
