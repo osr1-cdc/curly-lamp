@@ -284,9 +284,9 @@ if ( force_aggregate_omicron & ('B.1.1.529' %in% voc) ){
 }
 
 # force aggregate XBB to other before analysis
-if (XBB_agg_to_other==TRUE) {
-  voc <- setdiff(voc, c('XBB'))
-}
+# if (XBB_agg_to_other==TRUE) {
+#   voc <- setdiff(voc, c('XBB'))
+# }
 
 if (force_aggregate_delta){
   # Delta sublineages to exclude
@@ -2847,11 +2847,11 @@ if ( grepl("Run2",tag) ){
           # }
         }
         if(ll == 'BA.2.12.1') {
-          ll_agg <- grep("(^BG\\.)(?![0-9])",BA_vars, perl = T, value = T)
+          ll_agg <- grep("(^BG\\.)",BA_vars, perl = T, value = T)
         }
 
         if(ll == 'BA.2.75') {
-          ll_agg <- grep("(^BA\\.2\\.75)(?![0-9])|(^BN\\.)(?![0-9])",BA_vars, perl = T, value = T)
+          ll_agg <- grep("(^BA\\.2\\.75)(?![0-9])|(^BN\\.)",BA_vars, perl = T, value = T)
           ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
           ll_agg <- c(ll_agg, 'BA.2.75')
           # # this will keep BA.2.75 .2 seperate ONLY if BA.2.75.2 is *ALSO* listed in run1_lineages
@@ -2890,7 +2890,7 @@ if ( grepl("Run2",tag) ){
           ll_agg <- grep("(^BF\\.7)(?![0-9])",BA_vars, perl = T, value = T)
         }
         if(ll == 'BA.5') {
-          ll_agg <- grep("(^BA\\.5)(?![0-9])|(^B[EFQ]\\.)",BA_vars, perl = T, value = T)
+          ll_agg <- grep("(^BA\\.5)(?![0-9])|(^B[EF]\\.)",BA_vars, perl = T, value = T)
           # this will keep the sublineage seperate if it is ALSO listed in run1 lineages
           ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
           ll_agg <- c(ll_agg, 'BA.5')
