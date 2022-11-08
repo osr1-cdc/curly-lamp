@@ -1583,7 +1583,6 @@ labnames_df_pa <- data.frame(old_name = PA_labs_to_agg,
                              new_name = "PENNSYLVANIA DEPARTMENT OF HEALTH BUREAU OF LABORATORIES")
 svy.dat[LAB %in% PA_labs_to_agg, 'LAB2' := labnames_df_pa$new_name[1]]
 
-
 # Steps to add more lab aggregations 
 # 1. find lab names that almost assuredly refer to the same lab 
 # 2. copy-and-paste one of the blocks of code above 

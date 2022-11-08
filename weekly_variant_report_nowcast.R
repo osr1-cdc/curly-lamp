@@ -603,8 +603,8 @@ if('BA.4' %in% voc) {
 } else B529.BA4 <- NULL
 # BA.5 sublineages includes BE.x [NOTE! Change this if any BE sublineages are added to the VOCs]
 if('BQ.1.1' %in% voc) B529.BQ.1.1 <- sort(grep("(^BQ\\.1\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1 <- NULL
-if('BQ.1.2' %in% voc) B529.BQ.1.2 <- sort(grep("(^BQ\\.1\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.2 <- NULL
-if('BQ.1.3' %in% voc) B529.BQ.1.3 <- sort(grep("(^BQ\\.1\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.3 <- NULL
+if('BQ.1.2' %in% voc) B529.BQ.1.2 <- sort(grep("(^BQ\\.1\\.2)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.2 <- NULL
+if('BQ.1.3' %in% voc) B529.BQ.1.3 <- sort(grep("(^BQ\\.1\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.3 <- NULL
 if('BQ.1' %in% voc) {
   B529.BQ.1 <- sort(grep("(^BQ\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
   B529.BQ.1 <- setdiff(B529.BQ.1, c(B529.BQ.1.1, B529.BQ.1.2, B529.BQ.1.3))
@@ -639,8 +639,8 @@ if('BA.5.2.6' %in% voc) B529.BA5.2.6 <- sort(grep("(^BA\\.5\\.2\\.6)(?![0-9])",u
 if('BA.5.2.9' %in% voc) B529.BA5.2.9 <- sort(grep("(^BA\\.5\\.2\\.9)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.9 <- NULL
 if('BA.5.2.20' %in% voc) B529.BA5.2.20 <- sort(grep("(^BA\\.5\\.2\\.20)(?![0-9])|(^BV\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.20 <- NULL
 if('BA.5.2.21' %in% voc) B529.BA5.2.21 <- sort(grep("(^BA\\.5\\.2\\.21)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.21 <- NULL
-if('BA.5.2.23' %in% voc) B529.BA5.2.23 <- sort(grep("(^BA\\.5\\.2\\.21)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.23 <- NULL
-if('BA.5.2.31' %in% voc) B529.BA5.2.31 <- sort(grep("(^BA\\.5\\.2\\.21)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.31 <- NULL
+if('BA.5.2.23' %in% voc) B529.BA5.2.23 <- sort(grep("(^BA\\.5\\.2\\.23)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.23 <- NULL
+if('BA.5.2.31' %in% voc) B529.BA5.2.31 <- sort(grep("(^BA\\.5\\.2\\.31)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.31 <- NULL
 if('BA.5.2' %in% voc) {
   B529.BA5.2 <- sort(grep("^BF\\.|(^BA\\.5\\.2)(?![0-9])|^B[UVZ]\\.|^C[DEFG]\\.",unique(src.dat$VARIANT), perl = T, value = T))
   B529.BA5.2 <- setdiff(B529.BA5.2, c(B529.BA5.2.1, B529.BA5.2.6, B529.BA5.2.9, B529.BA5.2.20, B529.BA5.2.21, B529.BA5.2.23, B529.BA5.2.31, B529.BF.5, B529.BF.7, B529.BF.8, B529.BF.10, B529.BF.11, B529.BF.13, B529.BF.21, B529.BF.26, B529.BF.27))
