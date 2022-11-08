@@ -5,14 +5,14 @@
 # This is the same as adding these lines to the actual qsub line
 #
 # save the standard output text to this file instead of the the default jobID.o file
-#$ -o Run1_set1_trim.out
+#$ -o Run1_XBBsplited.out
 #
 # save the standard error text to this file instead of the the default jobID.e file
-#$ -e Run1_set1_trim.err
+#$ -e Run1_XBBsplited.err
 # 
 # Rename the job to be this string instead of the default which is the name of the script
 # -N Run1_trim_proportion_modeling
-#$ -N run1_set1
+#$ -N run1_XBBsplited
 # 
 # Refer all file reference to work the current working directory which is
 # the directory from which the script was qsubbed
