@@ -37,7 +37,7 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 # data_date <- Sys.Date()
-data_date <- as.Date('2022-10-18')
+data_date <- as.Date('2022-11-08')
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
@@ -210,6 +210,8 @@ B.1.621_agg = TRUE
 B429_7_agg  = TRUE
 B.1.1.529_agg = TRUE  # aggregate omicrons
 
+# arguments for s1 proportion
+include_other = TRUE
 
 # Argument determining whether figures should be output as jpgs
 fig_gen_run = TRUE
@@ -229,7 +231,7 @@ n_top = 10
 n_recent_weeks = 7
 
 # Multinomial model includes current week + model_weeks weeks of previous data
-model_weeks = 21 # early on the model ended up including 1 more week than was set here. Now it includes the number set here.
+model_weeks = 8 # early on the model ended up including 1 more week than was set here. Now it includes the number set here.
 
 # Criterion for inclusion in model (i.e to be included in model, weighted share
 # must be at least 0.01 in the n_recent_weeks)

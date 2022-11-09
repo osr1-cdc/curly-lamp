@@ -614,21 +614,24 @@ WHERE cor.date_range_of_calc LIKE '%US:3mo'"
 }
 
 # Get the group_keys to be included in S1 proportion analysis
+selected_report_week <- as.Date(data_date) - as.numeric(format(as.Date(data_date), '%w')) - 15
+#selected_report_week <- "2022-10-15"
 s1_groups = DBI::dbGetQuery(
     conn = impala,
     statement = paste0(
     "SELECT DISTINCT
+    report_week,
     CASE
     WHEN(GP.group_key = SUBSTRING(LREP.aa_aln, 14, 677)) THEN '", ref_lineage, "'
     ELSE concat('", ref_lineage, "_', udx.mutation_list(LREP.aa_aln, GP.dominant_aa_aln, '14..677'))
     END as group_name,
     GP.group_key
 FROM geni.prod_sc2_group_proportionality as GP
-INNER JOIN
-  (SELECT max(report_week) as max_week
-    FROM geni.prod_sc2_group_proportionality
-  ) as F
-  ON GP.report_week = F.max_week
+--INNER JOIN
+--  (SELECT max(report_week) as max_week
+--    FROM geni.prod_sc2_group_proportionality
+--  ) as F
+--  ON GP.report_week = F.max_week
 LEFT JOIN geni.reference_info AS INFO ON GP.protein = INFO.sub_protein
 LEFT JOIN geni.sc2_lineage_rep AS LREP ON GP.protein = LREP.protein
     AND '", ref_lineage, "' = LREP.lineage
@@ -636,7 +639,8 @@ WHERE NOT GP.exclusions
     AND GP.protein = 'S'
     AND GP.geo_region = 'North America - USA'
     AND GP.context = 's1_id'
-    AND GP.geo_sub_region = 'all'"))
+    AND GP.geo_sub_region = 'all'
+    AND GP.report_week = '", selected_report_week, "'" ))
 
 # end the database connection
 DBI::dbDisconnect(conn = impala)

@@ -224,6 +224,16 @@ factor_columns = names(column_classes[column_classes == "factor"]) # names of th
 # convert columns that are factors to strings
 for (vv in factor_columns) svy.dat[, vv] = as.character(svy.dat[, vv])
 
+# voc_selected <- c(
+# 'BA.5',
+# 'BA.5_R346T, N658S',
+# 'BA.5_R346T',
+# 'BA.5_T76I',
+# 'BA.5_K444T, N460K',
+# 'BA.5_Y144-',
+# 'BA.5_R346T, K444T, N460K'
+# )
+
 # subset the survey data based on whether or not state-tagged data should be included
 if(state_source == "state_tag_included"){
 
@@ -264,24 +274,33 @@ if(state_source == "state_tag_included"){
     # fill in 0's for rows that didn't have any sequences dropped
     dropped_sequences[is.na(count) & reason == 'n_dropped_dropped_geni_excluded_samples', 'count' := 0]
 
-    # # samples with S1_group 'Other' should be dropped
-    # ov_by_wk <- svy.dat[ other_variant, .(count = .N), by = yr_wk]
-    # ov_by_wk[,'yr_wk' := as.Date(yr_wk)]
-    # # merge in the counts of dropped_geni_excluded_samples
-    # if(nrow(ov_by_wk) > 0)
-    #   dropped_sequences <- rbind(
-    #     dropped_sequences[!(week %in% ov_by_wk$yr_wk & reason == 'n_dropped_other_s1id_samples')],
-    #     ov_by_wk[, .('week' = yr_wk, 'reason' = 'n_dropped_dropped_other_s1id_samples', 'count' = count)]
-    #   )
-    # # fill in 0's for rows that didn't have any sequences dropped
-    # dropped_sequences[is.na(count) & reason == 'n_dropped_dropped_other_s1id_samples', 'count' := 0]
+    if (include_other==FALSE) {
+      # samples with S1_group 'Other' should be dropped
+      ov_by_wk <- svy.dat[ other_variant, .(count = .N), by = yr_wk]
+      ov_by_wk[,'yr_wk' := as.Date(yr_wk)]
+      # merge in the counts of dropped_geni_excluded_samples
+      if(nrow(ov_by_wk) > 0)
+        dropped_sequences <- rbind(
+          dropped_sequences[!(week %in% ov_by_wk$yr_wk & reason == 'n_dropped_other_s1id_samples')],
+          ov_by_wk[, .('week' = yr_wk, 'reason' = 'n_dropped_dropped_other_s1id_samples', 'count' = count)]
+        )
+    }
+    # fill in 0's for rows that didn't have any sequences dropped
+    dropped_sequences[is.na(count) & reason == 'n_dropped_dropped_other_s1id_samples', 'count' := 0]
   }
   # only include samples where both the lab and the variant are defined
-  src.dat = subset(x = svy.dat,
-                   !invalid_labname & # SOURCE != "OTHER"
-                     !invalid_variant & # !is.na(S1_GROUP)
-                     #!other_variant & # s1_group is not 'Other'
-                     yr_wk >= time_start) # filter out old sequences to speed everything up
+  if (include_other==FALSE) {
+    src.dat = subset(x = svy.dat,
+                    !invalid_labname & # SOURCE != "OTHER"
+                      !invalid_variant & # !is.na(S1_GROUP)
+                      !other_variant  & # s1_group is not 'Other'
+                      yr_wk >= time_start) # filter out old sequences to speed everything up
+  } else {
+    src.dat = subset(x = svy.dat,
+                  !invalid_labname & # SOURCE != "OTHER"
+                    !invalid_variant & # !is.na(S1_GROUP)
+                    yr_wk >= time_start) # filter out old sequences to speed everything up
+  }
 } else {
   # only include samples from these labs (i.e. no state-tagged data)
   src.dat = subset(x = svy.dat,
@@ -303,6 +322,9 @@ if(state_source == "state_tag_included"){
   # part of NS3 or CDC sequencing
   #    & !is.na(src.dat$covv_accession_id)
 }
+
+# src.dat = subset(x = src.dat,
+#                  S1_GROUP %in% voc_selected)
 
 # ### choose vocs ----------------------------------------------------------------
 # Here, voc refers to the s1_groups to be analyzed
@@ -583,7 +605,7 @@ if(FALSE){
 # NOTE! When switching to this method, I also switched to fitting the model to
 #       20 weeks instead of 21 weeks. (then when switching back to 21 weeks, it screwed up this method a little)
 # maximum week (not maximum "model_week") included in the model
-model_week_max = as.numeric(as.Date(time_end) - week0day1) %/% 7
+model_week_max = as.numeric(as.Date(time_end-14) - week0day1) %/% 7
 ### SHOULD THIS BE BASED ON TIME_END OR ON DATA_DATE???
 
 # first week (not first "model_week") included in the model
