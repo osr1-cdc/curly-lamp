@@ -605,7 +605,12 @@ if(FALSE){
 # NOTE! When switching to this method, I also switched to fitting the model to
 #       20 weeks instead of 21 weeks. (then when switching back to 21 weeks, it screwed up this method a little)
 # maximum week (not maximum "model_week") included in the model
+
+# FOR S1 species proprotion ONLY ---- modified 2022-11-15
+# model weeks only include the 8 weeks included in geni analysis
+model_weeks = 8
 model_week_max = as.numeric(as.Date(time_end-14) - week0day1) %/% 7
+
 ### SHOULD THIS BE BASED ON TIME_END OR ON DATA_DATE???
 
 # first week (not first "model_week") included in the model
