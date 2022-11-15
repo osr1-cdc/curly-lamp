@@ -12,6 +12,8 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
 ## Code
 - **config/config.R** - Specify various configuration settings, such as data dates, VOCs to include in particular runs, and figure settings.
 - **variant_surveillance_system.R** - Generates the analytic dataset with the survey weights
+- **variant_surveillance_system.sh** - Wrapper script for submitting variant_surveillance_system.R to run in HPC.
+   - qsub variant_surveillance_system.sh <`username`> <`password`> <T/F for custom lineage> <T/F for using nextclade pango calls> <ref_lineage from geni.sc2_lineage_rep>
 - **weekly_variant_report_nowcast.R** - Creates variant proportion estimates using the dataset created in `variant_surveillance_system.R`. 
    - `weekly_variant_report_nowcast.R` accomodates 3 different "runs", each of which has its own set of "vocs" (i.e. variants for which to calculate proportions)
       1) Run 1 calculates variant share/proportion and confidence intervals estimated using survey design for both fortnights (HHS regions & nationally) and weeks (HHS regions & nationally). 
@@ -42,6 +44,7 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
       3) Run3 generates state-level estimates in rolling 4 wk bins using survey design (same as Run 1). 
          - Output includes 1 file
             - `paste0("/results/state_weighted_roll4wk_",ci.type,"CI_svyNEW_",data_date,tag,".csv")`
+- **weekly_s1_variant_report_nowcast.R** - Creates s1_species proportion estimates using the dataset created in `variant_surveillance_system.R`. 
 
 
 
