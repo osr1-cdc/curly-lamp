@@ -36,13 +36,13 @@
 # custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
-# data_date <- Sys.Date()
-data_date <- as.Date('2022-11-08')
+data_date <- Sys.Date()
+# data_date <- as.Date('2022-11-08')
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "merge_test_s1"
+results_tag <- "BO"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
@@ -105,10 +105,8 @@ voc2_additional = c(
                     'BA.2.75.2',
                     'BQ.1',
                     'BQ.1.1',
-                    'BA.1',
                     'BA.1.1',
                     'BA.2',
-                    'BA.2.12',
                     'BA.2.12.1',
                     'BA.2.75',
                     'BF.7',
@@ -119,6 +117,7 @@ voc2_additional = c(
                     'BA.5.2.6',
                     'BN.1',
                     'XBB',
+                    'BA.2.3.20',
                     "B.1.617.2", # Delta
                     "B.1.1.529" # Omicron
                     )
@@ -223,6 +222,7 @@ B.1.621_agg = TRUE
 B429_7_agg  = TRUE
 B.1.1.529_agg = TRUE  # aggregate omicrons
 XBB_agg_to_other = FALSE  # post-aggregate XBB to Other
+force_preaggregate_XBB = FALSE
 
 # arguments for s1 proportion
 include_other = TRUE
