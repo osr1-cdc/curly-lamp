@@ -42,7 +42,7 @@ data_date <- Sys.Date()
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "s1"
+results_tag <- "CDT1"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
@@ -72,6 +72,7 @@ voc1 = c(# "AY.1", "AY.2",
          "BA.2.75",
          "BA.2.75.2",
          "BF.7",
+         "BF.11",
          'BA.4',
          'BA.4.6',
          'BA.5',
@@ -79,7 +80,7 @@ voc1 = c(# "AY.1", "AY.2",
          "BQ.1",
          "BQ.1.1",
          "BN.1",
-         'XBB',
+         #'XBB',
          "B.1.617.2", # Delta
          "B.1.1.529") # Omicron
 # define an alternate set of vocs
@@ -110,6 +111,7 @@ voc2_additional = c(
                     'BA.2.12.1',
                     'BA.2.75',
                     'BF.7',
+                    'BF.11',
                     # "BA.3",
                     'BA.4',
                     'BA.4.6',
@@ -152,7 +154,8 @@ voc3 = c("B.1.1.7",   # Alpha  # and Q.1 to 8*
          'BA.5.2.6',
          'BN.1',
          "BF.7",
-         'XBB',
+         "BF.11",
+         #'XBB',
          "BQ.1",
          "BQ.1.1")
 # define an alternate set of vocs
@@ -221,8 +224,8 @@ Q.1_3_agg   = TRUE
 B.1.621_agg = TRUE
 B429_7_agg  = TRUE
 B.1.1.529_agg = TRUE  # aggregate omicrons
-XBB_agg_to_other = FALSE  # post-aggregate XBB to Other
-force_preaggregate_XBB = FALSE
+XBB_agg_to_other = TRUE  # post-aggregate XBB to Other
+force_preaggregate_XBB = TRUE
 
 # arguments for s1 proportion
 include_other = TRUE

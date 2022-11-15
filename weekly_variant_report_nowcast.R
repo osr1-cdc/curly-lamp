@@ -644,7 +644,7 @@ if('BF.7.4.1' %in% voc) B529.BF.7.4.1 <- sort(grep("(^BF\\.7\\.4\\.1)(?![0-9])",
 if('BF.7.4' %in% voc) {
   B529.BF.7.4 <- sort(grep("(^BF\\.7\\.4)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
   B529.BF.7.4 <- setdiff(B529.BF.7.4, B529.BF.7.4.1)
-} else B529.BF.7 <- NULL
+} else B529.BF.7.4 <- NULL
 if('BF.7' %in% voc) {
   B529.BF.7 <- sort(grep("(^BF\\.7)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
   B529.BF.7 <- setdiff(B529.BF.7, c(B529.BF.7.4.1, B529.BF.7.4))
@@ -793,7 +793,7 @@ if(B.1.1.529_agg==TRUE)  {
 # if XBB is in voc, aggregate its sublineages
 # if force preaggregate XBB, aggregate its sublineages to XBB
 if (force_preaggregate_XBB){
-  if('XBB.1' %in% voc) src.dat[src.dat$VARIANT %in% XBB.1[XBB.1 %notin% voc],"VARIANT"] <- "XBB"
+  if('XBB.1' %in% voc) src.dat[src.dat$VARIANT %in% XBB.1,"VARIANT"] <- "XBB"
   if('XBB' %in% voc) src.dat[src.dat$VARIANT %in% XBB[XBB %notin% voc],"VARIANT"] <- "XBB"
 } else {
   if('XBB.1' %in% voc) src.dat[src.dat$VARIANT %in% XBB.1[XBB.1 %notin% voc],"VARIANT"] <- "XBB.1"
@@ -2832,9 +2832,10 @@ if ( grepl("Run2",tag) ){
     Other_agg = model_vars[model_vars %notin% c(voc, 'B.1.617.2', 'B.1.1.529')] # also have to exclude any variants that have their own row in agg_var_mat. If delta is not included in VOC, then it gets included in both the delta row and the Other row.
     # Include XBB into Other_agg so it will be aggregated to Other for Run 1 results if XBB_agg
     if (XBB_agg_to_other==TRUE & 'XBB' %in% model_vars) Other_agg = c(Other_agg, 'XBB')
+    if (XBB_agg_to_other==TRUE & 'XBB.1' %in% model_vars) Other_agg = c(Other_agg, 'XBB.1')
 
     # generate a matrix that indicates which lineages to aggregate for the nowcast
-    # Columns are the lineages in the nowcast model, so all the defined lineages
+    # Columns B529.BF.7.4are the lineages in the nowcast model, so all the defined lineages
     #  plus the "other" lineage
     # Rows are the aggregated lineages desired
     agg_var_mat <- matrix(data = 0,
@@ -2940,7 +2941,7 @@ if ( grepl("Run2",tag) ){
         }
         if(ll == 'BA.5') {
           if( length(grep("(^BF\\.7)(?![0-9])",run1_lineages, perl = T, value = T)) > 0 ){
-            ll_agg <- grep("(^BA\\.5)(?![0-9])|(^BE\\.)|(^BF\\.(?!7(?![0-9]))",BA_vars, perl = T, value = T)
+            ll_agg <- grep("(^BA\\.5)(?![0-9])|(^BE\\.)|(^BF\\.(?!7(?![0-9])))",BA_vars, perl = T, value = T)
           } else {
             ll_agg <- grep("(^BA\\.5)(?![0-9])|(^B[EF]\\.)",BA_vars, perl = T, value = T)
           }
