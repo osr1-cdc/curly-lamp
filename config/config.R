@@ -42,7 +42,7 @@ data_date <- Sys.Date()
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "CDT1"
+results_tag <- "CDT2"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
@@ -225,7 +225,7 @@ B.1.621_agg = TRUE
 B429_7_agg  = TRUE
 B.1.1.529_agg = TRUE  # aggregate omicrons
 XBB_agg_to_other = TRUE  # post-aggregate XBB to Other
-force_preaggregate_XBB = TRUE
+force_preaggregate_XBB = FALSE
 
 # arguments for s1 proportion
 include_other = TRUE

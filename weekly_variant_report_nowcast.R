@@ -2957,7 +2957,7 @@ if ( grepl("Run2",tag) ){
           #   }
           # }
         }
-        if(ll == 'XBB') {
+        if(XBB_agg_to_other==FALSE & ll == 'XBB') {
           ll_agg <- grep("(^XBB\\.)",BA_vars, perl = T, value = T)
         }
         # add a row onto the agg_var_mat for this subvariant
