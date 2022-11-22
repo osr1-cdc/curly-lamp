@@ -2957,6 +2957,9 @@ if ( grepl("Run2",tag) ){
           #   }
           # }
         }
+        if(ll == 'XBB') {
+          ll_agg <- grep("(^XBB)(?![0-9])",BA_vars, perl = T, value = T)
+        }
         if(XBB_agg_to_other==FALSE & ll == 'XBB') {
           ll_agg <- grep("(^XBB\\.)",BA_vars, perl = T, value = T)
         }
