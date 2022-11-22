@@ -42,11 +42,11 @@ data_date <- Sys.Date()
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "WOW"
+results_tag <- "BO"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
-pre_aggregation <- TRUE
+pre_aggregation <- FALSE
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
@@ -224,7 +224,7 @@ Q.1_3_agg   = TRUE
 B.1.621_agg = TRUE
 B429_7_agg  = TRUE
 B.1.1.529_agg = TRUE  # aggregate omicrons
-XBB_agg_to_other = TRUE  # post-aggregate XBB to Other
+XBB_agg_to_other = FALSE  # post-aggregate XBB to Other
 force_preaggregate_XBB = FALSE
 
 # arguments for s1 proportion
