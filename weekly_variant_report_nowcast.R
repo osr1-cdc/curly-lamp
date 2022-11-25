@@ -2811,7 +2811,7 @@ if ( grepl("Run2",tag) ){
     # this returns all variants with "AY" in the name
     AY_vars = model_vars[grep("AY\\.", model_vars, perl=T)]
     # this returns all variants with BA. in the name (Omicron sublineages)
-    BA_vars = model_vars[grep("^B[ACDEFGHJKLMNPQRSTUVWYZ]\\.|^C[ABCDEFG]\\.", model_vars, perl=T)]
+    BA_vars = model_vars[grep("^B[ACDEFGHJKLMNPQRSTUVWYZ]\\.|^C[ABCDEFG]\\.|(^XBB)(?![0-9])", model_vars, perl=T)]
 
     # get the names of the lineages included in Run1
     if(custom_lineages){
@@ -2961,7 +2961,7 @@ if ( grepl("Run2",tag) ){
           ll_agg <- grep("(^XBB)(?![0-9])",BA_vars, perl = T, value = T)
         }
         if(XBB_agg_to_other==FALSE & ll == 'XBB') {
-          ll_agg <- grep("(^XBB\\.)",BA_vars, perl = T, value = T)
+          ll_agg <- grep("(^XBB)(?![0-9])",BA_vars, perl = T, value = T)
         }
         # add a row onto the agg_var_mat for this subvariant
         if(exists('ll_agg')){
