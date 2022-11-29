@@ -37,12 +37,12 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 data_date <- Sys.Date()
-# data_date <- as.Date('2022-11-08')
+# data_date <- as.Date('2022-11-22')
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "CDT"
+results_tag <- "BO"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
@@ -224,11 +224,10 @@ Q.1_3_agg   = TRUE
 B.1.621_agg = TRUE
 B429_7_agg  = TRUE
 B.1.1.529_agg = TRUE  # aggregate omicrons
-XBB_agg_to_other = FALSE  # post-aggregate XBB to Other
+XBB_agg = TRUE # aggregate XBBs
+# preaggregation for CDT run
 force_preaggregate_XBB = FALSE
-
-# arguments for s1 proportion
-include_other = TRUE
+force_preaggregate_BN.1 = FALSE
 
 # Argument determining whether figures should be output as jpgs
 fig_gen_run = TRUE
