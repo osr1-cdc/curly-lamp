@@ -178,8 +178,8 @@ if(length(script.basename) == 0) {
 #capture system time
 tstart = proc.time()
 
-# source options from config.R file
-source(paste0(script.basename, "/config/config.R"))
+# source options from config_s1.R file
+source(paste0(script.basename, "/config/config_s1.R"))
 
 #Source the functions used in this script.
 # source(paste0(script.basename, "/svycipropkg.R"))
@@ -629,7 +629,7 @@ src.dat$model_week = src.dat$week - model_week_min - model_week_mid
 
 # data week (this might be the same as the last week in "model_week_df", or it might be 1 week after; it depends on "time_end")
 data_week_df = data.frame(
-  week       = current_week, # "current_week" is defined in config.R: as.numeric(data_date - week0day1) %/% 7
+  week       = current_week, # "current_week" is defined in config_s1.R: as.numeric(data_date - week0day1) %/% 7
   model_week = current_week - model_week_min - model_week_mid,
   week_start = (data_date - as.numeric(format(data_date, '%w'))),
   week_mid   = (data_date - as.numeric(format(data_date, '%w'))) + 3,
