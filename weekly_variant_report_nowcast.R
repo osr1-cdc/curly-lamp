@@ -290,11 +290,11 @@ if ( force_aggregate_omicron & ('B.1.1.529' %in% voc) ){
 
 # preaggregate certain lineages for CDT run
 if(force_preaggregate_BN.1) {
-  BN.1sub_in_voc <- sort(grep("(^BN\\.1\\.)", unique(src.dat$VARIANT), perl = T, value = T))
+  BN.1sub_in_voc <- sort(grep("(^BN\\.1\\.)", voc, perl = T, value = T))
   voc <- setdiff(voc, BN.1sub_in_voc)
 }
 if(force_preaggregate_XBB) {
-  XBBsub_in_voc <- sort(grep("(^XBB\\.)", unique(src.dat$VARIANT), perl = T, value = T))
+  XBBsub_in_voc <- sort(grep("(^XBB\\.)", voc, perl = T, value = T))
   voc <- setdiff(voc, XBBsub_in_voc)
 }
 
@@ -2846,8 +2846,8 @@ if ( grepl("Run2",tag) ){
     # all other variants to be aggregated (used for Run 1 & Run 2 results)
     Other_agg = model_vars[model_vars %notin% c(voc, 'B.1.617.2', 'B.1.1.529')] # also have to exclude any variants that have their own row in agg_var_mat. If delta is not included in VOC, then it gets included in both the delta row and the Other row.
     # Include XBB into Other_agg so it will be aggregated to Other for Run 1 results if XBB_agg
-    if (XBB_agg_to_other==TRUE & 'XBB' %in% model_vars) Other_agg = c(Other_agg, 'XBB')
-    if (XBB_agg_to_other==TRUE & 'XBB.1' %in% model_vars) Other_agg = c(Other_agg, 'XBB.1')
+   # if (XBB_agg_to_other==TRUE & 'XBB' %in% model_vars) Other_agg = c(Other_agg, 'XBB')
+   # if (XBB_agg_to_other==TRUE & 'XBB.1' %in% model_vars) Other_agg = c(Other_agg, 'XBB.1')
 
     # generate a matrix that indicates which lineages to aggregate for the nowcast
     # Columns B529.BF.7.4are the lineages in the nowcast model, so all the defined lineages
@@ -2975,9 +2975,9 @@ if ( grepl("Run2",tag) ){
         if(ll == 'XBB') {
           ll_agg <- grep("(^XBB)(?![0-9])",BA_vars, perl = T, value = T)
         }
-        if(XBB_agg_to_other==FALSE & ll == 'XBB') {
-          ll_agg <- grep("(^XBB)(?![0-9])",BA_vars, perl = T, value = T)
-        }
+        # if(XBB_agg_to_other==FALSE & ll == 'XBB') {
+        #   ll_agg <- grep("(^XBB)(?![0-9])",BA_vars, perl = T, value = T)
+        # }
         # add a row onto the agg_var_mat for this subvariant
         if(exists('ll_agg')){
           # if ll_agg contains subvariants of ll, then add a new row to agg_var_mat
