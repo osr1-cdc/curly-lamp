@@ -2828,7 +2828,7 @@ if ( grepl("Run2",tag) ){
     # this returns all variants with "AY" in the name
     AY_vars = model_vars[grep("AY\\.", model_vars, perl=T)]
     # this returns all variants with BA. in the name (Omicron sublineages)
-    BA_vars = model_vars[grep("^B[ACDEFGHJKLMNPQRSTUVWYZ]\\.|^C[ABCDEFG]\\.|(^XBB)(?![0-9])", model_vars, perl=T)]
+    BA_vars = model_vars[grep("^B[ACDEFGHJKLMNPQRSTUVWYZ]\\.|^C[A-Z]\\.|D[A-H]|(^XBB)(?![0-9])", model_vars, perl=T)]
 
     # get the names of the lineages included in Run1
     if(custom_lineages){
@@ -2958,9 +2958,9 @@ if ( grepl("Run2",tag) ){
         }
         if(ll == 'BA.5') {
           if( length(grep("(^BF\\.7)(?![0-9])",run1_lineages, perl = T, value = T)) > 0 ){
-            ll_agg <- grep("(^BA\\.5)(?![0-9])|(^BE\\.)|(^BF\\.(?!7(?![0-9])))",BA_vars, perl = T, value = T)
+            ll_agg <- grep("(^CQ\\.)|(^BA\\.5)(?![0-9])|(^BE\\.)|(^BF\\.(?!7(?![0-9])))",BA_vars, perl = T, value = T)
           } else {
-            ll_agg <- grep("(^BA\\.5)(?![0-9])|(^B[EF]\\.)",BA_vars, perl = T, value = T)
+            ll_agg <- grep("(^CQ\\.)|(^BA\\.5)(?![0-9])|(^B[EF]\\.)",BA_vars, perl = T, value = T)
           }
           # this will keep the sublineage seperate if it is ALSO listed in run1 lineages
           ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
