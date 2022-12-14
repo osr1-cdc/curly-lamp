@@ -595,9 +595,7 @@ if('BA.2.3' %in% voc) {
   B529.BA2.3 <- setdiff(B529.BA2.3, B529.BA2.3.20)
 } else B529.BA2.3 <- NULL
 if('BA.2.75.2' %in% voc) B529.BA2.75.2 <- sort(grep("(^BA\\.2\\.75\\.2)(?![0-9])|(^CA\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.75.2 <- NULL
-#if('BN.1.3' %in% voc) 
-B529.BN.1.3 <- sort(grep("(^BN\\.1\\.3)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) 
-#else B529.BN.1.3 <- NULL
+if('BN.1.3' %in% voc) B529.BN.1.3 <- sort(grep("(^BN\\.1\\.3)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BN.1.3 <- NULL
 if('BN.1' %in% voc){
   B529.BN.1 <- sort(grep("(^BN\\.1)(?!([0-9]))", unique(src.dat$VARIANT), perl = T, value = T))
   B529.BN.1 <- setdiff(B529.BN.1, B529.BN.1.3)
@@ -734,9 +732,6 @@ if(any(duplicated(B.529.all))) stop(message = paste0(B.529.all[duplicated(B.529.
 B529=sort(grep("(^B\\.1\\.1\\.529)|(^B[AC-HJ-NP-VYZ]\\.)|(^C[A-HJ-NP-WYZ]\\.)|(^D[A-H]\\.)",unique(src.dat$VARIANT), value = T))
 B529=B529[ B529 %notin% c(voc, B.529.all) ] #vector of the B529s to aggregate
 
-print(B529.BN.1.3)
-print("NEXT")
-print(B529.BN.1)
 
 # Aggregate sublineages to the parent lineage
 if(P.1_agg==TRUE)     {src.dat[src.dat$VARIANT %in% P1,  "VARIANT"]    <- "P.1"}
@@ -2837,9 +2832,11 @@ if ( grepl("Run2",tag) ){
   if(TRUE) {
     # Check to see which lineages are in model_vars
     # this returns all variants with "AY" in the name
-    AY_vars = model_vars[grep("AY\\.", model_vars, perl=T)]
+    AY_vars = model_vars[grep("^AY\\.", model_vars, perl=T)]
     # this returns all variants with BA. in the name (Omicron sublineages)
     BA_vars = model_vars[grep("^B[ACDEFGHJKLMNPQRSTUVWYZ]\\.|^C[A-Z]\\.|^D[A-H]", model_vars, perl=T)]
+    # this returns all variants with XBB. in the name   
+    XBB_vars = model_vars[grep("^XBB\\.", model_vars, perl=T)]
 
     # get the names of the lineages included in Run1
     if(custom_lineages){
@@ -2855,19 +2852,17 @@ if ( grepl("Run2",tag) ){
     # Note: this assumes that all BA subvariants will be aggregated into parent Omicron. That's no longer the case, so below I'm adding code to deal with BA subvariants that need their own aggregations.
     BA_agg = BA_vars[BA_vars %notin% run1_lineages]
     # some of these should be aggregated into parent omicron; others should be aggregated into some BA sublineage
-
+    # this returns all "XBB" variants to be aggregated for Run 1 results
+    XBB_agg = XBB_vars[XBB_vars %notin% run1_lineages]
     # all other variants to be aggregated (used for Run 1 & Run 2 results)
     Other_agg = model_vars[model_vars %notin% c(voc, 'B.1.617.2', 'B.1.1.529')] # also have to exclude any variants that have their own row in agg_var_mat. If delta is not included in VOC, then it gets included in both the delta row and the Other row.
-    # Include XBB into Other_agg so it will be aggregated to Other for Run 1 results if XBB_agg
-   # if (XBB_agg_to_other==TRUE & 'XBB' %in% model_vars) Other_agg = c(Other_agg, 'XBB')
-   # if (XBB_agg_to_other==TRUE & 'XBB.1' %in% model_vars) Other_agg = c(Other_agg, 'XBB.1')
 
     # generate a matrix that indicates which lineages to aggregate for the nowcast
     # Columns B529.BF.7.4are the lineages in the nowcast model, so all the defined lineages
     #  plus the "other" lineage
     # Rows are the aggregated lineages desired
     agg_var_mat <- matrix(data = 0,
-                          nrow = 3,
+                          nrow = 4,
                           ncol = (length(model_vars)+1))
     colnames(agg_var_mat) <- c(model_vars,"Other")
 
@@ -2876,7 +2871,8 @@ if ( grepl("Run2",tag) ){
     agg_var_mat[1,] <- ifelse(colnames(agg_var_mat) %in% c("B.1.617.2", AY_agg),1,0)
     agg_var_mat[2,] <- ifelse(colnames(agg_var_mat) %in% c("B.1.1.529", BA_agg),1,0)
     agg_var_mat[3,] <- ifelse(colnames(agg_var_mat) %in% c(Other_agg, "Other"),1,0)
-    row.names(agg_var_mat) <-c("Delta Aggregated", "Omicron Aggregated", "Other Aggregated")
+    agg_var_mat[4,] <- ifelse(colnames(agg_var_mat) %in% c("XBB", XBB_agg),1,0)
+    row.names(agg_var_mat) <-c("Delta Aggregated", "Omicron Aggregated", "Other Aggregated", "XBB Aggregated")
 
     # add rows to agg_var_mat for each BA subvariant in run1_lineages
     {
@@ -2928,10 +2924,6 @@ if ( grepl("Run2",tag) ){
           ll_agg <- grep("(^BA\\.2\\.75)(?![0-9])|(^BN\\.)",BA_vars, perl = T, value = T)
           ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
           ll_agg <- c(ll_agg, 'BA.2.75')
-          # # this will keep BA.2.75 .2 seperate ONLY if BA.2.75.2 is *ALSO* listed in run1_lineages
-          # if (length(grep("^BA\\.2\\.75\\.2",run1_lineages, perl=T, value = T)) == 1 ){
-          # ll_agg <- grep("(^BA\\.2\\.75)(?![0-9]|(\\.2))",BA_vars, perl = T, value = T)
-          # }
         }
         if (ll == 'BA.3') {
           ll_agg <- grep("(^BA\\.3)(?![0-9])",BA_vars, perl = T, value = T)
@@ -2958,9 +2950,6 @@ if ( grepl("Run2",tag) ){
           ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
           ll_agg <- c(ll_agg, 'BQ.1')
        }
-        # if(ll == 'BA.5.2.6') {
-        #   ll_agg <- grep("(^BA\\.5\\.2\\.6)(?![0-9])",BA_vars, perl = T, value = T)
-        # }
         if(ll == 'BF.11') {
           ll_agg <- grep("(^BF\\.11)(?![0-9])",BA_vars, perl = T, value = T)
         }
@@ -2976,22 +2965,7 @@ if ( grepl("Run2",tag) ){
           # this will keep the sublineage seperate if it is ALSO listed in run1 lineages
           ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
           ll_agg <- c(ll_agg, 'BA.5')
-          # if('BF.7' %in% run1_lineages)      ll_agg <- setdiff(ll_agg, c('BF.7'))
-          # if( length(grep("(^BF\\.7)|(^BQ\\.1)|(^BA\\.5\\.2\\.6)|(^BF\\.11)",run1_lineages, perl = T, value = T)) == 4 ){
-          #   if('BA.5.1.27' %in% run1_lineages) {
-          #     ll_agg <- grep("(^BA\\.5)(?!(\\.2\\.6(?![0-9]))|(\\.1\\.27(?![0-9]))|[0-9])|(^BE\\.)|(^BF\\.)(?!7(?![0-9])|11(?![0-9]))",BA_vars, perl = T, value = T)
-          #   } else {
-          #     ll_agg <- grep("(^BA\\.5)(?!(\\.2\\.6(?![0-9]))|[0-9])|(^BE\\.)|(^BF\\.)(?!7(?![0-9])|11(?![0-9]))",BA_vars, perl = T, value = T)
-          #   }
-          # }
         }
-        if(ll == 'XBB') {
-          ll_agg <- grep("(^XBB)(?![0-9])",model_vars, perl = T, value = T)
-        }
-        # if(XBB_agg_to_other==FALSE & ll == 'XBB') {
-        #   ll_agg <- grep("(^XBB)(?![0-9])",BA_vars, perl = T, value = T)
-        # }
-        # add a row onto the agg_var_mat for this subvariant
         if(exists('ll_agg')){
           # if ll_agg contains subvariants of ll, then add a new row to agg_var_mat
           # if ll_agg only contains ll, don't add a new row
@@ -3012,9 +2986,10 @@ if ( grepl("Run2",tag) ){
           }
         }
       }
-      # print a warning if any columns have totals > 1
-      if(any(colSums(agg_var_mat)>1)) warning(paste0('agg_var_mat not correctly specified. Some variants are aggregated more than once.', agg_var_mat))
     }
+    # print a warning if any columns have totals > 1
+    if(any(colSums(agg_var_mat)>1)) warning(paste0('agg_var_mat not correctly specified. Some variants are aggregated more than once.', agg_var_mat))
+    
     # agg_var_mat
     write.csv(
       x = replace(agg_var_mat, agg_var_mat == 0, NA), # it's easier to view in Excel with only the 1's and no 0's

@@ -37,16 +37,16 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 data_date <- Sys.Date()
-# data_date <- as.Date('2022-11-22')
+# data_date <- as.Date('2022-12-13')
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "WOW"
+results_tag <- "BO"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
-pre_aggregation <- TRUE
+pre_aggregation <- FALSE
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
@@ -227,8 +227,8 @@ B429_7_agg  = TRUE
 B.1.1.529_agg = TRUE  # aggregate omicrons
 XBB_agg = TRUE # aggregate XBBs
 # preaggregation for CDT run
-force_preaggregate_XBB = TRUE
-force_preaggregate_BN.1 = TRUE
+force_preaggregate_XBB = FALSE
+force_preaggregate_BN.1 = FALSE
 
 # Argument determining whether figures should be output as jpgs
 fig_gen_run = TRUE
@@ -286,7 +286,7 @@ calc_confirmed_infections <- TRUE
 # Option to just fit the nowcast model and avoid the slower parts of the script
 # (this is only valid if the run number == 2)
 # this can be removed eventually. It's here to make it easier to make updates to the Nowcast model.
-nowcast_only = TRUE
+nowcast_only = FALSE
 
 # This is an option that probably won't be used, but I don't want to delete it yet
 # so it's hiding here just in case I want to use it again.
@@ -350,7 +350,7 @@ force_aggregate_B.1 <- TRUE
 # this can help avoid numerical overflow when trying to calculate prediction intervals.
 rescale_model_weights <- TRUE
 # how to rescale model weights
-rescale_model_weights_by <- "max"
+rescale_model_weights_by <- "mean"
 # options: "max", "mean", [number]
 
 # optionally remove UTAH PHL sequences (b/c they were causing issues with Region 8 estimates in January, 2022)
