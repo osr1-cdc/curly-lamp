@@ -3689,7 +3689,15 @@ if ( grepl("Run3", tag) ){
   # (reverse column order for convenience)
   all.state = expand.grid(Variant = voc,
                           Roll_4wk_end = data_weeks,
-                          State = sort(unique(src.dat$STUSAB)))[, 3:1]
+                          State = c("AK", "AL", "AR", "AZ", "CA", "CO", "CT",
+                                     "DC", "DE", "FL", "GA", "GU", "HI", "IA",
+                                     "ID", "IL", "IN", "KS", "KY", "LA", "MA",
+                                     "MD", "ME", "MI", "MN", "MO", "MP", "MS", 
+                                     "MT", "NC", "ND", "NE", "NH", "NJ", "NM", 
+                                     "NV", "NY", "OH", "OK", "OR", "PA", "PR", 
+                                     "RI", "SC", "SD", "TN", "TX", "UT", "VA", 
+                                     "VT", "WA", "WI", "WV", "WY", "AS", "MH", 
+                                     "VI", "PW", "FM"))[, 3:1]
 
 
 
@@ -4017,6 +4025,41 @@ if ( grepl("Run3", tag) ){
                           tag,
                           ".csv"),
             row.names = FALSE)
+
+  # Generate file ready for hadoop upload
+  all.state.out_hadoop = data.frame(all.state.out[,c("State",
+                                                "Roll_Fourweek_ending",
+                                                "Variant",
+                                                "Share",
+                                                "Share_lo",
+                                                "Share_hi",
+                                                "count",
+                                                "denom_count",
+                                                "DF",
+                                                "eff.size",
+                                                "CI_width",
+                                                "nchs_flag",
+                                                "nchs_flag_wodf")])
+  all.state.out_hadoop[,14] = data_date
+  all.state.out_hadoop[,15] = ''
+  all.state.out_hadoop[,16:19] = all.state.out[,c("total_test_positives",
+                                                          "cases",
+                                                          "cases_lo",
+                                                          "cases_hi")]
+  all.state.out_hadoop[is.na(all.state.out_hadoop)] = '\\N'
+  write.table(x = all.state.out_hadoop,
+            file = paste0(script.basename,
+                          output_folder, "/state_weighted_roll4wk_",
+                          ci.type,
+                          "CI_svyNEW_",
+                          data_date,
+                          tag,
+                          "_hadoop.csv"),
+            quote = FALSE,
+            row.names = FALSE,
+            col.names = FALSE,
+            sep =  ",")
+
 } # end Run3
 
 
