@@ -5,14 +5,13 @@
 # This is the same as adding these lines to the actual qsub line
 #
 # save the standard output text to this file instead of the the default jobID.o file
-#$ -o Run1_CDT.out
+#$ -o s1_run.out
 #
 # save the standard error text to this file instead of the the default jobID.e file
-#$ -e Run1_CDT.err
+#$ -e s1_run.err
 # 
 # Rename the job to be this string instead of the default which is the name of the script
-# -N Run1_trim_proportion_modeling
-#$ -N run1_CDT
+#$ -N s1_run
 # 
 # Refer all file reference to work the current working directory which is
 # the directory from which the script was qsubbed
@@ -36,11 +35,11 @@
 #$ -q covid.q
 #
 # Set the parallel_environment to "smp" and use xx cores (smp = Symmetric multiprocessing or shared-memory multiprocessing); MAKE SURE THIS IS >= p CORES!
-#$ -pe smp 4
+#$ -pe smp 2
 
 source /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
 
-Rscript weekly_variant_report_nowcast.R -r 1 -c F -v F -t quantile_99 -s T -p 10
+Rscript weekly_s1_variant_report_nowcast.R -r 2 -t quantile_99 -s T -p 10
 # -r = run number
 # -c = include custom lineages
 # -v = use reduced vocs
