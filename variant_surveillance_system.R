@@ -178,7 +178,7 @@ use_previously_imported_data <- FALSE
 if(use_previously_imported_data &
     file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_data", custom_tag, ".RDS")) & 
     file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin", custom_tag, ".RDS")) & 
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline", custom_tag, ".RDS")) & 
+    #file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline", custom_tag, ".RDS")) & 
     file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS")) & 
     file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS")) &
     file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_s1_groups", custom_tag, ".RDS"))){
@@ -186,7 +186,7 @@ if(use_previously_imported_data &
   print('Reading in previously pulled data')
   dat <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_data", custom_tag, ".RDS"))
   pangolin <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin", custom_tag, ".RDS"))
-  baseline <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline", custom_tag, ".RDS"))
+  #baseline <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline", custom_tag, ".RDS"))
   tests <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS"))
   pops <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS"))
   s1_groups <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_s1_groups", custom_tag, ".RDS"))
@@ -594,8 +594,8 @@ FROM
                 count(za.primary_virus_name) AS region_total
          FROM sc2_air.analytics_metadata za
          WHERE
-         -- ( za.contractor_vendor_name IS NOT NULL OR za.eventid_all LIKE '%1771%' OR za.primary_sampling_strategy = 'Baseline_Surveillance' )
-         (za.contractor_vendor_id IS NOT NULL OR za.cdceventid = '1771')
+         ( za.contractor_vendor_name IS NOT NULL OR za.eventid_all LIKE '%1771%' OR za.primary_sampling_strategy = 'Baseline_Surveillance' )
+         -- (za.contractor_vendor_id IS NOT NULL OR za.cdceventid = '1771')
            AND za.primary_country = 'United States'
          GROUP BY week_ending) z ON date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) = z.week_ending
       AND 1=1
@@ -603,8 +603,8 @@ FROM
       WHERE -- THis is generally the weeks
         datediff(date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), 5), date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5))>=14
         AND datediff(date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), 5), date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5))< 98
-        AND (a.contractor_vendor_id IS NOT NULL OR a.cdceventid = '1771')
-        -- AND ( a.contractor_vendor_name IS NOT NULL OR a.eventid_all LIKE '%1771%' OR a.primary_sampling_strategy = 'Baseline_Surveillance' )
+        -- AND (a.contractor_vendor_id IS NOT NULL OR a.cdceventid = '1771')
+        AND ( a.contractor_vendor_name IS NOT NULL OR a.eventid_all LIKE '%1771%' OR a.primary_sampling_strategy = 'Baseline_Surveillance' )
         AND a.primary_country = 'United States'
       GROUP BY l.", lineage_field, ",
                c.variant_type,
