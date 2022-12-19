@@ -2926,9 +2926,6 @@ if ( grepl("Run2",tag) ){
           ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
           ll_agg <- c(ll_agg, 'BA.2.75')
         }
-        if(ll == 'BA.2.75') {
-          ll_agg <- grep("(BA\\.2\\.75)(?![0-9])|(BL\\.)",BA_vars, perl = T, value = T)
-        }
         if (ll == 'BA.3') {
           ll_agg <- grep("(^BA\\.3)(?![0-9])",BA_vars, perl = T, value = T)
         }
