@@ -151,7 +151,7 @@ jdbc_driver = paste0(script.basename, "/jdbc/ClouderaImpalaJDBC-2.6.20.1024/Clou
 # ~ "deduplication_cdcncbigisaid_auto": this data table is updated regularly but may be subject to cleaning issues
 # ~  "analytics_metadata_frozen": this data table is updated less frequently, but is the cleanest version of the sequence data
 # NOTE - if running the official Friday analysis use the "analytics_metadata_frozen" table
-seq_table = "sc2_dev.analytics_metadata_frozen"
+seq_table = "sc2_archive.analytics_metadata_frozen"
 # CDP cluster node to use
 # (you can use any node from 08 - 13. Sometimes nodes fail so if you get an error you can try another node)
 node = "10"
@@ -234,7 +234,7 @@ valid_data_dates <- DBI::dbGetQuery(
   conn = impala,
   statement = '
 SELECT DISTINCT to_date(date_frozen)
-FROM sc2_dev.analytics_metadata_frozen
+FROM sc2_archive.analytics_metadata_frozen
     ')
 # # In order to get the tests data, "data_date" must be in the
 # # sc2_archive.hhs_protect_testing_frozen table.
@@ -264,10 +264,10 @@ FROM sc2_dev.analytics_metadata_frozen
 
 
 # Get all field/column names from the table
-all.vars = DBI::dbGetQuery(impala, "DESCRIBE sc2_dev.analytics_metadata_frozen")[, 1]
+all.vars = DBI::dbGetQuery(impala, "DESCRIBE sc2_archive.analytics_metadata_frozen")[, 1]
 
 # specify the fields/columns that we want to get
-if(seq_table == "sc2_dev.analytics_metadata_frozen"){
+if(seq_table == "sc2_archive.analytics_metadata_frozen"){
   # get variables that:
   #   - start with "csid", "primary", "covv"
   #   - contain    "targeted", "vendor"
@@ -316,10 +316,10 @@ query = paste(
   ', COALESCE(IF(eventid_all LIKE "%1771%", "NS3", NULL), contractor_vendor_name, primary_submitter) source',
   ', lineage as pangolineage',
   paste0(
-    ' FROM sc2_dev.analytics_metadata_frozen as A
+    ' FROM sc2_archive.analytics_metadata_frozen as A
     INNER JOIN
     (SELECT max(date_frozen) as max_frozen
-    FROM sc2_dev.analytics_metadata_frozen ma
+    FROM sc2_archive.analytics_metadata_frozen ma
     WHERE to_date(ma.date_frozen) = ', date_frozen, ') as M
     ON A.date_frozen = M.max_frozen'
   ),
@@ -391,7 +391,7 @@ if(custom_lineages == TRUE) {
         SELECT DISTINCT
         P.primary_nt_id as nt_id,',
         custom_lineages_sql,
-        ' FROM sc2_dev.analytics_metadata_frozen as P
+        ' FROM sc2_archive.analytics_metadata_frozen as P
         LEFT JOIN sc2_src.alignments as A
         ON P.primary_nt_id = A.nt_id
         AND A.protein = "S"
@@ -416,7 +416,7 @@ if(custom_lineages == TRUE) {
         SELECT DISTINCT
         P.primary_nt_id as nt_id,
         P.lineage
-        FROM sc2_dev.analytics_metadata_frozen as P
+        FROM sc2_archive.analytics_metadata_frozen as P
         WHERE to_date(P.date_frozen) = ', date_frozen
       ))
   }
