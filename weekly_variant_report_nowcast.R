@@ -326,7 +326,10 @@ if (remove_broad){
   svy.dat <- subset(x = svy.dat,
                     subset = SOURCE %notin% c('BROAD INSTITUTE', 'INFECTIOUS DISEASE PROGRAM, BROAD INSTITUTE OF HARVARD AND MIT'))
 }
-
+if (remove_Quest){
+  svy.dat <- subset(x = svy.dat,
+                    subset = SOURCE %notin% c('Quest Diagnostics Incorporated', 'Infectious Diseases,  Quest Diagnostics', 'Quest Diagnostics'))
+}
 ### subset data ----------------------------------------------------------------
 
 # Convert any factor to string
@@ -575,9 +578,10 @@ if('XBB.1' %in% voc){
   XBB.1 <- sort(grep("^XBB\\.1(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
   XBB.1 <- setdiff(XBB.1, XBB.1.5)
   } else XBB.1 <- NULL
+if('XBB.2' %in% voc) XBB.2 <- sort(grep("^XBB\\.2(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.2 <- NULL
 if('XBB' %in% voc) {
   XBB <- sort(grep("(^XBB\\.)", unique(src.dat$VARIANT), perl = T, value = T))
-  XBB <- setdiff(XBB, c(XBB.1, XBB.1.5))
+  XBB <- setdiff(XBB, c(XBB.1, XBB.1.5, XBB.2))
  } else XBB <- NULL
 
 B429=B429[which(B429 %notin% voc)] #vector of the B429s to aggregate
@@ -828,6 +832,7 @@ if(B.1.1.529_agg==TRUE)  {
 if(XBB_agg) {
   src.dat[src.dat$VARIANT %in% XBB.1.5[XBB.1.5 %notin% voc],"VARIANT"] <- "XBB.1.5"
   src.dat[src.dat$VARIANT %in% XBB.1[XBB.1 %notin% voc],"VARIANT"] <- "XBB.1"
+  src.dat[src.dat$VARIANT %in% XBB.2[XBB.2 %notin% voc],"VARIANT"] <- "XBB.2"
   src.dat[src.dat$VARIANT %in% XBB[XBB %notin% voc],"VARIANT"] <- "XBB"
 }
 
