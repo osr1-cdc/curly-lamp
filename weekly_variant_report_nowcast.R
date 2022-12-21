@@ -1417,6 +1417,8 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
                             "_",
                             data_date,
                             tag,
+                            "_",
+                            results_tag,
                             ".csv"),
               row.names = FALSE)
 
@@ -1790,6 +1792,8 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
                             "_",
                             data_date,
                             tag,
+                            "_",
+                            results_tag,
                             ".csv"),
               row.names=FALSE)
 
@@ -3213,6 +3217,8 @@ if ( grepl("Run2",tag) ){
                               output_folder, "/updated_nowcast_fortnightly_",
                               data_date,
                               sub(pattern = '2', replacement = '1', x = tag),
+                              "_",
+                              results_tag,
                               ".csv"),
                 row.names = FALSE)
       # process dataframe and save to a format for direct hadoop upload
@@ -3274,6 +3280,8 @@ if ( grepl("Run2",tag) ){
                             output_folder, "/updated_nowcast_fortnightly_",
                             data_date,
                             tag,
+                            "_",
+                            results_tag,
                             ".csv"),
               row.names = FALSE)
     # process dataframe and save to a format for direct hadoop upload
@@ -3544,6 +3552,8 @@ if ( grepl("Run2",tag) ){
                               output_folder, "/updated_nowcast_weekly_",
                               data_date,
                               sub(pattern = '2', replacement = '1', x = tag),
+                              "_",
+                              results_tag,
                               ".csv"),
                 row.names = FALSE)
       # process dataframe and save to a format for direct hadoop upload
@@ -3592,6 +3602,8 @@ if ( grepl("Run2",tag) ){
                               output_folder, "/updated_nowcast_weekly_",
                               data_date,
                               sub(pattern = '2', replacement = '1', x = tag),
+                              "_",
+                              results_tag,
                               "_daily.csv"),
                 row.names = FALSE)
     }
@@ -3636,6 +3648,8 @@ if ( grepl("Run2",tag) ){
                             output_folder, "/updated_nowcast_weekly_",
                             data_date,
                             tag,
+                            "_",
+                            results_tag,
                             ".csv"),
               row.names = FALSE)
     # process dataframe and save to a format for direct hadoop upload
@@ -3683,6 +3697,8 @@ if ( grepl("Run2",tag) ){
                             output_folder, "/updated_nowcast_weekly_",
                             data_date,
                             tag,
+                            "_",
+                            results_tag,
                             "_daily.csv"),
               row.names = FALSE)
   }
