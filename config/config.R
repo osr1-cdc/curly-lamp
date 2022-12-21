@@ -42,7 +42,7 @@ data_date <- Sys.Date()
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "BO_2"
+results_tag <- "CDT_noquest"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
@@ -230,8 +230,8 @@ B429_7_agg  = TRUE
 B.1.1.529_agg = TRUE  # aggregate omicrons
 XBB_agg = TRUE # aggregate XBBs
 # preaggregation for CDT run
-force_preaggregate_XBB = FALSE
-force_preaggregate_BN.1 = FALSE
+force_preaggregate_XBB = TRUE
+force_preaggregate_BN.1 = TRUE
 
 # Argument determining whether figures should be output as jpgs
 fig_gen_run = TRUE
@@ -289,7 +289,7 @@ calc_confirmed_infections <- TRUE
 # Option to just fit the nowcast model and avoid the slower parts of the script
 # (this is only valid if the run number == 2)
 # this can be removed eventually. It's here to make it easier to make updates to the Nowcast model.
-nowcast_only = TRUE
+nowcast_only = FALSE
 
 # This is an option that probably won't be used, but I don't want to delete it yet
 # so it's hiding here just in case I want to use it again.
@@ -363,7 +363,7 @@ remove_utahphl <- FALSE
 remove_broad <- FALSE
 
 # optionally remove Quest sequences (b/c there seems to be some XBB sequences from Quest that were not received, so need to make sure the overall proportion is not skewed. Dec. 12, 2022)
-remove_Quest <- FALSE
+remove_Quest <- TRUE
 
 # new option for testing data exclustion
 exclude_testing_data_portion <- TRUE

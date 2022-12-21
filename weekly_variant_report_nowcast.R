@@ -328,7 +328,7 @@ if (remove_broad){
 }
 if (remove_Quest){
   svy.dat <- subset(x = svy.dat,
-                    subset = SOURCE %notin% c('Quest Diagnostics Incorporated', 'Infectious Diseases,  Quest Diagnostics', 'Quest Diagnostics'))
+                    subset = SOURCE %notin% c('QUEST DIAGNOSTICS INCORPORATED','Quest Diagnostics Incorporated', 'Infectious Diseases,  Quest Diagnostics', 'Quest Diagnostics'))
 }
 ### subset data ----------------------------------------------------------------
 
