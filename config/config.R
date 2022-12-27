@@ -363,7 +363,7 @@ remove_utahphl <- FALSE
 remove_broad <- FALSE
 
 # optionally remove Quest sequences (b/c there seems to be some XBB sequences from Quest that were not received, so need to make sure the overall proportion is not skewed. Dec. 12, 2022)
-remove_Quest <- FALSE
+remove_Quest <- TRUE
 
 # new option for testing data exclustion
 exclude_testing_data_portion <- TRUE
