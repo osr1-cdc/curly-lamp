@@ -295,6 +295,8 @@ if(force_preaggregate_BN.1) {
 }
 if(force_preaggregate_XBB) {
   XBBsub_in_voc <- sort(grep("(^XBB\\.)", voc, perl = T, value = T))
+  #don't force-aggregate any sublineagese in "force_aggregate_XBB_except"
+  XBBsub_in_voc <- XBBsub_in_voc[XBBsub_in_voc %notin% force_aggregate_XBB_except]
   voc <- setdiff(voc, XBBsub_in_voc)
 }
 
