@@ -330,7 +330,9 @@ if (remove_broad){
 }
 if (remove_Quest){
   svy.dat <- subset(x = svy.dat,
-                    subset = SOURCE %notin% c('QUEST DIAGNOSTICS INCORPORATED','Quest Diagnostics Incorporated', 'Infectious Diseases,  Quest Diagnostics', 'Quest Diagnostics'))
+                    subset = (SOURCE %notin% c('QUEST DIAGNOSTICS INCORPORATED','Quest Diagnostics Incorporated', 'Infectious Diseases,  Quest Diagnostics', 'Quest Diagnostics') |
+                                as.Date(yr_wk) < as.Date(remove_Quest_cutoff)-7 |
+                                as.Date(yr_wk) > as.Date(remove_Quest_cutoff_end)+1))
 }
 ### subset data ----------------------------------------------------------------
 

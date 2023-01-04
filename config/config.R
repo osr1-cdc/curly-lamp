@@ -36,13 +36,13 @@
 # custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
-data_date <- Sys.Date()
-# data_date <- as.Date('2022-12-20')
+#data_date <- Sys.Date()
+data_date <- as.Date('2023-01-03')
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "CDT_noquest"
+results_tag <- "CDT_noquest_2"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
@@ -367,6 +367,8 @@ remove_broad <- FALSE
 
 # optionally remove Quest sequences (b/c there seems to be some XBB sequences from Quest that were not received, so need to make sure the overall proportion is not skewed. Dec. 12, 2022)
 remove_Quest <- TRUE
+remove_Quest_cutoff <- "2022-10-08"
+remove_Quest_cutoff_end <- data_date
 
 # new option for testing data exclustion
 exclude_testing_data_portion <- TRUE

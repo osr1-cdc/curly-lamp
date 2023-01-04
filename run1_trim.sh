@@ -5,14 +5,14 @@
 # This is the same as adding these lines to the actual qsub line
 #
 # save the standard output text to this file instead of the the default jobID.o file
-#$ -o Run1_CDT2.out
+#$ -o Run1_CDT3.out
 #
 # save the standard error text to this file instead of the the default jobID.e file
-#$ -e Run1_CDT2.err
+#$ -e Run1_CDT3.err
 # 
 # Rename the job to be this string instead of the default which is the name of the script
 # -N Run1_trim_proportion_modeling
-#$ -N run1_CDT2
+#$ -N run1_CDT3
 # 
 # Refer all file reference to work the current working directory which is
 # the directory from which the script was qsubbed
