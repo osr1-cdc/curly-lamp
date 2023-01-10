@@ -255,11 +255,11 @@ n_recent_weeks = 7
 
 # Multinomial model includes current week + model_weeks weeks of previous data
 
-model_weeks = 19 # early on the model ended up including 1 more week than was set here. Now it includes the number set here.
+model_weeks = 21 # early on the model ended up including 1 more week than was set here. Now it includes the number set here.
 #Model_week ends with the last weighted week
 model_time_end = data_date - as.numeric(format(data_date, '%w')) - 15
 #Model_week ends with the week before the current week
-model_time_end = time_end
+#model_time_end = time_end
 # Criterion for inclusion in model (i.e to be included in model, weighted share
 # must be at least 0.01 in the n_recent_weeks)
 # share_cutoff = 0.01
