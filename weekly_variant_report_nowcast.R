@@ -1026,7 +1026,7 @@ if(FALSE){
 # NOTE! When switching to this method, I also switched to fitting the model to
 #       20 weeks instead of 21 weeks. (then when switching back to 21 weeks, it screwed up this method a little)
 # maximum week (not maximum "model_week") included in the model
-model_week_max = as.numeric(as.Date(time_end) - week0day1) %/% 7
+model_week_max = as.numeric(as.Date(model_time_end) - week0day1) %/% 7
 ### SHOULD THIS BE BASED ON TIME_END OR ON DATA_DATE???
 
 # first week (not first "model_week") included in the model

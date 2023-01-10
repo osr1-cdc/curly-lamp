@@ -42,7 +42,7 @@ data_date <- Sys.Date()
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "CDT"
+results_tag <- "CDT_noDec24+"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
@@ -254,8 +254,12 @@ n_top = 10
 n_recent_weeks = 7
 
 # Multinomial model includes current week + model_weeks weeks of previous data
-model_weeks = 21 # early on the model ended up including 1 more week than was set here. Now it includes the number set here.
 
+model_weeks = 19 # early on the model ended up including 1 more week than was set here. Now it includes the number set here.
+#Model_week ends with the last weighted week
+model_time_end = data_date - as.numeric(format(data_date, '%w')) - 15
+#Model_week ends with the week before the current week
+model_time_end = time_end
 # Criterion for inclusion in model (i.e to be included in model, weighted share
 # must be at least 0.01 in the n_recent_weeks)
 # share_cutoff = 0.01
