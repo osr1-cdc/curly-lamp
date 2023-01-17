@@ -272,7 +272,7 @@ if(seq_table == "sc2_archive.analytics_metadata_frozen"){
   #   - start with "csid", "primary", "covv"
   #   - contain    "targeted", "vendor"
   #   - equal to   "spike_mutations", "eventid_all"
-  get.vars = grep(pattern = "(^csid)|(^primary)|(^covv)|(targeted)|(vendor)|(^spike_mutations$)|(^eventid_all$)",
+  get.vars = grep(pattern = "(^csid)|(^primary)|(^covv)|(targeted)|(vendor)|(^spike_mutations$)|(^eventid_all$)|(^received_date)",
                   x = all.vars,
                   value = TRUE)
 } else {
@@ -296,7 +296,8 @@ if(seq_table == "sc2_archive.analytics_metadata_frozen"){
     "primary_collection_date",
     "primary_submitter",
     "spike_mutations",
-    "lineage"
+    "lineage",
+    "received_date"
   )#,"patient_age_cl","covv_patient_age")
 }
 
@@ -1302,6 +1303,9 @@ incidence_by_region_gp$HHS_INCIDENCE_gp = incidence_by_region_gp$INFECTIONS / in
 #                                       yes = 1,
 #                                       no = test_tallies_gp$sgtf_weights)
 
+# Transform the received_date field as date in R
+#us.dat$received_date_dt = as.Date(sapply(strsplit(x = us.dat$received_date, split = ' '), FUN = function(x) x[1]))
+us.dat$received_date_dt = as.Date(us.dat$received_date)
 ## Creating a trimmed down survey dataset
 # Removing submission/receive dates for now, for consistency with frozen dataset
 svy.dat = data.table::data.table(
@@ -1313,6 +1317,7 @@ svy.dat = data.table::data.table(
   nt_id  = us.dat$primary_nt_id,
   csid   = us.dat$csid,
   covv_accession_id = us.dat$covv_accession_id,
+  received_date = us.dat$received_date_dt,
   # ID number just to help keep track of individual sequences
   myID = 1:nrow(us.dat),
   # SUBM_DT = us.dat$covv_subm_date,

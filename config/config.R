@@ -42,11 +42,11 @@ data_date <- Sys.Date()
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "CDT_noDec24+"
+results_tag <- "BO"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
-pre_aggregation <- FALSE
+pre_aggregation <-FALSE
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
@@ -112,7 +112,6 @@ voc2_additional = c(
                     'BA.2.75',
                     'BF.7',
                     'BF.11',
-                    # "BA.3",
                     'BA.4',
                     'BA.4.6',
                     'BA.5',
@@ -120,11 +119,6 @@ voc2_additional = c(
                     'BN.1',
                     'XBB',
                     'XBB.1.5',
-                    'CQ.2',
-                    'CK.1',
-                    'CR.1.1',
-                    'CH.1.1',
-                    'BA.2.3.20',
                     "B.1.617.2", # Delta
                     "B.1.1.529" # Omicron
                     )
@@ -232,9 +226,9 @@ B429_7_agg  = TRUE
 B.1.1.529_agg = TRUE  # aggregate omicrons
 XBB_agg = TRUE # aggregate XBBs
 # preaggregation for CDT run
-force_preaggregate_XBB = TRUE
+force_preaggregate_XBB = FALSE
 force_aggregate_XBB_except <- c("XBB.1", "XBB.1.5")
-force_preaggregate_BN.1 = TRUE
+force_preaggregate_BN.1 = FALSE
 
 # Argument determining whether figures should be output as jpgs
 fig_gen_run = TRUE
@@ -254,12 +248,13 @@ n_top = 10
 n_recent_weeks = 7
 
 # Multinomial model includes current week + model_weeks weeks of previous data
-
+# To exclude the -1 and -2 week (last week and the week before last week) from modeling, 
+# change the model_weeks to 19 and use the model_time_end as data_date - as.numeric(format(data_date, '%w')) - 15
 model_weeks = 21 # early on the model ended up including 1 more week than was set here. Now it includes the number set here.
 #Model_week ends with the last weighted week
-model_time_end = data_date - as.numeric(format(data_date, '%w')) - 15
+#model_time_end = data_date - as.numeric(format(data_date, '%w')) - 15
 #Model_week ends with the week before the current week
-#model_time_end = time_end
+model_time_end = time_end
 # Criterion for inclusion in model (i.e to be included in model, weighted share
 # must be at least 0.01 in the n_recent_weeks)
 # share_cutoff = 0.01
