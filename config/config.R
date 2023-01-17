@@ -355,7 +355,7 @@ force_aggregate_B.1 <- TRUE
 # this can help avoid numerical overflow when trying to calculate prediction intervals.
 rescale_model_weights <- TRUE
 # how to rescale model weights
-rescale_model_weights_by <- "mean"
+rescale_model_weights_by <- "max"
 # options: "max", "mean", [number]
 
 # optionally remove UTAH PHL sequences (b/c they were causing issues with Region 8 estimates in January, 2022)
