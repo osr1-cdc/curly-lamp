@@ -173,9 +173,9 @@ ref_lineage = opts$reference_lineage
 # If the data was already pulled and you want to just use that data instead of re-pulling it, set here. 
 # This is useful if you aggregate some lab names at the end of this code and then want to re-run the
 # script after changing which labs get aggregated. 
-use_previously_imported_data <- FALSE
+
 # use previously pulled data if it exists
-if(use_previously_imported_data &
+if(use_previously_imported_data & date_frozen_toread == data_date &
     file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_data", custom_tag, ".RDS")) & 
     file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin", custom_tag, ".RDS")) & 
     #file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline", custom_tag, ".RDS")) & 
@@ -191,6 +191,23 @@ if(use_previously_imported_data &
   pops <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS"))
   s1_groups <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_s1_groups", custom_tag, ".RDS"))
   print('Finished reading in data.')
+} else if (use_previously_imported_data & date_frozen_toread != data_date &
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", date_frozen_toread, "_data", custom_tag, ".RDS")) & 
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", date_frozen_toread, "_pangolin", custom_tag, ".RDS")) & 
+    #file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline", custom_tag, ".RDS")) & 
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS")) & 
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS"))
+    #file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_s1_groups", custom_tag, ".RDS"))
+    ){
+  print('Reading in previously pulled data. analytics_metadata frozen date different from test date')
+  dat <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", date_frozen_toread, "_data", custom_tag, ".RDS"))
+  pangolin <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", date_frozen_toread, "_pangolin", custom_tag, ".RDS"))
+  #baseline <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline", custom_tag, ".RDS"))
+  tests <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS"))
+  pops <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS"))
+  #s1_groups <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_s1_groups", custom_tag, ".RDS"))
+  print('Finished reading in data.')
+
 } else {
 
 print('Pulling data from CDP')
@@ -433,23 +450,23 @@ if(custom_lineages == TRUE) {
 
 # download the state testing data
 tests = DBI::dbGetQuery(
-  conn = impala,
-  statement = paste0(
+conn = impala,
+statement = paste0(
     'SELECT to_date(H.collection_date) as collection_date,
-  H.reporting_state,
-  H.INDETERMINATE,
-  H.INVALID,
-  H.NEGATIVE,
-  H.POSITIVE
-  FROM sc2_archive.hhs_protect_testing_frozen as H
-  INNER JOIN
-  (SELECT max(date_frozen) as max_frozen
+H.reporting_state,
+H.INDETERMINATE,
+H.INVALID,
+H.NEGATIVE,
+H.POSITIVE
+FROM sc2_archive.hhs_protect_testing_frozen as H
+INNER JOIN
+(SELECT max(date_frozen) as max_frozen
     FROM sc2_archive.hhs_protect_testing_frozen hf
     WHERE to_date(hf.date_frozen) = ', date_frozen, '
-  ) as F
-  ON H.date_frozen = F.max_frozen
-  WHERE H.collection_date is NOT NULL'
-  ))
+) as F
+ON H.date_frozen = F.max_frozen
+WHERE H.collection_date is NOT NULL'
+))
 
 # rename the columns of the testing data
 colnames(tests) = c("collection_date",
@@ -461,170 +478,170 @@ colnames(tests) = c("collection_date",
 
 # add code for testing data portion exclusion
 if(exclude_testing_data_portion) {
-  
-  # subset unaffected states
-  tests_valid <- tests %>%
+
+# subset unaffected states
+tests_valid <- tests %>%
     filter(STUSAB %notin% exclusion_states)
 
-  # filter out exclusion state data past a given date
-  tests_exclusion <- tests %>%
+# filter out exclusion state data past a given date
+tests_exclusion <- tests %>%
     filter(STUSAB %in% exclusion_states &
-      (as.Date(collection_date) < as.Date(testing_exclusion_cutoff) |
-       as.Date(collection_date) > as.Date(testing_exclusion_cutoff_end)))
+    (as.Date(collection_date) < as.Date(testing_exclusion_cutoff) |
+    as.Date(collection_date) > as.Date(testing_exclusion_cutoff_end)))
 
-  tests <- bind_rows(tests_valid, tests_exclusion)
+tests <- bind_rows(tests_valid, tests_exclusion)
 }
 
 # Get the vocs included in run 2
 # only if voc2_manual is not set
 if(is.na(voc2_manual)){
-  # SQL code from: https://cdc.sharepoint.com/teams/NCEZID-OD_CAWG/Shared%20Documents/Forms/AllItems.aspx?FolderCTID=0x01200085513C439903124B82D8FF6016BB819B&id=%2Fteams%2FNCEZID%2DOD%5FCAWG%2FShared%20Documents%2FDAV%2DActivity%2FSOPs%2Fcurrent%5Flineages%5F1%5Fpercent%2Esql&parent=%2Fteams%2FNCEZID%2DOD%5FCAWG%2FShared%20Documents%2FDAV%2DActivity%2FSOPs
+# SQL code from: https://cdc.sharepoint.com/teams/NCEZID-OD_CAWG/Shared%20Documents/Forms/AllItems.aspx?FolderCTID=0x01200085513C439903124B82D8FF6016BB819B&id=%2Fteams%2FNCEZID%2DOD%5FCAWG%2FShared%20Documents%2FDAV%2DActivity%2FSOPs%2Fcurrent%5Flineages%5F1%5Fpercent%2Esql&parent=%2Fteams%2FNCEZID%2DOD%5FCAWG%2FShared%20Documents%2FDAV%2DActivity%2FSOPs
 
-  # This is a heavily modified version of "current_lineages_1_percent.sql", that
-  # groups by regions & weeks (instead of just weeks). Resulting lineages include
-  # any lineage that's above 1% in any region-week combination.
+# This is a heavily modified version of "current_lineages_1_percent.sql", that
+# groups by regions & weeks (instead of just weeks). Resulting lineages include
+# any lineage that's above 1% in any region-week combination.
 
-  #   voc2_df = DBI::dbGetQuery(
-  #     conn = impala,
-  #     statement = paste0(
-  #       "SELECT DISTINCT t.lineage
-  # FROM
-  # (SELECT a.lineage,
-  #         -- c.variant_type,
-  #         a.week_ending,
-  #         HHS.hhs_region,
-  #         count(a.primary_virus_name) AS region_week_lineage_total,
-  #         rwt.region_week_total,
-  #         count(a.primary_virus_name) / rwt.region_week_total AS share
-  #  FROM
-  #     (SELECT aa.primary_virus_name,
-  #             aa.lineage,
-  #             aa.primary_state,
-  #             aa.primary_collection_date,
-  #             date_add(date_trunc('week', date_add(aa.primary_collection_date, 1)), 5) AS week_ending
-  #     FROM sc2_archive.analytics_metadata_frozen AS aa
-  #     WHERE to_date(aa.date_frozen) = '", data_date, "'
-  #     AND aa.primary_country = 'United States'
-  #     AND aa.primary_host = 'Human'
-  #     AND datediff(date_add(date_trunc('week', date_add( to_timestamp('", data_date, "', 'yyyy-MM-dd') , 1)), 5), date_add(date_trunc('week', date_add(aa.primary_collection_date, 1)), 5)) >= 14
-  #     AND datediff(date_add(date_trunc('week', date_add( to_timestamp('", data_date, "', 'yyyy-MM-dd') , 1)), 5), date_add(date_trunc('week', date_add(aa.primary_collection_date, 1)), 5)) < 98
-  #     AND (aa.contractor_vendor_id IS NOT NULL OR aa.cdceventid = '1771')
-  #     -- end frozen metadata from a particular date
-  #     ) as a
-  #  LEFT JOIN sc2_src.hhs_regions AS HHS
-  #  ON a.primary_state = HHS.state
-  #  LEFT JOIN sc2_src.variant_definitions c
-  #  ON a.lineage = c.lineage
-  #
-  #  -- join in weekly region totals
-  #  LEFT JOIN
-  #         (SELECT -- z.lineage,
-  #                 -- cc.variant_type,
-  #                 z.week_ending,
-  #                 HHS.hhs_region,
-  #                 count(z.primary_virus_name) AS region_week_total
-  #         FROM
-  #             (SELECT az.primary_virus_name,
-  #                     az.lineage,
-  #                     az.primary_state,
-  #                     az.primary_collection_date,
-  #                     date_add(date_trunc('week', date_add(az.primary_collection_date, 1)), 5) AS week_ending
-  #             FROM sc2_archive.analytics_metadata_frozen AS az
-  #             WHERE to_date(az.date_frozen) = '", data_date, "'
-  #             AND az.primary_country = 'United States'
-  #             AND az.primary_host = 'Human'
-  #             AND datediff(date_add(date_trunc('week', date_add( to_timestamp('", data_date, "', 'yyyy-MM-dd') , 1)), 5), date_add(date_trunc('week', date_add(az.primary_collection_date, 1)), 5)) >= 14
-  #             AND datediff(date_add(date_trunc('week', date_add( to_timestamp('", data_date, "', 'yyyy-MM-dd') , 1)), 5), date_add(date_trunc('week', date_add(az.primary_collection_date, 1)), 5)) < 98
-  #             AND (az.contractor_vendor_id IS NOT NULL OR az.cdceventid = '1771')
-  #             -- end frozen metadata from a particular date
-  #             ) as z
-  #         LEFT JOIN sc2_src.hhs_regions AS HHS
-  #         ON z.primary_state = HHS.state
-  #         LEFT JOIN sc2_src.variant_definitions cc
-  #         ON z.lineage = cc.lineage
-  #         WHERE HHS.hhs_region IS NOT NULL
-  #         GROUP BY -- z.lineage,
-  #                 -- cc.variant_type, -- CDC's VOC, VOI, etc. designations
-  #                 z.week_ending,
-  #                 HHS.hhs_region
-  #         ) as rwt
-  #  ON a.week_ending = rwt.week_ending AND HHS.hhs_region = rwt.hhs_region
-  #  WHERE HHS.hhs_region IS NOT NULL
-  #  AND a.lineage != 'None'
-  #  GROUP BY a.lineage,
-  #           -- c.variant_type, -- CDC's VOC, VOI, etc. designations
-  #           a.week_ending,
-  #           HHS.hhs_region,
-  #           rwt.region_week_total
-  #  -- order by a.week_ending, HHS.hhs_region, a.lineage
-  #  ) AS t
-  #  WHERE t.share >= 0.01
-  #  ORDER BY t.lineage"
-  #     ))
+#   voc2_df = DBI::dbGetQuery(
+#     conn = impala,
+#     statement = paste0(
+#       "SELECT DISTINCT t.lineage
+# FROM
+# (SELECT a.lineage,
+#         -- c.variant_type,
+#         a.week_ending,
+#         HHS.hhs_region,
+#         count(a.primary_virus_name) AS region_week_lineage_total,
+#         rwt.region_week_total,
+#         count(a.primary_virus_name) / rwt.region_week_total AS share
+#  FROM
+#     (SELECT aa.primary_virus_name,
+#             aa.lineage,
+#             aa.primary_state,
+#             aa.primary_collection_date,
+#             date_add(date_trunc('week', date_add(aa.primary_collection_date, 1)), 5) AS week_ending
+#     FROM sc2_archive.analytics_metadata_frozen AS aa
+#     WHERE to_date(aa.date_frozen) = '", data_date, "'
+#     AND aa.primary_country = 'United States'
+#     AND aa.primary_host = 'Human'
+#     AND datediff(date_add(date_trunc('week', date_add( to_timestamp('", data_date, "', 'yyyy-MM-dd') , 1)), 5), date_add(date_trunc('week', date_add(aa.primary_collection_date, 1)), 5)) >= 14
+#     AND datediff(date_add(date_trunc('week', date_add( to_timestamp('", data_date, "', 'yyyy-MM-dd') , 1)), 5), date_add(date_trunc('week', date_add(aa.primary_collection_date, 1)), 5)) < 98
+#     AND (aa.contractor_vendor_id IS NOT NULL OR aa.cdceventid = '1771')
+#     -- end frozen metadata from a particular date
+#     ) as a
+#  LEFT JOIN sc2_src.hhs_regions AS HHS
+#  ON a.primary_state = HHS.state
+#  LEFT JOIN sc2_src.variant_definitions c
+#  ON a.lineage = c.lineage
+#
+#  -- join in weekly region totals
+#  LEFT JOIN
+#         (SELECT -- z.lineage,
+#                 -- cc.variant_type,
+#                 z.week_ending,
+#                 HHS.hhs_region,
+#                 count(z.primary_virus_name) AS region_week_total
+#         FROM
+#             (SELECT az.primary_virus_name,
+#                     az.lineage,
+#                     az.primary_state,
+#                     az.primary_collection_date,
+#                     date_add(date_trunc('week', date_add(az.primary_collection_date, 1)), 5) AS week_ending
+#             FROM sc2_archive.analytics_metadata_frozen AS az
+#             WHERE to_date(az.date_frozen) = '", data_date, "'
+#             AND az.primary_country = 'United States'
+#             AND az.primary_host = 'Human'
+#             AND datediff(date_add(date_trunc('week', date_add( to_timestamp('", data_date, "', 'yyyy-MM-dd') , 1)), 5), date_add(date_trunc('week', date_add(az.primary_collection_date, 1)), 5)) >= 14
+#             AND datediff(date_add(date_trunc('week', date_add( to_timestamp('", data_date, "', 'yyyy-MM-dd') , 1)), 5), date_add(date_trunc('week', date_add(az.primary_collection_date, 1)), 5)) < 98
+#             AND (az.contractor_vendor_id IS NOT NULL OR az.cdceventid = '1771')
+#             -- end frozen metadata from a particular date
+#             ) as z
+#         LEFT JOIN sc2_src.hhs_regions AS HHS
+#         ON z.primary_state = HHS.state
+#         LEFT JOIN sc2_src.variant_definitions cc
+#         ON z.lineage = cc.lineage
+#         WHERE HHS.hhs_region IS NOT NULL
+#         GROUP BY -- z.lineage,
+#                 -- cc.variant_type, -- CDC's VOC, VOI, etc. designations
+#                 z.week_ending,
+#                 HHS.hhs_region
+#         ) as rwt
+#  ON a.week_ending = rwt.week_ending AND HHS.hhs_region = rwt.hhs_region
+#  WHERE HHS.hhs_region IS NOT NULL
+#  AND a.lineage != 'None'
+#  GROUP BY a.lineage,
+#           -- c.variant_type, -- CDC's VOC, VOI, etc. designations
+#           a.week_ending,
+#           HHS.hhs_region,
+#           rwt.region_week_total
+#  -- order by a.week_ending, HHS.hhs_region, a.lineage
+#  ) AS t
+#  WHERE t.share >= 0.01
+#  ORDER BY t.lineage"
+#     ))
 
 
-  # this query was formerly defined in "current_lineages_1_percent.sql",
-  # but has been updated to accept "data_date" as an argument.
-  # "data_date" must be a date on which archive data was created.
+# this query was formerly defined in "current_lineages_1_percent.sql",
+# but has been updated to accept "data_date" as an argument.
+# "data_date" must be a date on which archive data was created.
 
-  # for the moment just use the old query that does not group by HHS region:
-  voc2_df = DBI::dbGetQuery(
+# for the moment just use the old query that does not group by HHS region:
+voc2_df = DBI::dbGetQuery(
     conn = impala,
     statement = paste0(
-      "SELECT QQ.*,
-       cor.*
+    "SELECT QQ.*,
+    cor.*
 FROM
-  (SELECT Q.lineage,
-          max(week_ending) AS most_recent,
-          max(fraction) AS max_fraction,
-          max(lineage_count) AS max_virus_count,
-          to_timestamp('", data_date, "', 'yyyy-MM-dd') AS pull_date
-   FROM
-     (SELECT l.", lineage_field, " as lineage,
-             c.variant_type,
-             date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) AS week_ending,
-             count(a.primary_virus_name) AS lineage_count,
-             z.region_total,
-             count(a.primary_virus_name) / z.region_total AS fraction,
-             if(count(a.primary_virus_name) / z.region_total >= 0.01, TRUE, FALSE) AS is_one_percent,
-             if(count(a.primary_virus_name) / z.region_total >= 0.005, TRUE, FALSE) AS is_zerofive_percent
-      FROM sc2_air.analytics_metadata a
-      LEFT JOIN ", lineage_table, " l on a.primary_nt_id = l.nt_id
-      LEFT JOIN
+(SELECT Q.lineage,
+        max(week_ending) AS most_recent,
+        max(fraction) AS max_fraction,
+        max(lineage_count) AS max_virus_count,
+        to_timestamp('", data_date, "', 'yyyy-MM-dd') AS pull_date
+FROM
+    (SELECT l.", lineage_field, " as lineage,
+            c.variant_type,
+            date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) AS week_ending,
+            count(a.primary_virus_name) AS lineage_count,
+            z.region_total,
+            count(a.primary_virus_name) / z.region_total AS fraction,
+            if(count(a.primary_virus_name) / z.region_total >= 0.01, TRUE, FALSE) AS is_one_percent,
+            if(count(a.primary_virus_name) / z.region_total >= 0.005, TRUE, FALSE) AS is_zerofive_percent
+    FROM sc2_air.analytics_metadata a
+    LEFT JOIN ", lineage_table, " l on a.primary_nt_id = l.nt_id
+    LEFT JOIN
         (SELECT date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) AS week_ending,
                 count(za.primary_virus_name) AS region_total
-         FROM sc2_air.analytics_metadata za
-         WHERE
-         ( za.contractor_vendor_name IS NOT NULL OR za.eventid_all LIKE '%1771%' OR za.primary_sampling_strategy = 'Baseline_Surveillance' )
-         -- (za.contractor_vendor_id IS NOT NULL OR za.cdceventid = '1771')
-           AND za.primary_country = 'United States'
-         GROUP BY week_ending) z ON date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) = z.week_ending
-      AND 1=1
-      LEFT JOIN sc2_src.variant_definitions c ON a.lineage = c.lineage
-      WHERE -- THis is generally the weeks
+        FROM sc2_air.analytics_metadata za
+        WHERE
+        ( za.contractor_vendor_name IS NOT NULL OR za.eventid_all LIKE '%1771%' OR za.primary_sampling_strategy = 'Baseline_Surveillance' )
+        -- (za.contractor_vendor_id IS NOT NULL OR za.cdceventid = '1771')
+        AND za.primary_country = 'United States'
+        GROUP BY week_ending) z ON date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) = z.week_ending
+    AND 1=1
+    LEFT JOIN sc2_src.variant_definitions c ON a.lineage = c.lineage
+    WHERE -- THis is generally the weeks
         datediff(date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), 5), date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5))>=14
         AND datediff(date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), 5), date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5))< 98
         -- AND (a.contractor_vendor_id IS NOT NULL OR a.cdceventid = '1771')
         AND ( a.contractor_vendor_name IS NOT NULL OR a.eventid_all LIKE '%1771%' OR a.primary_sampling_strategy = 'Baseline_Surveillance' )
         AND a.primary_country = 'United States'
-      GROUP BY l.", lineage_field, ",
-               c.variant_type,
-               week_ending,
-               z.region_total --order by week_ending, b.hhs_region, lineage
+    GROUP BY l.", lineage_field, ",
+            c.variant_type,
+            week_ending,
+            z.region_total --order by week_ending, b.hhs_region, lineage
 ) Q
-   WHERE Q.is_one_percent IS TRUE --OR Q.variant_type is not null
+WHERE Q.is_one_percent IS TRUE --OR Q.variant_type is not null
     OR (Q.is_zerofive_percent IS TRUE AND Q.week_ending = date_add(date_trunc('week', date_add(now(), 1)), -16))
 GROUP BY lineage) QQ
 LEFT JOIN sc2_air.analytics_lineage_corr cor ON QQ.lineage = cor.lineage
 WHERE cor.date_range_of_calc LIKE '%US:3mo'"
     ))
 
-  # get the variant names
-  voc2_auto = sort(voc2_df$lineage)
+# get the variant names
+voc2_auto = sort(voc2_df$lineage)
 
-  # save the results to file
-  saveRDS(object = voc2_auto,
-          file = paste0(script.basename,
+# save the results to file
+saveRDS(object = voc2_auto,
+        file = paste0(script.basename,
                         "/data/voc2_auto_", data_date, custom_tag, ".RDS"))
 }
 
@@ -2056,9 +2073,13 @@ svy.dat[, 'current_week' := current_week]
 
 
 # save the data to file
-save(svy.dat,
+if(date_frozen_toread == data_date) {
+    save(svy.dat,
      file = paste0(script.basename, "/data/", "svydat_", data_date, custom_tag, ".RData"))
-
+} else {
+    save(svy.dat,
+        file = paste0(script.basename, "/data/", "svydat_", data_date, custom_tag, "_", date_frozen_toread, "_frozendata",".RData"))
+}
 
 
 #--------------- Limitations, etc.---------------

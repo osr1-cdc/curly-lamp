@@ -36,17 +36,25 @@
 # custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
-data_date <- Sys.Date()
-#data_date <- as.Date('2023-01-03')
-# This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
+#data_date <- Sys.Date()
+data_date <- as.Date('2022-12-27')
+# This needs to be a date on which data were frozen in the CDP database
+# Set specific date_frozen to read sequencing data; but read test data and voc list from the data_date backup files. This can be used to rerun modeling using later date backfilled data. 
+# Default would be data_date
+# date_frozen_toread <- data_date
+date_frozen_toread <- as.Date('2023-01-10')
+# If the data was already pulled and you want to just use that data instead of re-pulling it, set here. 
+# This is useful if you aggregate some lab names at the end of this code and then want to re-run the
+# script after changing which labs get aggregated. 
+use_previously_imported_data <- TRUE
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "WOW"
+results_tag <- "Rerun_230110"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
-pre_aggregation <-TRUE
+pre_aggregation <-FALSE
 
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
@@ -119,6 +127,10 @@ voc2_additional = c(
                     'BN.1',
                     'XBB',
                     'XBB.1.5',
+                    'CQ.2',
+                    'CK.1',
+                    'CR.1.1',
+                    'CH.1.1',
                     "B.1.617.2", # Delta
                     "B.1.1.529" # Omicron
                     )
@@ -195,8 +207,6 @@ state_time_end = (data_date - as.numeric(format(data_date, '%w')) - 1) - (7*5:1)
 # otherwise set manually:
 # state_time_end=c(as.Date("2021-09-25"),as.Date("2021-10-02"),as.Date("2021-10-09"),as.Date("2021-10-16"),as.Date("2021-10-23"))
 
-
-# Use data from the frozen data created on data_date
 if(data_date == Sys.Date()){
   date_frozen <- "to_date(date_frozen)" # "date_frozen" is a column in pangolin table
   # flag for whether or not current data is being used
@@ -205,6 +215,7 @@ if(data_date == Sys.Date()){
   date_frozen <- paste0('"', data_date, '"')
   current_data = FALSE
 }
+
 
 # Options:
 # - default = newest data available: "to_date(date_frozen)"
@@ -365,7 +376,7 @@ remove_utahphl <- FALSE
 remove_broad <- FALSE
 
 # optionally remove Quest sequences (b/c there seems to be some XBB sequences from Quest that were not received, so need to make sure the overall proportion is not skewed. Dec. 12, 2022)
-remove_Quest <- TRUE
+remove_Quest <- FALSE
 remove_Quest_cutoff <- "2022-10-08"
 remove_Quest_cutoff_end <- data_date
 

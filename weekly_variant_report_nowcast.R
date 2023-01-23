@@ -187,8 +187,12 @@ source(paste0(script.basename, "/weekly_variant_report_functions.R"))
 
 # Load output from variant_surveillance_system.r
 # (filtered genomic surveillance data)
-load(paste0(script.basename, "/data/svydat_", data_date, custom_tag, ".RData"))
-# load(paste0('/scicomp/groups-pure/Projects/SARS2Seq/repos/sc2_proportion_modeling', "/data/svydat_", data_date, custom_tag, ".RData"))
+if(date_frozen_toread != data_date){
+  load(paste0(script.basename, "/data/", "svydat_", data_date, custom_tag, , "_", date_frozen_toread, "_frozendata",".RData"))
+} else {
+  load(paste0(script.basename, "/data/svydat_", data_date, custom_tag, ".RData"))
+  # load(paste0('/scicomp/groups-pure/Projects/SARS2Seq/repos/sc2_proportion_modeling', "/data/svydat_", data_date, custom_tag, ".RData"))
+}
 
 # create results dir and output folder definition
 dir.create(paste0(script.basename,"/results"), showWarnings = F)
