@@ -1428,14 +1428,14 @@ svy.dat[ LAB %in% TX_labs_to_agg, "LAB2" := "TX-DPH"]
 
 # Aggregate LSU lab names
 # As of 2022-05-26 this only returns "LSUHS EMERGING VIRAL THREAT LABORATORY", so I [Philip Shirk] removed it.
-# LSU_labs_to_agg <- grep(pattern = "LSU",
-#                         x = unique_labs,
-#                         ignore.case = T,
-#                         value = T)
-# labnames_df_lsu <- data.frame(old_name = LSU_labs_to_agg,
-#                               new_name = "LSU LAB")
-# #svy.dat[svy.dat$LAB %in% LSU_labs_to_agg,"LAB2"] <- "LSU LAB"
-# svy.dat[LAB %in% LSU_labs_to_agg, "LAB2" := "LSU LAB"]
+LSU_labs_to_agg <- grep(pattern = "LSU",
+                        x = unique_labs,
+                        ignore.case = T,
+                        value = T)
+labnames_df_lsu <- data.frame(old_name = LSU_labs_to_agg,
+                              new_name = "LSU LAB")
+#svy.dat[svy.dat$LAB %in% LSU_labs_to_agg,"LAB2"] <- "LSU LAB"
+svy.dat[LAB %in% LSU_labs_to_agg, "LAB2" := "LSU LAB"]
 
 # Aggregate Orange County lab names
 OC_labs_to_agg <- grep(pattern = "Orange County",
@@ -1692,6 +1692,46 @@ labnames_df_pa <- data.frame(old_name = PA_labs_to_agg,
                              new_name = "PENNSYLVANIA DEPARTMENT OF HEALTH BUREAU OF LABORATORIES")
 svy.dat[LAB %in% PA_labs_to_agg, 'LAB2' := labnames_df_pa$new_name[1]]
 
+# added 2023-01-24
+# "DC PUBLIC HEALTH LAB/ DEPT. OF FORENSIC SCIENCES"
+# "DC PUBLIC HEALTH LABORATORY, DEPARTMENT OF FORENSIC SCIENCES"
+# "DEPARTMENT OF FORENSIC SCIENCES, DISTRICT OF COLOMBIA PUBLIC HEALTH LABORATORY"
+# "DISTRICT OF COLUMBIA DEPARTMENT OF FORENSIC SCIENCES"
+# "PUBLIC HEALTH LABORATORY DIVISION, DISTRICT OF COLOMBIA DEPARTMENT OF FORENSIC SCIENCES"
+FS_labs_to_agg <- grep(pattern = "(DC.+FORENSIC SCIENCES)|(DISTRICT OF COLUMBIA.+FORENSIC SCIENCES)|(FORENSIC SCIENCES.+DISTRICT OF COLOMBIA)",
+                         x = unique_labs,
+                         ignore.case = T,
+                         value = T)
+labnames_df_fs <- data.frame(old_name = FS_labs_to_agg,
+                             new_name = "DEPARTMENT OF FORENSIC SCIENCES, DISTRICT OF COLOMBIA PUBLIC HEALTH LABORATORY")
+svy.dat[LAB %in% FS_labs_to_agg, 'LAB2' := labnames_df_fs$new_name[1]]
+
+# "LOS ANGELES COUNTY PUBLIC HEALTH LABORATORIES"
+# "LOS ANGELES COUNTY PUBLIC HEALTH LABORATORY"
+LA_labs_to_agg <- grep(pattern = "LOS ANGELES COUNTY PUBLIC HEALTH LAB",
+                         x = unique_labs,
+                         ignore.case = T,
+                         value = T)
+labnames_df_la <- data.frame(old_name = LA_labs_to_agg,
+                             new_name = "LOS ANGELES COUNTY PUBLIC HEALTH LABORATORY")
+svy.dat[LAB %in% LA_labs_to_agg, 'LAB2' := labnames_df_la$new_name[1]]
+
+SP_labs_to_agg <- grep(pattern = "(SPRINGFIELD LAB.+ILLINOIS DEPARTMENT OF PUBLIC HEALTH)",
+                         x = unique_labs,
+                         ignore.case = T,
+                         value = T)
+labnames_df_sp <- data.frame(old_name = SP_labs_to_agg,
+                             new_name = "SPRINGFIELD LAB, ILLINOIS DEPARTMENT OF PUBLIC HEALTH")
+svy.dat[LAB %in% SP_labs_to_agg, 'LAB2' := labnames_df_sp$new_name[1]]
+
+PI_labs_to_agg <- grep(pattern = "(THE PIANTADOSI LAB.+EMORY)",
+                         x = unique_labs,
+                         ignore.case = T,
+                         value = T)
+labnames_df_pi <- data.frame(old_name = PI_labs_to_agg,
+                             new_name = "THE PIANTADOSI LAB,  DEPARTMENT OF PATHOLOGY AND LABORATORY MEDICINE, EMORY UNIVERSITY SCHOOL OF MEDICINE")
+svy.dat[LAB %in% PI_labs_to_agg, 'LAB2' := labnames_df_pi$new_name[1]]
+
 # Steps to add more lab aggregations 
 # 1. find lab names that almost assuredly refer to the same lab 
 # 2. copy-and-paste one of the blocks of code above 
@@ -1721,11 +1761,15 @@ svy.dat[LAB %in% PA_labs_to_agg, 'LAB2' := labnames_df_pa$new_name[1]]
 
 # create a dataframe of all the lab names that were changed
 labnames_df <- rbind(
+  labnames_df_pi,
+  labnames_df_sp,
+  labnames_df_la,
+  labnames_df_fs,
   labnames_df_md,
   labnames_df_nj,
   labnames_df_tx,
   # labnames_df_cdc,
-  # labnames_df_lsu, # removed 2022-05-26
+  labnames_df_lsu, # removed 2022-05-26
   labnames_df_oc,
   labnames_df_ll,
   labnames_df_he,
