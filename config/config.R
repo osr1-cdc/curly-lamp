@@ -46,11 +46,11 @@ date_frozen_toread <- data_date
 # If the data was already pulled and you want to just use that data instead of re-pulling it, set here. 
 # This is useful if you aggregate some lab names at the end of this code and then want to re-run the
 # script after changing which labs get aggregated. 
-use_previously_imported_data <- TRUE
+use_previously_imported_data <- FALSE
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "BO"
+results_tag <- "CDT"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
@@ -78,6 +78,7 @@ voc1 = c(# "AY.1", "AY.2",
          "BA.2.12.1",
          "BA.2.75",
          "BA.2.75.2",
+         "CH.1.1",
          "BF.7",
          "BF.11",
          'BA.4',
@@ -118,6 +119,7 @@ voc2_additional = c(
                     'BA.2',
                     'BA.2.12.1',
                     'BA.2.75',
+                    "CH.1.1",
                     'BF.7',
                     'BF.11',
                     'BA.4',
@@ -155,6 +157,7 @@ voc3 = c("B.1.1.7",   # Alpha  # and Q.1 to 8*
          "BA.2.12.1",
          "BA.2.75",
          "BA.2.75.2",
+         "CH.1.1",
          "BA.4",
          "BA.4.6",
          "BA.5",
@@ -233,9 +236,9 @@ B429_7_agg  = TRUE
 B.1.1.529_agg = TRUE  # aggregate omicrons
 XBB_agg = TRUE # aggregate XBBs
 # preaggregation for CDT run
-force_preaggregate_XBB = FALSE
+force_preaggregate_XBB = TRUE
 force_aggregate_XBB_except <- c("XBB.1", "XBB.1.5")
-force_preaggregate_BN.1 = FALSE
+force_preaggregate_BN.1 = TRUE
 
 # Argument determining whether figures should be output as jpgs
 fig_gen_run = TRUE
@@ -298,7 +301,7 @@ calc_confirmed_infections <- TRUE
 # Option to just fit the nowcast model and avoid the slower parts of the script
 # (this is only valid if the run number == 2)
 # this can be removed eventually. It's here to make it easier to make updates to the Nowcast model.
-nowcast_only = TRUE
+nowcast_only = FALSE
 
 # This is an option that probably won't be used, but I don't want to delete it yet
 # so it's hiding here just in case I want to use it again.
