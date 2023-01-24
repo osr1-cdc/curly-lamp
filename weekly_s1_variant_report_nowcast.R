@@ -18,6 +18,9 @@
 #   ~ Function to calculate binomial CI for nowcast proportion
 
 # Setup ------------------------------------------------------------------------
+library(implyr)   # for connecting to impala database
+library(odbc)     # for connecting to databases
+library(RJDBC)    # for connecting to a database via JDBC driver
 library(optparse)   # to get arguments from the command line
 library(survey)     # package with survey desgin functions
 library(nnet)       # package with multinomial regression for nowcast
@@ -106,12 +109,36 @@ options(survey.adjust.domain.lonely = T,
       default = "F",
       help    = "Number of cores for parallel estimation of weighted proportions",
       metavar = "character"
+    ),
+    # CDP user ID
+    optparse::make_option(
+      opt_str = c("-u", "--user"),
+      type    = "character",
+      default = '',
+      help    = "User Name",
+      metavar = "character"
+    ),
+    # CDP password
+    optparse::make_option(
+      opt_str = c("-w", "--password"),
+      type    = "character",
+      default = '',
+      help    = "Password",
+      metavar = "character"
+    ),
+    # Get reference lineage (pango lineage name) to generate S1 mutation s1_id names
+    optparse::make_option(
+      opt_str = c("-l", "--reference_lineage"),
+      type    = "character",
+      default = "BA.5",
+      help    = "Reference lineage (pango lineage name) to be used to generate S1 mutation group names",
+      metavar = "character"
     )
   )
 
   # parsing options list
   opts <- optparse::parse_args(optparse::OptionParser(option_list = option_list))
-
+  
   # use the specified flags to set several variables
   # convert custom_lineages flag to a logical value
   if(toupper(opts$custom_lineages) %in% c('T', 'TRUE', 'Y', 'YES')){
@@ -203,6 +230,100 @@ output_folder <- paste0("/results/", results_folder)
 # create a tag for the filenames to differentiate results from different runs
 tag <- paste0("_",state_source,"_Run", opts$run_number, custom_tag)
 
+# path to the jdbc driver
+jdbc_driver = paste0(script.basename, "/jdbc/ClouderaImpalaJDBC-2.6.20.1024/ClouderaImpalaJDBC41-2.6.20.1024/")
+
+# variable identifying which Hadoop table to read in. Options are:
+# ~ "deduplication_cdcncbigisaid_auto": this data table is updated regularly but may be subject to cleaning issues
+# ~  "analytics_metadata_frozen": this data table is updated less frequently, but is the cleanest version of the sequence data
+# NOTE - if running the official Friday analysis use the "analytics_metadata_frozen" table
+seq_table = "sc2_archive.analytics_metadata_frozen"
+# CDP cluster node to use
+# (you can use any node from 08 - 13. Sometimes nodes fail so if you get an error you can try another node)
+node = "10"
+
+print('Pulling new s1 species geni analysis from CDP')
+## Get the sequence data
+impala_classpath <- list.files(path = jdbc_driver,
+                               pattern = "\\.jar$",
+                               full.names = TRUE)
+
+# Initialize the Java virtual machine
+# (this function utilizes the "java.parameters" set in "options" above)
+rJava::.jinit(classpath = impala_classpath)
+
+# specify the driver for connecting to CDP database
+drv <- RJDBC::JDBC(
+  driverClass = "com.cloudera.impala.jdbc41.Driver",
+  classPath = impala_classpath,
+  identifier.quote = "`"
+)
+
+# connect to the CDP database
+impala <- DBI::dbConnect(
+  drv  = drv,
+  url = paste0(
+    "jdbc:impala://cdp-",
+    node,
+    ".biotech.cdc.gov:21050/sc2_air;AuthMech=3;useSasl=1;SSL=1;AllowSelfSignedCerts=1;CAIssuedCertNamesMismatch=1"),
+  user     = opts$user,
+  password = opts$password
+)
+# NOTE: The above error: "ERROR StatusLogger No Log4j 2 configuration file found." is expected. You can ignore it.
+
+# Get the group_keys to be included in S1 proportion analysis
+ref_lineage = opts$reference_lineage
+selected_report_week <- as.Date(data_date) - as.numeric(format(as.Date(data_date), '%w')) - 15
+#selected_report_week <- "2022-10-15"
+s1_groups = DBI::dbGetQuery(
+    conn = impala,
+    statement = paste0(
+    "SELECT DISTINCT
+    report_week,
+    CASE
+    WHEN(GP.group_key = SUBSTRING(LREP.aa_aln, 14, 677)) THEN '", ref_lineage, "'
+    ELSE concat('", ref_lineage, "_', udx.mutation_list(LREP.aa_aln, GP.dominant_aa_aln, '14..677'))
+    END as group_name,
+    GP.group_key
+FROM geni.prod_sc2_group_proportionality as GP
+--INNER JOIN
+--  (SELECT max(report_week) as max_week
+--    FROM geni.prod_sc2_group_proportionality
+--  ) as F
+--  ON GP.report_week = F.max_week
+LEFT JOIN geni.reference_info AS INFO ON GP.protein = INFO.sub_protein
+LEFT JOIN geni.sc2_lineage_rep AS LREP ON GP.protein = LREP.protein
+    AND '", ref_lineage, "' = LREP.lineage
+WHERE NOT GP.exclusions
+    AND GP.protein = 'S'
+    AND GP.geo_region = 'North America - USA'
+    AND GP.context = 's1_id'
+    AND GP.geo_sub_region = 'all'
+    AND GP.report_week = '", selected_report_week, "'" ))
+
+# end the database connection
+DBI::dbDisconnect(conn = impala)
+write.csv(x = s1_groups,
+           file = paste0(script.basename, '/data/backup_', data_date, '/s1_groups', data_date, '.csv'),
+           row.names = F)
+
+# save s1_groups backup data
+saveRDS(s1_groups,
+  file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_s1_groups", custom_tag, ".RDS")
+)
+
+# Add in s1_group names to us.dat
+svy.dat = merge(x = svy.dat,
+               y = s1_groups,
+               by.x = "s1_key",
+               by.y = "group_key",
+               all.x = TRUE)
+
+# For samples included in geni analysis, replace NA s1_group names with "other"
+# So samples with group_name NA should be excluded from analysis in weekly_s1_variant_report_nowcast.R
+svy.dat[ is.na(group_name) & geni_included == TRUE, group_name := "Other"]
+
+svy.dat$S1_GROUP = svy.dat$group_name
 
 ############# REMOVE specified labs
 if (remove_utahphl){

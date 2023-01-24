@@ -36,13 +36,13 @@
 # custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
-data_date <- Sys.Date()
-#data_date <- as.Date('2022-12-20')
+# data_date <- Sys.Date()
+data_date <- as.Date('2023-01-23')
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "s1"
+results_tag <- "s1test"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # do not need to change these on a regular basis -------------------------------

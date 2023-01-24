@@ -36,21 +36,21 @@
 # custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
-#data_date <- Sys.Date()
-data_date <- as.Date('2022-12-27')
+data_date <- Sys.Date()
+#data_date <- as.Date('2022-12-27')
 # This needs to be a date on which data were frozen in the CDP database
 # Set specific date_frozen to read sequencing data; but read test data and voc list from the data_date backup files. This can be used to rerun modeling using later date backfilled data. 
 # Default would be data_date
-# date_frozen_toread <- data_date
-date_frozen_toread <- as.Date('2023-01-10')
+date_frozen_toread <- data_date
+# date_frozen_toread <- as.Date('2023-01-10')
 # If the data was already pulled and you want to just use that data instead of re-pulling it, set here. 
 # This is useful if you aggregate some lab names at the end of this code and then want to re-run the
 # script after changing which labs get aggregated. 
-use_previously_imported_data <- TRUE
+use_previously_imported_data <- FALSE
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "Rerun_230110"
+results_tag <- "s1test"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
@@ -127,10 +127,6 @@ voc2_additional = c(
                     'BN.1',
                     'XBB',
                     'XBB.1.5',
-                    'CQ.2',
-                    'CK.1',
-                    'CR.1.1',
-                    'CH.1.1',
                     "B.1.617.2", # Delta
                     "B.1.1.529" # Omicron
                     )
@@ -237,9 +233,9 @@ B429_7_agg  = TRUE
 B.1.1.529_agg = TRUE  # aggregate omicrons
 XBB_agg = TRUE # aggregate XBBs
 # preaggregation for CDT run
-force_preaggregate_XBB = TRUE
+force_preaggregate_XBB = FALSE
 force_aggregate_XBB_except <- c("XBB.1", "XBB.1.5")
-force_preaggregate_BN.1 = TRUE
+force_preaggregate_BN.1 = FALSE
 
 # Argument determining whether figures should be output as jpgs
 fig_gen_run = TRUE
@@ -376,7 +372,7 @@ remove_utahphl <- FALSE
 remove_broad <- FALSE
 
 # optionally remove Quest sequences (b/c there seems to be some XBB sequences from Quest that were not received, so need to make sure the overall proportion is not skewed. Dec. 12, 2022)
-remove_Quest <- FALSE
+remove_Quest <- TRUE
 remove_Quest_cutoff <- "2022-10-08"
 remove_Quest_cutoff_end <- data_date
 

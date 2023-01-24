@@ -40,4 +40,4 @@
 
 source /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
 
-Rscript variant_surveillance_system.R -u ${1} -p ${2} -c ${3} -n ${4} -r ${5}
+Rscript variant_surveillance_system.R -u ${1} -p ${2} -c ${3} -n ${4}

@@ -39,7 +39,7 @@
 
 source /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
 
-Rscript weekly_s1_variant_report_nowcast.R -r 2 -t quantile_99 -s T -p 10
+Rscript weekly_s1_variant_report_nowcast.R -r 2 -t quantile_99 -s T -p 10 -u ${1} -w ${2} -l ${3}
 # -r = run number
 # -c = include custom lineages
 # -v = use reduced vocs
