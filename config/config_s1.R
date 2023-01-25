@@ -42,7 +42,7 @@ data_date <- as.Date('2023-01-24')
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "s1"
+results_tag <- "s1_2"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # do not need to change these on a regular basis -------------------------------
@@ -117,17 +117,22 @@ n_top = 10
 
 # Window for estimates (focus to top variants in this model)
 n_recent_weeks = 7
-
+# start of the first week
+week0day1 = get0("week0day1",
+                 ifnotfound = as.Date("2020-01-05"))
 # Multinomial model includes current week + model_weeks weeks of previous data
 model_weeks = 8 # early on the model ended up including 1 more week than was set here. Now it includes the number set here.
+# FOR S1 species proprotion ONLY ---- modified 2022-11-15
+# model weeks only include the 8 weeks included in geni analysis
+# modified 2023-01-25 to chang max to -2nd week, corresponding to change Nick made using geni report from -2nd week
+model_weeks = 8
+model_week_max = as.numeric(as.Date(time_end-7) - week0day1) %/% 7
 
 # Criterion for inclusion in model (i.e to be included in model, weighted share
 # must be at least 0.01 in the n_recent_weeks)
 # share_cutoff = 0.01
 
-# start of the first week
-week0day1 = get0("week0day1",
-                 ifnotfound = as.Date("2020-01-05"))
+
 
 # current week
 current_week = as.numeric(as.Date(data_date) - week0day1) %/% 7
