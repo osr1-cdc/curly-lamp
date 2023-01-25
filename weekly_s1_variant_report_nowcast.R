@@ -273,7 +273,7 @@ impala <- DBI::dbConnect(
 
 # Get the group_keys to be included in S1 proportion analysis
 ref_lineage = opts$reference_lineage
-selected_report_week <- as.Date(data_date) - as.numeric(format(as.Date(data_date), '%w')) - 15
+selected_report_week <- as.Date(data_date) - as.numeric(format(as.Date(data_date), '%w')) - 8
 #selected_report_week <- "2022-10-15"
 s1_groups = DBI::dbGetQuery(
     conn = impala,
