@@ -36,8 +36,8 @@
 # custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
-data_date <- Sys.Date()
-#data_date <- as.Date('2022-12-27')
+#data_date <- Sys.Date()
+data_date <- as.Date('2023-01-24')
 # This needs to be a date on which data were frozen in the CDP database
 # Set specific date_frozen to read sequencing data; but read test data and voc list from the data_date backup files. This can be used to rerun modeling using later date backfilled data. 
 # Default would be data_date
@@ -46,11 +46,11 @@ date_frozen_toread <- data_date
 # If the data was already pulled and you want to just use that data instead of re-pulling it, set here. 
 # This is useful if you aggregate some lab names at the end of this code and then want to re-run the
 # script after changing which labs get aggregated. 
-use_previously_imported_data <- FALSE
+use_previously_imported_data <- TRUE
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "CDT"
+results_tag <- "CDT_2"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
