@@ -36,13 +36,13 @@
 # custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
-# data_date <- Sys.Date()
-data_date <- as.Date('2023-01-24')
+data_date <- Sys.Date()
+# data_date <- as.Date('2023-01-24')
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "s1_2"
+results_tag <- "s1"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # do not need to change these on a regular basis -------------------------------
@@ -126,7 +126,7 @@ model_weeks = 8 # early on the model ended up including 1 more week than was set
 # model weeks only include the 8 weeks included in geni analysis
 # modified 2023-01-25 to chang max to -2nd week, corresponding to change Nick made using geni report from -2nd week
 model_weeks = 8
-model_week_max = as.numeric(as.Date(time_end-7) - week0day1) %/% 7
+model_week_max = as.numeric(as.Date(time_end-14) - week0day1) %/% 7
 
 # Criterion for inclusion in model (i.e to be included in model, weighted share
 # must be at least 0.01 in the n_recent_weeks)
