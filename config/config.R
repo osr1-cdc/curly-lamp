@@ -50,7 +50,7 @@ use_previously_imported_data <- FALSE
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "BO"
+results_tag <- "CDT"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
@@ -235,9 +235,9 @@ B429_7_agg  = TRUE
 B.1.1.529_agg = TRUE  # aggregate omicrons
 XBB_agg = TRUE # aggregate XBBs
 # preaggregation for CDT run
-force_preaggregate_XBB = FALSE
+force_preaggregate_XBB = TRUE
 force_aggregate_XBB_except <- c("XBB.1", "XBB.1.5")
-force_preaggregate_BN.1 = FALSE
+force_preaggregate_BN.1 = TRUE
 
 # Argument determining whether figures should be output as jpgs
 fig_gen_run = TRUE
