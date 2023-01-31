@@ -188,7 +188,7 @@ source(paste0(script.basename, "/weekly_variant_report_functions.R"))
 # Load output from variant_surveillance_system.r
 # (filtered genomic surveillance data)
 if(date_frozen_toread != data_date){
-  load(paste0(script.basename, "/data/", "svydat_", data_date, custom_tag, , "_", date_frozen_toread, "_frozendata",".RData"))
+  load(paste0(script.basename, "/data/", "svydat_", data_date, custom_tag, "_", date_frozen_toread, "_frozendata",".RData"))
 } else {
   load(paste0(script.basename, "/data/svydat_", data_date, custom_tag, ".RData"))
   # load(paste0('/scicomp/groups-pure/Projects/SARS2Seq/repos/sc2_proportion_modeling', "/data/svydat_", data_date, custom_tag, ".RData"))
@@ -336,7 +336,8 @@ if (remove_Quest){
   svy.dat <- subset(x = svy.dat,
                     subset = (SOURCE %notin% c('QUEST DIAGNOSTICS INCORPORATED','Quest Diagnostics Incorporated', 'Infectious Diseases,  Quest Diagnostics', 'Quest Diagnostics') |
                                 as.Date(yr_wk) < as.Date(remove_Quest_cutoff)-7 |
-                                as.Date(yr_wk) > as.Date(remove_Quest_cutoff_end)+1))
+                                as.Date(yr_wk) > as.Date(remove_Quest_cutoff_end)+1 |
+                                as.Date(received_date) >= as.Date(received_Quest_cutoff)))
 }
 ### subset data ----------------------------------------------------------------
 
