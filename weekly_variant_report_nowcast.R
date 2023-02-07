@@ -330,7 +330,8 @@ if (remove_utahphl){
 }
 if (remove_broad){
   svy.dat <- subset(x = svy.dat,
-                    subset = SOURCE %notin% c('BROAD INSTITUTE', 'INFECTIOUS DISEASE PROGRAM, BROAD INSTITUTE OF HARVARD AND MIT'))
+                    subset = (SOURCE %notin% c('BROAD INSTITUTE', 'INFECTIOUS DISEASE PROGRAM, BROAD INSTITUTE OF HARVARD AND MIT') |
+                                as.Date(received_date) %notin% as.Date(received_broad_dates)))
 }
 if (remove_Quest){
   svy.dat <- subset(x = svy.dat,
