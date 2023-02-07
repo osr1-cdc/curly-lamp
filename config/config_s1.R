@@ -182,6 +182,12 @@ remove_utahphl <- FALSE
 # optionally remove BROAD sequences (b/c they were having trouble with dropout on the Omicron spike protein, resulting in an inability to distinguish between BA.1 and BA.1+R346K in Jan/Feb 2022)
 remove_broad <- FALSE
 
+# optionally remove Quest sequences (b/c there seems to be some XBB sequences from Quest that were not received, so need to make sure the overall proportion is not skewed. Dec. 12, 2022)
+remove_Quest <- TRUE
+remove_Quest_cutoff <- "2022-10-08"
+remove_Quest_cutoff_end <- data_date
+received_Quest_cutoff <- "2023-01-17"
+
 # new option for testing data exclustion
 exclude_testing_data_portion <- TRUE
 exclusion_states <- c("TX")

@@ -335,7 +335,13 @@ if (remove_broad){
   svy.dat <- subset(x = svy.dat,
                     subset = SOURCE %notin% c('BROAD INSTITUTE', 'INFECTIOUS DISEASE PROGRAM, BROAD INSTITUTE OF HARVARD AND MIT'))
 }
-
+if (remove_Quest){
+  svy.dat <- subset(x = svy.dat,
+                    subset = (SOURCE %notin% c('QUEST DIAGNOSTICS INCORPORATED','Quest Diagnostics Incorporated', 'Infectious Diseases,  Quest Diagnostics', 'Quest Diagnostics') |
+                                as.Date(yr_wk) < as.Date(remove_Quest_cutoff)-7 |
+                                as.Date(yr_wk) > as.Date(remove_Quest_cutoff_end)+1 |
+                                as.Date(received_date) >= as.Date(received_Quest_cutoff)))
+}
 ### subset data ----------------------------------------------------------------
 
 # Convert any factor to string
