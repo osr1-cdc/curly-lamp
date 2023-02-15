@@ -203,3 +203,32 @@ It is best to run this from DVD-VM (`dvd-sars2seq-dev01.biotech.cdc.gov`), but c
 | cases                | float     | The estimated number of infections attributable to a given variant in a   given week. (cases = share * total_test_positives)                                                            |   |   |
 | cases_lo             | float     | The lower bound of the 95% confidence interval for the estimated number   of infections attributable to a given variant in a given week. (cases_lo =   share_lo * total_test_positives) |   |   |
 | cases_hi             | float     | The upper bound of the 95% confidence interval for the estimated number   of infections attributable to a given variant in a given week. (cases_hi =   share_hi * total_test_positives) |   |   |
+
+
+## Multinomial Logistic Regression growth rates
+Multinomial logistic regression is essentially a series of logistic regressions (comparing each outcome category to the same reference category) with an added [normalization factor](https://en.wikipedia.org/wiki/Multinomial_logistic_regression#As_a_log-linear_model:~:text=as%20well%20as%20an%20additional%20normalization%20factor) to ensure that the probabilities always sum to 1. The normalization factor changes depending on the values of predictor variables and coefficient values. Because the relationship between coefficient value(s) and the predicted proportion vary with the normalization factor, one cannot just use multinomial regression coefficient value(s) as growth rates (as one can do with logistic regression). Rather, we calculate growth rate as the exponent of the derivative (i.e. instantaneous rate of change) of the log of the model-estimated proportion at time $t$:  $p_i(t)$. The estimated proportion of variant $i$ at time $t$ is:  
+
+
+$$ 
+p_i(t) = \frac{e^{b_{0i}+b_{1i}*t}}{ \sum_je^{b_{0j}+b_{1j}*t} } 
+$$  
+
+If we take the log of $p_i(t)$ (so that we’re on the [linear predictor scale](https://en.wikipedia.org/wiki/Multinomial_logistic_regression#As_a_log-linear_model:~:text=we%20model%20the%20logarithm%20of%20the%20probability) instead of the response scale): 
+
+$$
+log⁡(p_i(t))=log⁡(\frac{e^{b_{0i}+b_{1i}*t}}{ \sum_je^{b_{0j}+b_{1j}*t} })
+$$
+
+we can then take the derivative of $log(p_i(t))$ to get the instantaneous rate of change:
+
+$$
+\frac{d log⁡(p_i(t))}{dt}=b_{1i}-\sum_j{p_j*b_{1j}}
+$$
+
+and exponentiate to get our growth rate (then multiply to 100 so that it's a percent instead of a decimal and subtract 100 so that "no change" is 0 instead of (100% of the current value).)
+
+$$ 
+growth\ rate=100*e^{b_{1i}-\sum_j{p_j*b_{1j}}}-100
+$$ 
+
+The resulting growth rate is the relative amount that the proportion is expected to change in a given time period. For example, a growth rate of 100 means that (if the growth rate were maintained) the proportion would grow by 100% over the given time period (i.e. double). However, these growth rates are _not_ constant over time (they decline with time).
