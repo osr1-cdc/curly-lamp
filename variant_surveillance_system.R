@@ -66,12 +66,12 @@ option_list <- list(
   #   help    = "Reference lineage (pango lineage name) to be used to generate S1 mutation group names",
   #   metavar = "character"
   # ),
-  # Get lineage definition from sc2_dev.nextclade instead of the default sc2_src.pangolin
+  # Get lineage definition from sc2_src.nextclade instead of the default sc2_src.pangolin
   optparse::make_option(
     opt_str = c("-n", "--nextclade_pango"),
     type    = "character",
     default = "F",
-    help    = "Whether or not to swith to get lineage defintion from sc2_dev.nextclade instead of sc2_src.pangolin (character value of T or F)",
+    help    = "Whether or not to swith to get lineage defintion from sc2_src.nextclade instead of sc2_src.pangolin (character value of T or F)",
     metavar = "character"
   ),
   # whether or not to use Custom Lineages
@@ -158,7 +158,7 @@ node = "10"
 
 # Set pangolineage definition source based on nextclade_pango flag
 if(toupper(opts$nextclade_pango) %in% c('T', 'TRUE', 'Y', 'YES')){
-  lineage_table = "sc2_dev.nextclade"
+  lineage_table = "sc2_src.nextclade"
   lineage_field = "nextclade_pango"
   current_data  = TRUE   # If using nextclade_pango, there is no archived frozen data, only current data from nextclade_pango can be used
 } else {
@@ -352,40 +352,41 @@ dat = DBI::dbGetQuery(conn = impala,
 
 # Get the Pango lineages (at the time of the data) from the choosen source
 if(custom_lineages == TRUE) {
-  custom_lineages_sql = paste0('
-    CASE
-      -- WHEN P.', lineage_field, ' = "AY.4.2" AND udx.substr_range(A.aa_aln, "145;222") = "HV"
-      -- THEN "AY.4.2+"
-      -- WHEN P.', lineage_field, ' = "AY.35" AND udx.substr_range(A.aa_aln, "484") = "Q"
-      -- THEN "AY.35+"
-      -- WHEN P.', lineage_field, ' = "BA.1" AND udx.substr_range(A.aa_aln, "346") = "K"
-      -- THEN "BA.1+"
-      WHEN regexp_like(P.', lineage_field, ', "^BA.1.{0,1}|^BC.{0,1}|^BD.{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BA1"
-      WHEN regexp_like(P.', lineage_field, ', "^BA.2.75.{0,1}|^B[LMNRY].{0,1}|^C[AB].{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BA275"
-      WHEN regexp_like(P.', lineage_field, ', "^BA.2.12.1.{0,1}|^BG.{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BA2121"
-      WHEN regexp_like(P.', lineage_field, ', "^BA.2.{0,1}|^B[HJPS].{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BA2"
-      WHEN regexp_like(P.', lineage_field, ', "^BA.4.6.{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BA46"
-      WHEN regexp_like(P.', lineage_field, ', "^BA.4.{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BA4"
-      WHEN regexp_like(P.', lineage_field, ', "^BF.7.{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BF7"
-      WHEN regexp_like(P.', lineage_field, ', "^BQ.1.1.{0,1}") AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BQ11"
-      WHEN regexp_like(P.', lineage_field, ', "^BQ.1.{0,1}") AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BQ1"
-      WHEN regexp_like(P.', lineage_field, ', "^BE.1.1.{0,1}|^BQ.{0,1}|^CC.{0,1}") AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BE11"
-      WHEN regexp_like(P.', lineage_field, ', "^BA.5.{0,1}|^B[EFKTUVWZ].{0,1}|^C[DEFG].{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_BA5"
-      WHEN regexp_like(P.', lineage_field, ', "^BA.3.{0,1}|^B.1.1.529") AND udx.substr_range(A.aa_aln, "346") = "T"
-      THEN "R346T_B11529"
-      ELSE P.', lineage_field, '
-  END as lineage')
+  # custom_lineages_sql = paste0('
+  #   CASE
+  #     -- WHEN P.', lineage_field, ' = "AY.4.2" AND udx.substr_range(A.aa_aln, "145;222") = "HV"
+  #     -- THEN "AY.4.2+"
+  #     -- WHEN P.', lineage_field, ' = "AY.35" AND udx.substr_range(A.aa_aln, "484") = "Q"
+  #     -- THEN "AY.35+"
+  #     -- WHEN P.', lineage_field, ' = "BA.1" AND udx.substr_range(A.aa_aln, "346") = "K"
+  #     -- THEN "BA.1+"
+  #     WHEN regexp_like(P.', lineage_field, ', "^BA.1.{0,1}|^BC.{0,1}|^BD.{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
+  #     THEN "R346T_BA1"
+  #     WHEN regexp_like(P.', lineage_field, ', "^BA.2.75.{0,1}|^B[LMNRY].{0,1}|^C[AB].{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
+  #     THEN "R346T_BA275"
+  #     WHEN regexp_like(P.', lineage_field, ', "^BA.2.12.1.{0,1}|^BG.{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
+  #     THEN "R346T_BA2121"
+  #     WHEN regexp_like(P.', lineage_field, ', "^BA.2.{0,1}|^B[HJPS].{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
+  #     THEN "R346T_BA2"
+  #     WHEN regexp_like(P.', lineage_field, ', "^BA.4.6.{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
+  #     THEN "R346T_BA46"
+  #     WHEN regexp_like(P.', lineage_field, ', "^BA.4.{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
+  #     THEN "R346T_BA4"
+  #     WHEN regexp_like(P.', lineage_field, ', "^BF.7.{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
+  #     THEN "R346T_BF7"
+  #     WHEN regexp_like(P.', lineage_field, ', "^BQ.1.1.{0,1}") AND udx.substr_range(A.aa_aln, "346") = "T"
+  #     THEN "R346T_BQ11"
+  #     WHEN regexp_like(P.', lineage_field, ', "^BQ.1.{0,1}") AND udx.substr_range(A.aa_aln, "346") = "T"
+  #     THEN "R346T_BQ1"
+  #     WHEN regexp_like(P.', lineage_field, ', "^BE.1.1.{0,1}|^BQ.{0,1}|^CC.{0,1}") AND udx.substr_range(A.aa_aln, "346") = "T"
+  #     THEN "R346T_BE11"
+  #     WHEN regexp_like(P.', lineage_field, ', "^BA.5.{0,1}|^B[EFKTUVWZ].{0,1}|^C[DEFG].{0,1}")  AND udx.substr_range(A.aa_aln, "346") = "T"
+  #     THEN "R346T_BA5"
+  #     WHEN regexp_like(P.', lineage_field, ', "^BA.3.{0,1}|^B.1.1.529") AND udx.substr_range(A.aa_aln, "346") = "T"
+  #     THEN "R346T_B11529"
+  #     ELSE P.', lineage_field, '
+  # END as lineage')
+    custom_lineages_sql = paste0(' ', lineage_field, ' as lineage') # Save nextclade_pango lineage as _custom dataset. No custom lineage names.
   if(current_data){
     # if custom_lineages == TRUE & current_data == TRUE
     # define custom AY.35+ and AY.4.2+ lineages based on amino acid positions of interest

@@ -360,9 +360,9 @@ if(state_source == "state_tag_included"){
   invalid_variant <- is.na(svy.dat$VARIANT) | svy.dat$VARIANT == "None" | svy.dat$VARIANT == "Unassigned"
 
   # count sequences that are excluded by week
-  if(file.exists(paste0(script.basename, "/data/backup_",data_date, "/dropped_sequence_counts_", data_date, custom_tag, "_v1.csv"))){
+  if(file.exists(paste0(script.basename, "/data/backup_",data_date, custom_tag, "/dropped_sequence_counts_", data_date, custom_tag, "_v1.csv"))){
     # read in the counts of dropped sequences
-    dropped_sequences <- as.data.table(read.csv(file = paste0(script.basename, "/data/backup_",data_date, "/dropped_sequence_counts_", data_date, custom_tag, "_v1.csv")))[,'week' := as.Date(week)]
+    dropped_sequences <- as.data.table(read.csv(file = paste0(script.basename, "/data/backup_",data_date, custom_tag, "/dropped_sequence_counts_", data_date, custom_tag, "_v1.csv")))[,'week' := as.Date(week)]
 
     # invalid lab names
     iln_by_wk <- svy.dat[ invalid_labname, .(count = .N), by = yr_wk]
@@ -554,7 +554,7 @@ if(nrow(inf_weights)>0){
 
     # save the dropped_sequence data.table again
     write.csv(x = dropped_sequences[order(week, count, decreasing = T)],
-              file = paste0(script.basename, "/data/backup_",data_date, "/dropped_sequence_counts_", data_date, custom_tag, ".csv"),
+              file = paste0(script.basename, "/data/backup_",data_date, custom_tag, "/dropped_sequence_counts_", data_date, custom_tag, ".csv"),
               row.names = F)
   }
 }
@@ -1413,7 +1413,7 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
     if (calc_confirmed_infections){
       test_filepath <- paste0(script.basename,
                               "/data/backup_",
-                              data_date, "/",
+                              data_date, custom_tag, "/",
                               data_date, "_tests_aggregated",
                               custom_tag, ".RDS")
 
@@ -1787,7 +1787,7 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
     if (calc_confirmed_infections){
       test_filepath <- paste0(script.basename,
                               "/data/backup_",
-                              data_date, "/",
+                              data_date, custom_tag, "/",
                               data_date, "_tests_aggregated",
                               custom_tag, ".RDS")
 
@@ -3195,7 +3195,7 @@ if ( grepl("Run2",tag) ){
   if (calc_confirmed_infections){
     test_filepath <- paste0(script.basename,
                             "/data/backup_",
-                            data_date, "/",
+                            data_date, custom_tag, "/",
                             data_date, "_tests_aggregated",
                             custom_tag, ".RDS")
 
@@ -3498,7 +3498,7 @@ if ( grepl("Run2",tag) ){
   if (calc_confirmed_infections){
     test_filepath <- paste0(script.basename,
                             "/data/backup_",
-                            data_date, "/",
+                            data_date, custom_tag, "/",
                             data_date, "_tests_aggregated",
                             custom_tag, ".RDS")
 
@@ -4052,7 +4052,7 @@ if ( grepl("Run3", tag) ){
   if (calc_confirmed_infections){
     test_filepath <- paste0(script.basename,
                             "/data/backup_",
-                            data_date, "/",
+                            data_date, custom_tag, "/",
                             data_date, "_tests_aggregated",
                             custom_tag, ".RDS")
 

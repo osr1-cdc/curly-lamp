@@ -36,8 +36,8 @@
 # custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
-data_date <- Sys.Date()
-# data_date <- as.Date('2023-01-24')
+# data_date <- Sys.Date()
+data_date <- as.Date('2023-02-15')
 # This needs to be a date on which data were frozen in the CDP database
 # Set specific date_frozen to read sequencing data; but read test data and voc list from the data_date backup files. This can be used to rerun modeling using later date backfilled data. 
 # Default would be data_date
@@ -50,11 +50,11 @@ use_previously_imported_data <- FALSE
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "WOW"
+results_tag <- "Nextcladepango"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
-pre_aggregation <-TRUE
+pre_aggregation <- FALSE
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
 
@@ -67,7 +67,8 @@ pre_aggregation <-TRUE
 # All other lineages (including AY.4.2 and AY.35) are from default pangolin calls.
 
 # Set custom lineages
-custom_lineage_names <- c("R346T_BQ11","R346T_BQ1","R346T_BE11","R346T_BA1","R346T_BA275","R346T_BA2121","R346T_BA2","R346T_BA46","R346T_BA4","R346T_BF7","R346T_BA5","R346T_B11529")
+# custom_lineage_names <- c("R346T_BQ11","R346T_BQ1","R346T_BE11","R346T_BA1","R346T_BA275","R346T_BA2121","R346T_BA2","R346T_BA46","R346T_BA4","R346T_BF7","R346T_BA5","R346T_B11529")
+custom_lineage_names <- NULL #Save nextclade_pango lineage as _custom dataset. No custom lineage named. 2023-02-15
 # NOTE! If you change the custom lineages, you much also change the "custom"
 #       pangolin sql query (lines 305-320) in variant_surveillance_system.R to match!
 
@@ -128,6 +129,7 @@ voc2_additional = c(
                     'BN.1',
                     'XBB',
                     'XBB.1.5',
+                    'XBB.1.5.1', # custom for using nextclade_pango call 2023-02-15
                     "B.1.617.2", # Delta
                     "B.1.1.529" # Omicron
                     )
