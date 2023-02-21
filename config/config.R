@@ -36,8 +36,8 @@
 # custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
-# data_date <- Sys.Date()
-data_date <- as.Date('2023-02-15')
+data_date <- Sys.Date()
+#data_date <- as.Date('2023-02-15')
 # This needs to be a date on which data were frozen in the CDP database
 # Set specific date_frozen to read sequencing data; but read test data and voc list from the data_date backup files. This can be used to rerun modeling using later date backfilled data. 
 # Default would be data_date
@@ -50,11 +50,11 @@ use_previously_imported_data <- FALSE
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "Nextcladepango"
+results_tag <- "WOW"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
-pre_aggregation <- FALSE
+pre_aggregation <- TRUE
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
 # These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
 
@@ -129,7 +129,7 @@ voc2_additional = c(
                     'BN.1',
                     'XBB',
                     'XBB.1.5',
-                    'XBB.1.5.1', # custom for using nextclade_pango call 2023-02-15
+                    #'XBB.1.5.1', # custom for using nextclade_pango call 2023-02-15
                     "B.1.617.2", # Delta
                     "B.1.1.529" # Omicron
                     )
