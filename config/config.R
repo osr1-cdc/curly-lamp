@@ -50,7 +50,7 @@ use_previously_imported_data <- FALSE
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "Nextcladepango"
+results_tag <- "CDT"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
@@ -129,7 +129,7 @@ voc2_additional = c(
                     'BN.1',
                     'XBB',
                     'XBB.1.5',
-                    'XBB.1.5.1', # custom for using nextclade_pango call 2023-02-15
+                    #'XBB.1.5.1', # custom for using nextclade_pango call 2023-02-15
                     "B.1.617.2", # Delta
                     "B.1.1.529" # Omicron
                     )
