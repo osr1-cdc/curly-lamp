@@ -2948,6 +2948,37 @@ if ( grepl("Run2",tag) ){
     agg_var_mat[4,] <- ifelse(colnames(agg_var_mat) %in% c("XBB", XBB_agg),1,0)
     row.names(agg_var_mat) <-c("Delta Aggregated", "Omicron Aggregated", "Other Aggregated", "XBB Aggregated")
 
+    # add rows to agg_var_mat for each XBB subvariant in run1_lingeages
+    {
+      XBBs_in_r1l <- XBB_vars[XBB_vars %in% run1_lineages]
+      for (ll in XBBs_in_r1l){
+        if(exists('ll_agg')) rm(ll_agg)
+        if(ll == 'XBB.1.5'){
+          ll_agg <- grep("^XBB\\.1\\.5(?![0-9])", XBB_vars, perl = T, value = T)
+        }
+        if(exists('ll_agg')){
+          # if ll_agg contains subvariants of ll, then add a new row to agg_var_mat
+          # if ll_agg only contains ll, don't add a new row
+          if(any(ll_agg != ll)){
+            # create an extra row for the agg_var_mat
+            extra_row <- ifelse(colnames(agg_var_mat) %in% ll_agg,1,0)
+
+            # add the new row onto the aggregation matrix
+            agg_var_mat <- rbind(
+              agg_var_mat,
+              extra_row
+            )
+            row.names(agg_var_mat)[nrow(agg_var_mat)] <- paste(ll, 'Aggregated')
+
+            # remove aggregation indices from "XBB Aggregated" if they're in the new row
+            om_row <- which(row.names(agg_var_mat) == 'XBB Aggregated')
+            agg_var_mat[om_row,which(agg_var_mat[ om_row,] == 1 & extra_row == 1)] <- 0
+          }
+        }
+      }
+    }
+
+
     # add rows to agg_var_mat for each BA subvariant in run1_lineages
     {
       # get the BA subvariants that are in run1_lineages, and therefore might need their own aggregations
