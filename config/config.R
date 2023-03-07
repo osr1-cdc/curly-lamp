@@ -90,6 +90,7 @@ voc1 = c(# "AY.1", "AY.2",
          "BN.1",
          "XBB",
          'XBB.1.5',
+         'XBB.1.5.1',
          "B.1.617.2", # Delta
          "B.1.1.529") # Omicron
 # define an alternate set of vocs
@@ -129,7 +130,7 @@ voc2_additional = c(
                     'BN.1',
                     'XBB',
                     'XBB.1.5',
-                    #'XBB.1.5.1', # custom for using nextclade_pango call 2023-02-15
+                    'XBB.1.5.1',
                     "B.1.617.2", # Delta
                     "B.1.1.529" # Omicron
                     )
@@ -168,6 +169,7 @@ voc3 = c("B.1.1.7",   # Alpha  # and Q.1 to 8*
          "BF.11",
          "XBB",
          'XBB.1.5',
+         'XBB.1.5.1',
          "BQ.1",
          "BQ.1.1")
 # define an alternate set of vocs
@@ -302,7 +304,7 @@ calc_confirmed_infections <- TRUE
 # Option to just fit the nowcast model and avoid the slower parts of the script
 # (this is only valid if the run number == 2)
 # this can be removed eventually. It's here to make it easier to make updates to the Nowcast model.
-nowcast_only = TRUE
+nowcast_only = FALSE
 
 # This is an option that probably won't be used, but I don't want to delete it yet
 # so it's hiding here just in case I want to use it again.
