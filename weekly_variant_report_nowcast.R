@@ -3028,7 +3028,7 @@ if ( grepl("Run2",tag) ){
           # }
         }
         if(ll == 'BA.2.12.1') {
-          ll_agg <- grep("(^BG\\.)",BA_vars, perl = T, value = T)
+          ll_agg <- grep("(^BA\\.2\\.12\\.1)(^BG\\.)",BA_vars, perl = T, value = T)
         }
 
         if(ll == 'BA.2.75') {
@@ -3101,6 +3101,21 @@ if ( grepl("Run2",tag) ){
     # print a warning if any columns have totals > 1
     if(any(colSums(agg_var_mat)>1)) warning(paste0('agg_var_mat not correctly specified. Some variants are aggregated more than once.', agg_var_mat))
     
+    # QA: make sure that any aggregated variant includes itself!
+    agg_var_names <- gsub(' Aggregated', '',
+                          sub('Delta', 'B.1.617.2',
+                                sub('Omicron', 'B.1.1.529',
+                                    row.names(agg_var_mat))))
+    if(!all(diag(agg_var_mat[, agg_var_names])==1)) {
+      # which variant is not included in itself?
+      stop(paste0(
+        "In 'agg_var_mat', ",
+        agg_var_names[diag(agg_var_mat[, agg_var_names])!=1],
+        ' is not included in ',
+        row.names(agg_var_mat)[diag(agg_var_mat[, agg_var_names])!=1])
+      )
+    }
+
     # agg_var_mat
     write.csv(
       x = replace(agg_var_mat, agg_var_mat == 0, NA), # it's easier to view in Excel with only the 1's and no 0's
