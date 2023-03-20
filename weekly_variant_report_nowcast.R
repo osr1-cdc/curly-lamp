@@ -1149,7 +1149,7 @@ date_to_model_week = function(date){
 # creates 2 output files:
 # - "results/variant_share_weighted_",       ci.type,"CI_",svy.type,"_",data_date,tag,".csv"
 # - "results/variant_share_weekly_weighted_",ci.type,"CI_",svy.type,"_",data_date,tag,".csv"
-if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
+if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
 
   # subset data to only include
   # - data since May 8, 2021
@@ -1159,8 +1159,8 @@ if ( !grepl("Run3", tag) ){ # fortnight and weekly estimates
                    as.Date(FORTNIGHT_END) <= time_end)
 
   # get the relevant fortnights from the data
-  # (should this be sorted?)
-  ftnts = (unique(dat2$FORTNIGHT_END))
+  # this should be sorted
+  ftnts = sort(unique(dat2$FORTNIGHT_END))
 
   # skip running this if only running/testing the nowcast model.
   # (This section takes 90+% of the time required to run this script.)
@@ -3028,11 +3028,11 @@ if ( grepl("Run2",tag) ){
           # }
         }
         if(ll == 'BA.2.12.1') {
-          ll_agg <- grep("(^BA\\.2\\.12\\.1)(^BG\\.)",BA_vars, perl = T, value = T)
+          ll_agg <- grep("(^BA\\.2\\.12\\.1)|(^BG\\.)",BA_vars, perl = T, value = T)
         }
 
         if(ll == 'BA.2.75') {
-          ll_agg <- grep("(^BA\\.2\\.75)(?![0-9])|(^BN\\.)",BA_vars, perl = T, value = T)
+          ll_agg <- grep("(^BA\\.2\\.75)(?![0-9])|(^BN\\.)|(^CH\\.)",BA_vars, perl = T, value = T)
           ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
           ll_agg <- c(ll_agg, 'BA.2.75')
         }
@@ -3167,6 +3167,7 @@ if ( grepl("Run2",tag) ){
       # convert week to model_week
       wk = wk - model_week_min - model_week_mid
       # same as date_to_model_week(ftn - 3)
+        # should the fortnightly prediction really be for the middle of the 2nd week?? Shouldn't it be for the middle of the 2-wk period? (i.e.  date_to_model_week(ftn - 6.5) )
 
       # get the estimates (and SE) for the given place & time
       ests = se.multinom(mlm = mlm,
@@ -3200,6 +3201,39 @@ if ( grepl("Run2",tag) ){
       doubling_time_lo = log(2)/gr_lo_link * 7
       doubling_time_hi = log(2)/gr_hi_link * 7
 
+        # empty dataframe to store growth rates (and doubling times) for aggregated variants
+        gr_agg <- data.frame( variant = rownames(agg_var_mat),
+                              gr    = NA,
+                              se.gr = NA,
+                              gr_lo = NA,
+                              gr_hi = NA,
+                              dt    = NA,
+                              dt_lo = NA,
+                              dt_hi = NA)
+        # extract the growth rates for the aggregated variants
+        for(r in 1:nrow(agg_var_mat)){
+          # if nothing is actually being aggregated, just get the growth rate of the individual component
+          if(unname(rowSums(agg_var_mat)[r]) == 1){
+            col_ind <- which(agg_var_mat[r,]>0)
+            gr_agg[r,'gr']    <- gr[col_ind]
+            gr_agg[r,'se.gr'] <- se.gr[col_ind]
+            gr_agg[r,'gr_lo'] <- gr_lo[col_ind]
+            gr_agg[r,'gr_hi'] <- gr_hi[col_ind]
+            gr_agg[r,'dt']    <- doubling_time[col_ind]
+            gr_agg[r,'dt_lo'] <- doubling_time_lo[col_ind]
+            gr_agg[r,'dt_hi'] <- doubling_time_hi[col_ind]
+          } else {
+            # if there are component variants, then take the weighted mean to get the aggregated growth rate
+            col_ind <- unname(which(agg_var_mat[r,]>0))
+            gr_agg[r,'gr']    <- sum(   gr[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+            gr_agg[r,'gr_lo'] <- sum(gr_lo[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+            gr_agg[r,'gr_hi'] <- sum(gr_hi[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+            gr_agg[r,'dt']    <- sum(   doubling_time[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+            gr_agg[r,'dt_lo'] <- sum(doubling_time_lo[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+            gr_agg[r,'dt_hi'] <- sum(doubling_time_hi[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+          }
+        }
+
       # format estimates into dataframe with relevant info
       ests = data.table::data.table(
         USA_or_HHSRegion = rgn,
@@ -3211,12 +3245,12 @@ if ( grepl("Run2",tag) ){
                   ests$composite_variant$p_i),
         se.Share = c(ests$se.p_i,
                      ests$composite_variant$se.p_i),
-        growth_rate    = c(gr,    rep(NA, length(ests$composite_variant$p_i))),
-        growth_rate_lo = c(gr_lo, rep(NA, length(ests$composite_variant$p_i))),
-        growth_rate_hi = c(gr_hi, rep(NA, length(ests$composite_variant$p_i))),
-        doubling_time    = c(doubling_time,    rep(NA, length(ests$composite_variant$p_i))),
-        doubling_time_lo = c(doubling_time_lo, rep(NA, length(ests$composite_variant$p_i))),
-        doubling_time_hi = c(doubling_time_hi, rep(NA, length(ests$composite_variant$p_i)))
+        growth_rate    = c(gr,    gr_agg$gr),
+        growth_rate_lo = c(gr_lo, gr_agg$gr_lo),
+        growth_rate_hi = c(gr_hi, gr_agg$gr_hi),
+        doubling_time    = c(doubling_time,    gr_agg$dt),
+        doubling_time_lo = c(doubling_time_lo, gr_agg$dt_lo),
+        doubling_time_hi = c(doubling_time_hi, gr_agg$dt_hi)
       )
 
       # Get binomial CI from p_i and se.p_i
@@ -3496,6 +3530,39 @@ if ( grepl("Run2",tag) ){
       doubling_time_lo = log(2)/gr_lo_link * 7
       doubling_time_hi = log(2)/gr_hi_link * 7
 
+      # empty dataframe to hold growth rates of aggregated variants
+      gr_agg <- data.frame( variant = rownames(agg_var_mat),
+                            gr    = NA,
+                            se.gr = NA,
+                            gr_lo = NA,
+                            gr_hi = NA,
+                            dt    = NA,
+                            dt_lo = NA,
+                            dt_hi = NA)
+      # extract the growth rates for the aggregated variants
+      for(r in 1:nrow(agg_var_mat)){
+        # if nothing is actually being aggregated, just get the growth rate of the individual component
+        if(unname(rowSums(agg_var_mat)[r]) == 1){
+          col_ind <- which(agg_var_mat[r,]>0)
+          gr_agg[r,'gr']    <- gr[col_ind]
+          gr_agg[r,'se.gr'] <- se.gr[col_ind]
+          gr_agg[r,'gr_lo'] <- gr_lo[col_ind]
+          gr_agg[r,'gr_hi'] <- gr_hi[col_ind]
+          gr_agg[r,'dt']    <- doubling_time[col_ind]
+          gr_agg[r,'dt_lo'] <- doubling_time_lo[col_ind]
+          gr_agg[r,'dt_hi'] <- doubling_time_hi[col_ind]
+        } else {
+          # if there are component variants, then take the weighted mean to get the aggregated growth rate
+          col_ind <- unname(which(agg_var_mat[r,]>0))
+          gr_agg[r,'gr']    <- sum(   gr[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+          gr_agg[r,'gr_lo'] <- sum(gr_lo[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+          gr_agg[r,'gr_hi'] <- sum(gr_hi[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+          gr_agg[r,'dt']    <- sum(   doubling_time[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+          gr_agg[r,'dt_lo'] <- sum(doubling_time_lo[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+          gr_agg[r,'dt_hi'] <- sum(doubling_time_hi[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+        }
+      }
+
       # format estimates into dataframe with relevant info
       ests = data.table::data.table(
         USA_or_HHSRegion = rgn,
@@ -3507,12 +3574,12 @@ if ( grepl("Run2",tag) ){
                   ests$composite_variant$p_i),
         se.Share = c(ests$se.p_i,
                      ests$composite_variant$se.p_i),
-        growth_rate    = c(gr,    rep(NA, length(ests$composite_variant$p_i))),
-        growth_rate_lo = c(gr_lo, rep(NA, length(ests$composite_variant$p_i))),
-        growth_rate_hi = c(gr_hi, rep(NA, length(ests$composite_variant$p_i))),
-        doubling_time    = c(doubling_time,    rep(NA, length(ests$composite_variant$p_i))),
-        doubling_time_lo = c(doubling_time_lo, rep(NA, length(ests$composite_variant$p_i))),
-        doubling_time_hi = c(doubling_time_hi, rep(NA, length(ests$composite_variant$p_i))),
+        growth_rate    = c(gr,    gr_agg$gr),
+        growth_rate_lo = c(gr_lo, gr_agg$gr_lo),
+        growth_rate_hi = c(gr_hi, gr_agg$gr_hi),
+        doubling_time    = c(doubling_time,    gr_agg$dt),
+        doubling_time_lo = c(doubling_time_lo, gr_agg$dt_lo),
+        doubling_time_hi = c(doubling_time_hi, gr_agg$dt_hi),
         # add in dates
         date        = wk_date,
         week_start  = week_start,
