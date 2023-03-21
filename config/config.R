@@ -50,7 +50,7 @@ use_previously_imported_data <- FALSE
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "XBB.1.5_S146K"
+results_tag <- "CDT"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
@@ -92,6 +92,7 @@ voc1 = c(# "AY.1", "AY.2",
          "XBB",
          'XBB.1.5',
          'XBB.1.5.1',
+         'XBB.1.9.1',
          "B.1.617.2", # Delta
          "B.1.1.529") # Omicron
 # define an alternate set of vocs
@@ -132,6 +133,7 @@ voc2_additional = c(
                     'XBB',
                     'XBB.1.5',
                     'XBB.1.5.1',
+                    'XBB.1.9.1',
                     "B.1.617.2", # Delta
                     "B.1.1.529" # Omicron
                     )
@@ -171,6 +173,7 @@ voc3 = c("B.1.1.7",   # Alpha  # and Q.1 to 8*
          "XBB",
          'XBB.1.5',
          'XBB.1.5.1',
+         'XBB.1.9.1',
          "BQ.1",
          "BQ.1.1")
 # define an alternate set of vocs

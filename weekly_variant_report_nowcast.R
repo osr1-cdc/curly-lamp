@@ -590,14 +590,15 @@ if('XBB.1.5' %in% voc){
   XBB.1.5 <- setdiff(XBB.1.5, c(XBB.1.5.1, XBB.1.5.4))
   } else XBB.1.5.1 <- NULL
 if('XBB.1.9.1' %in% voc) XBB.1.9.1 <- sort(grep("^XBB\\.1\\.9\\.1(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.9.1 <- NULL
+if('XBB.1.9.2' %in% voc) XBB.1.9.2 <- sort(grep("^XBB\\.1\\.9\\.2(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.9.2 <- NULL
 if('XBB.1' %in% voc){
   XBB.1 <- sort(grep("^XBB\\.1(?![0-9])|^E[GKLM]\\.", unique(src.dat$VARIANT), perl = T, value = T))
-  XBB.1 <- setdiff(XBB.1, c(XBB.1.5.1, XBB.1.5.4, XBB.1.5, XBB.1.9.1))
+  XBB.1 <- setdiff(XBB.1, c(XBB.1.5.1, XBB.1.5.4, XBB.1.5, XBB.1.9.1, XBB.1.9.2))
   } else XBB.1 <- NULL
 if('XBB.2' %in% voc) XBB.2 <- sort(grep("^XBB\\.2(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.2 <- NULL
 if('XBB' %in% voc) {
   XBB <- sort(grep("(^XBB\\.)|^E[GKLM]\\.", unique(src.dat$VARIANT), perl = T, value = T))
-  XBB <- setdiff(XBB, c(XBB.1, XBB.1.5.1, XBB.1.5.4, XBB.1.5, XBB.1.9.1, XBB.2))
+  XBB <- setdiff(XBB, c(XBB.1, XBB.1.5.1, XBB.1.5.4, XBB.1.5, XBB.1.9.1, XBB.1.9.2, XBB.2))
  } else XBB <- NULL
 
 B429=B429[which(B429 %notin% voc)] #vector of the B429s to aggregate
@@ -892,6 +893,7 @@ if(XBB_agg) {
   src.dat[src.dat$VARIANT %in% XBB.1.5.4[XBB.1.5.4 %notin% voc],"VARIANT"] <- "XBB.1.5.4"
   src.dat[src.dat$VARIANT %in% XBB.1.5[XBB.1.5 %notin% voc],"VARIANT"] <- "XBB.1.5"
   src.dat[src.dat$VARIANT %in% XBB.1.9.1[XBB.1.9.1 %notin% voc],"VARIANT"] <- "XBB.1.9.1"
+  src.dat[src.dat$VARIANT %in% XBB.1.9.2[XBB.1.9.2 %notin% voc],"VARIANT"] <- "XBB.1.9.2"
   src.dat[src.dat$VARIANT %in% XBB.1[XBB.1 %notin% voc],"VARIANT"] <- "XBB.1"
   src.dat[src.dat$VARIANT %in% XBB.2[XBB.2 %notin% voc],"VARIANT"] <- "XBB.2"
   src.dat[src.dat$VARIANT %in% XBB[XBB %notin% voc],"VARIANT"] <- "XBB"
