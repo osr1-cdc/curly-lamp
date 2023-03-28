@@ -616,7 +616,7 @@ if('BA.2.9' %in% voc) B529.BA2.9 <- sort(grep("(^BA\\.2\\.9)(?![0-9])",  unique(
 if('BA.2.10.1' %in% voc) B529.BA2.10.1 <- sort(grep("(^BA\\.2\\.10\\.1)(?![0-9])|^BJ\\.", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.10.1 <- NULL
 if('BA.2.10' %in% voc) {
   B529.BA2.10 <- sort(grep("(^BA\\.2\\.10)(?![0-9])|^BJ\\.", unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA2.10<- setdiff(B529.BA2.19, B529.BA2.10.1)
+  B529.BA2.10<- setdiff(B529.BA2.10, B529.BA2.10.1)
 } else B529.BA2.10 <- NULL
 if('BA.2.18' %in% voc) B529.BA2.18 <- sort(grep("(^BA\\.2\\.18)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.18 <- NULL
 if('BA.2.12.1' %in% voc) B529.BA2.12.1 <- sort(grep("^BG\\.|(^BA\\.2\\.12\\.1)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.12.1 <- NULL
