@@ -132,7 +132,7 @@ voc2_additional = c(
                     'BN.1',
                     'XBB',
                     'XBB.1.5',
-                    'XBB.1.5.2',
+                    'XBB.1.16',
                     'XBB.1.5.1',
                     'XBB.1.9.1',
                     "B.1.617.2", # Delta
