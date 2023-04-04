@@ -62,7 +62,14 @@ options(survey.adjust.domain.lonely = T,
       help    = "Whether or not to use custom lineages (character value of T or F)",
       metavar = "character"
     ),
-
+    # Get lineage definition from sc2_src.nextclade instead of the default sc2_src.pangolin
+    optparse::make_option(
+      opt_str = c("-n", "--nextclade_pango"),
+      type    = "character",
+      default = "F",
+      help    = "Whether or not to swith to get lineage defintion from sc2_src.nextclade instead of sc2_src.pangolin (character value of T or F)",
+      metavar = "character"
+    ),
     # whether or not to use reduced vocs
     optparse::make_option(
       opt_str = c("-v", "--reduced_vocs"),
@@ -115,16 +122,31 @@ options(survey.adjust.domain.lonely = T,
   # use the specified flags to set several variables
   # convert custom_lineages flag to a logical value
   if(toupper(opts$custom_lineages) %in% c('T', 'TRUE', 'Y', 'YES')){
-    custom_lineages = TRUE
-    custom_tag = "_custom"
+    if(toupper(opts$nextclade_pango) %in% c('F', 'FALSE', 'N', 'NO')){
+      custom_lineages = TRUE
+      custom_tag = "_custom"
+    } else {
+      if(toupper(opts$nextclade_pango) %in% c('T', 'TRUE', 'Y', 'YES')){
+        custom_lineages = TRUE
+        custom_tag = "_custom_nextcladepango"
+      } else {
+      errorCondition(message = paste0('nextclade_pango must be "T" or "F". Argument provide: ', opts$nextclade_pango))
+      }
+    }
   } else {
     if(toupper(opts$custom_lineages) %in% c('F', 'FALSE', 'N', 'NO')){
-      custom_lineages = FALSE
-      custom_tag = ""
+      if(toupper(opts$nextclade_pango) %in% c('F', 'FALSE', 'N', 'NO')){
+        custom_lineages = FALSE
+        custom_tag = ""
     } else {
-      stop(message = paste0('custom_lineages must be "T" or "F". Argument provide: ', opts$custom_lineages))
+      if(toupper(opts$nextclade_pango) %in% c('T', 'TRUE', 'Y', 'YES')){
+        custom_lineages = FALSE
+        custom_tag = "_nextcladepango"
+      } 
+    }
     }
   }
+
   # convert reduced_vocs flag to a logical value
   if(toupper(opts$reduced_vocs) %in% c('T', 'TRUE', 'Y', 'YES')){
     reduced_vocs = TRUE
@@ -764,7 +786,7 @@ if('BA.5.1' %in% voc) {
 } else B529.BA5.1 <- NULL
 if('DF.1' %in% voc) B529.DF.1 <- sort(grep("(^DF\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.DF.1 <- NULL
 if('BA.5' %in% voc){
-  B529.BA5 <- sort(grep("(^B[KFEQTUVWZ]\\.)|(^C[CDEFGLKNPQRTUWYZ]\\.)|(^D[ABEFGHJKLMNPQRTUWYZ])\\.|((^BA\\.5)(?![0-9]))|(^E[ABCDEFHJNPQ]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
+  B529.BA5 <- sort(grep("(^B[KFEQTUVWZ]\\.)|(^C[CDEFGLKNPQRTUWYZ]\\.)|(^D[ABEFGHJKLMNPQRTUWYZ])\\.|((^BA\\.5)(?![0-9]))|(^E[ABCDEFHNQ]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
   B529.BA5 <- setdiff(B529.BA5, c(B529.BA5.1, B529.BA5.1.1, B529.BA5.1.10, B529.BA5.1.2, B529.BA5.1.5, B529.BA5.1.18, B529.BA5.1.22, B529.BA5.1.23, B529.BA5.1.27,
                       B529.BA5.2, B529.BA5.2.1, B529.BA5.2.6, B529.BA5.2.9, B529.BA5.2.20, B529.BA5.2.21, B529.BA5.2.23, B529.CK.1, B529.CR.1.1, B529.BA5.2.31, B529.BA5.2.34, B529.BA5.3.1, B529.BA5.5, B529.BA5.5.1, B529.BA5.6,
                       B529.BE.1, B529.BE.1.1, B529.BE.3, B529.BF.5, B529.BF.7, B529.BF.7.4.1, B529.BF.7.4, B529.BF.8, B529.BF.10, B529.BF.11, B529.BF.13, B529.BF.21, B529.BF.26, B529.BF.27,

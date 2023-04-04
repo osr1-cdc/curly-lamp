@@ -111,12 +111,30 @@ opts <- optparse::parse_args(optparse::OptionParser(option_list = option_list))
 
 # convert custom_lineages flag to logical value
 if(toupper(opts$custom_lineages) %in% c('T', 'TRUE', 'Y', 'YES')){
-  custom_lineages = TRUE
-  custom_tag = "_custom"
+  if(toupper(opts$nextclade_pango) %in% c('F', 'FALSE', 'N', 'NO')){
+    custom_lineages = TRUE
+    custom_tag = "_custom"
+  } else {
+    if(toupper(opts$nextclade_pango) %in% c('T', 'TRUE', 'Y', 'YES')){
+      custom_lineages = TRUE
+      custom_tag = "_custom_nextcladepango"
+    } else {
+    errorCondition(message = paste0('nextclade_pango must be "T" or "F". Argument provide: ', opts$nextclade_pango))
+    }
+  }
 } else {
   if(toupper(opts$custom_lineages) %in% c('F', 'FALSE', 'N', 'NO')){
-    custom_lineages = FALSE
-    custom_tag = ""
+    if(toupper(opts$nextclade_pango) %in% c('F', 'FALSE', 'N', 'NO')){
+      custom_lineages = FALSE
+      custom_tag = ""
+  } else {
+    if(toupper(opts$nextclade_pango) %in% c('T', 'TRUE', 'Y', 'YES')){
+      custom_lineages = FALSE
+      custom_tag = "_nextcladepango"
+    } else {
+    errorCondition(message = paste0('nextclade_pango must be "T" or "F". Argument provide: ', opts$nextclade_pango))
+    }
+  }
   } else {
     errorCondition(message = paste0('custom_lineages must be "T" or "F". Argument provide: ', opts$custom_lineages))
   }
