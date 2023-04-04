@@ -1701,7 +1701,7 @@ svy.dat[LAB %in% PA_labs_to_agg, 'LAB2' := labnames_df_pa$new_name[1]]
 # "DEPARTMENT OF FORENSIC SCIENCES, DISTRICT OF COLOMBIA PUBLIC HEALTH LABORATORY"
 # "DISTRICT OF COLUMBIA DEPARTMENT OF FORENSIC SCIENCES"
 # "PUBLIC HEALTH LABORATORY DIVISION, DISTRICT OF COLOMBIA DEPARTMENT OF FORENSIC SCIENCES"
-FS_labs_to_agg <- grep(pattern = "(DC.+FORENSIC SCIENCES)|(DISTRICT OF COLUMBIA.+FORENSIC SCIENCES)|(FORENSIC SCIENCES.+DISTRICT OF COLOMBIA)",
+FS_labs_to_agg <- grep(pattern = "(FORENSIC SCIENCES.*DC)|(DC.+FORENSIC SCIENCES)|(DISTRICT OF COLUMBIA.+FORENSIC SCIENCES)|(FORENSIC SCIENCES.+DISTRICT OF COLOMBIA)",
                          x = unique_labs,
                          ignore.case = T,
                          value = T)
@@ -1760,6 +1760,27 @@ labnames_df_sflu <- data.frame(old_name = sflu_labs_to_agg,
                              new_name = "SEATTLE FLU STUDY, UNIVERSITY OF WASHINGTON MEDICAL CENTER")
 svy.dat[LAB %in% sflu_labs_to_agg, 'LAB2' := labnames_df_sflu$new_name[1]]
 
+# Added 2023-04-04
+prcvsi_labs_to_agg <- grep(pattern = "(PUERTO RICO SCIENCE)|(PRCVSI)",
+                         x = unique_labs,
+                         ignore.case = T,
+                         value = T)
+labnames_df_prcvsi <- data.frame(old_name = prcvsi_labs_to_agg,
+                             new_name = "PUERTO RICO SCIENCE, TECHNOLOGY & RESEARCH TRUST - PRCVSI")
+
+unm_labs_to_agg <- grep(pattern = "CENTER FOR GLOBAL HEALTH",
+                         x = unique_labs,
+                         ignore.case = T,
+                         value = T)
+labnames_df_unm <- data.frame(old_name = unm_labs_to_agg,
+                             new_name = "CENTER FOR GLOBAL HEALTH, UNIVERSITY OF NEW MEXICO HEALTH SCIENCES CENTER")
+
+ummc_labs_to_agg <- grep(pattern = "UNIVERSITY OF MISSISSIPPI",
+                         x = unique_labs,
+                         ignore.case = T,
+                         value = T)
+labnames_df_ummc <- data.frame(old_name = ummc_labs_to_agg,
+                             new_name = "UNIVERSITY OF MISSISSIPPI MEDICAL CENTER, MOLECULAR AND GENOMICS CORE FACILITY")
 
 # Steps to add more lab aggregations 
 # 1. find lab names that almost assuredly refer to the same lab 
@@ -1790,6 +1811,9 @@ svy.dat[LAB %in% sflu_labs_to_agg, 'LAB2' := labnames_df_sflu$new_name[1]]
 
 # create a dataframe of all the lab names that were changed
 labnames_df <- rbind(
+  labnames_df_ummc,
+  labnames_df_unm,
+  labnames_df_prcvsi,
   labnames_df_sflu,
   labnames_df_um,
   labnames_df_broad,
