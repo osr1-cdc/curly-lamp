@@ -608,20 +608,48 @@ B429=sort(unique(src.dat$VARIANT)[grep("^B\\.1\\.429",unique(src.dat$VARIANT), p
 if('XBB.1.5.1' %in% voc) XBB.1.5.1 <- sort(grep("^XBB\\.1\\.5\\.1(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.1 <- NULL
 if('XBB.1.5.2' %in% voc) XBB.1.5.2 <- sort(grep("^XBB\\.1\\.5\\.2(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.2 <- NULL
 if('XBB.1.5.4' %in% voc) XBB.1.5.4 <- sort(grep("^XBB\\.1\\.5\\.4(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.4 <- NULL
+if('XBB.1.5.5' %in% voc) XBB.1.5.5 <- sort(grep("^XBB\\.1\\.5\\.5(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.5 <- NULL
+if('XBB.1.5.13' %in% voc) XBB.1.5.13 <- sort(grep("^XBB\\.1\\.5\\.13(?![0-9])|(^EK\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.13 <- NULL
+if('FD.2' %in% voc) FD.2 <- sort(grep("^FD\\.2(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else FD.2 <- NULL
+if('XBB.1.5.15' %in% voc) {
+  XBB.1.5.15 <- sort(grep("^XBB\\.1\\.5\\.15(?![0-9])|(^FD\\.)", unique(src.dat$VARIANT), perl = T, value = T)) 
+  XBB.1.5.15 <- setdiff(XBB.1.5.15, c(FD.2))
+} else XBB.1.5.15 <- NULL
+if('XBB.1.5.16' %in% voc) XBB.1.5.16 <- sort(grep("^XBB\\.1\\.5\\.16(?![0-9])|(^FG\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.16 <- NULL
+if('XBB.1.5.17' %in% voc) XBB.1.5.17 <- sort(grep("^XBB\\.1\\.5\\.17(?![0-9])|(^FH\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.17 <- NULL
+if('XBB.1.5.19' %in% voc) XBB.1.5.19 <- sort(grep("^XBB\\.1\\.5\\.19(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.19 <- NULL
+if('XBB.1.5.20' %in% voc) XBB.1.5.20 <- sort(grep("^XBB\\.1\\.5\\.20(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.20 <- NULL
+if('XBB.1.5.21' %in% voc) XBB.1.5.21 <- sort(grep("^XBB\\.1\\.5\\.21(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.21 <- NULL
+if('XBB.1.5.31' %in% voc) XBB.1.5.31 <- sort(grep("^XBB\\.1\\.5\\.31(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.31 <- NULL
+if('XBB.1.5.32' %in% voc) XBB.1.5.32 <- sort(grep("^XBB\\.1\\.5\\.32(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.32 <- NULL
+if('XBB.1.5.33' %in% voc) XBB.1.5.33 <- sort(grep("^XBB\\.1\\.5\\.33(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.33 <- NULL
+if('XBB.1.5.35' %in% voc) XBB.1.5.35 <- sort(grep("^XBB\\.1\\.5\\.35(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.35 <- NULL
 if('XBB.1.5' %in% voc){
-  XBB.1.5 <- sort(grep("^XBB\\.1\\.5(?![0-9])|^E[KLM]\\.", unique(src.dat$VARIANT), perl = T, value = T))
-  XBB.1.5 <- setdiff(XBB.1.5, c(XBB.1.5.1, XBB.1.5.2, XBB.1.5.4))
+  XBB.1.5 <- sort(grep("^XBB\\.1\\.5(?![0-9])|^E[KLMU]|^F[DGH]\\.", unique(src.dat$VARIANT), perl = T, value = T))
+  XBB.1.5 <- setdiff(XBB.1.5, c(XBB.1.5.1, XBB.1.5.2, XBB.1.5.4, XBB.1.5.5, XBB.1.5.13, XBB.1.5.15, FD.2, XBB.1.5.16, XBB.1.5.17, 
+                                XBB.1.5.19, XBB.1.5.20, XBB.1.5.21, XBB.1.5.31, XBB.1.5.32, XBB.1.5.33, XBB.1.5.35))
   } else XBB.1.5 <- NULL
-if('XBB.1.9.1' %in% voc) XBB.1.9.1 <- sort(grep("^XBB\\.1\\.9\\.1(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.9.1 <- NULL
-if('XBB.1.9.2' %in% voc) XBB.1.9.2 <- sort(grep("^XBB\\.1\\.9\\.2(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.9.2 <- NULL
+if('XBB.1.9.1' %in% voc) XBB.1.9.1 <- sort(grep("^XBB\\.1\\.9\\.1(?![0-9])|(^FL\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.9.1 <- NULL
+if('XBB.1.9.2' %in% voc) XBB.1.9.2 <- sort(grep("^XBB\\.1\\.9\\.2(?![0-9])|(^EG\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.9.2 <- NULL
+if('XBB.1.15' %in% voc) XBB.1.15 <- sort(grep("^XBB\\.1\\.15(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.15 <- NULL
+if('XBB.1.16' %in% voc) XBB.1.16 <- sort(grep("^XBB\\.1\\.16(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.16 <- NULL
+if('XBB.1.17.1' %in% voc) XBB.1.17.1 <- sort(grep("^XBB\\.1\\.17\\.1(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.17.1 <- NULL
 if('XBB.1' %in% voc){
-  XBB.1 <- sort(grep("^XBB\\.1(?![0-9])|^E[GKLM]\\.", unique(src.dat$VARIANT), perl = T, value = T))
-  XBB.1 <- setdiff(XBB.1, c(XBB.1.5.1, XBB.1.5.2, XBB.1.5.4, XBB.1.5, XBB.1.9.1, XBB.1.9.2))
+  XBB.1 <- sort(grep("^XBB\\.1(?![0-9])|^E[GKLMU]|^F[DEGHL]\\.", unique(src.dat$VARIANT), perl = T, value = T))
+  XBB.1 <- setdiff(XBB.1, c(XBB.1.5.1, XBB.1.5.2, XBB.1.5.4, XBB.1.5.5, XBB.1.5.13, XBB.1.5.15, FD.2, XBB.1.5.16, XBB.1.5.17, 
+                            XBB.1.5.19, XBB.1.5.20, XBB.1.5.21, XBB.1.5.31, XBB.1.5.32, XBB.1.5.33, XBB.1.5.35, XBB.1.9.1, XBB.1.9.2,
+                            XBB.1.15, XBB.1.16, XBB.1.17.1))
   } else XBB.1 <- NULL
-if('XBB.2' %in% voc) XBB.2 <- sort(grep("^XBB\\.2(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.2 <- NULL
+if('XBB.2.3' %in% voc) XBB.2.3 <- sort(grep("^XBB\\.2\\.3(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.2.3 <- NULL
+if('XBB.2' %in% voc) {
+  XBB.2 <- sort(grep("^XBB\\.2(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
+  XBB.2 <- setdiff(XBB.2, XBB.2.3)
+ } else XBB.2 <- NULL
 if('XBB' %in% voc) {
-  XBB <- sort(grep("(^XBB\\.)|^E[GKLM]\\.", unique(src.dat$VARIANT), perl = T, value = T))
-  XBB <- setdiff(XBB, c(XBB.1, XBB.1.5.1, XBB.1.5.2, XBB.1.5.4, XBB.1.5, XBB.1.9.1, XBB.1.9.2, XBB.2))
+  XBB <- sort(grep("(^XBB\\.)|^E[GKLMU]|^F[DEGHL]\\.", unique(src.dat$VARIANT), perl = T, value = T))
+  XBB <- setdiff(XBB, c(XBB.1, XBB.1.5.1, XBB.1.5.2, XBB.1.5.4, XBB.1.5.5, XBB.1.5.13, XBB.1.5.15, FD.2, XBB.1.5.16, XBB.1.5.17, 
+                        XBB.1.5.19, XBB.1.5.20, XBB.1.5.21, XBB.1.5.31, XBB.1.5.32, XBB.1.5.33, XBB.1.5.35, XBB.1.9.1, XBB.1.9.2, XBB.2, XBB.2.3,
+                        XBB.1.15, XBB.1.16, XBB.1.17.1))
  } else XBB <- NULL
 
 B429=B429[which(B429 %notin% voc)] #vector of the B429s to aggregate
@@ -648,7 +676,11 @@ if('BA.2.3' %in% voc) {
   B529.BA2.3 <- setdiff(B529.BA2.3, B529.BA2.3.20)
 } else B529.BA2.3 <- NULL
 if('BA.2.75.2' %in% voc) B529.BA2.75.2 <- sort(grep("(^BA\\.2\\.75\\.2)(?![0-9])|(^CA\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.75.2 <- NULL
-if('CH.1.1' %in% voc) B529.CH.1.1 <- sort(grep("(^CH\\.1\\.1)(?![0-9])|^DV\\.", unique(src.dat$VARIANT), perl = T, value = T)) else B529.CH.1.1 <- NULL
+if('CH.1.1.1' %in% voc) B529.CH.1.1.1 <- sort(grep("(^CH\\.1\\.1\\.1)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.CH.1.1.1<- NULL
+if('CH.1.1' %in% voc) {
+  B529.CH.1.1 <- sort(grep("(^CH\\.1\\.1)(?![0-9])|(^DV\\.)|(^F[JK]\\.)", unique(src.dat$VARIANT), perl = T, value = T))
+  B529.CH.1.1 <- setdiff(B529.CH.1.1, B529.CH.1.1.1)
+ } else B529.CH.1.1 <- NULL
 if('BN.1.3' %in% voc) B529.BN.1.3 <- sort(grep("(^BN\\.1\\.3)(?![0-9])|(^DS\\.)|(^EJ\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BN.1.3 <- NULL
 if('BN.1.5' %in% voc) B529.BN.1.5 <- sort(grep("(^BN\\.1\\.5)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BN.1.5 <- NULL
 if('BN.1' %in% voc){
@@ -656,17 +688,17 @@ if('BN.1' %in% voc){
   B529.BN.1 <- setdiff(B529.BN.1, c(B529.BN.1.3, B529.BN.1.5))
 } else B529.BN.1 <- NULL
 if('BA.2.75' %in% voc) {
-  B529.BA2.75 <- sort(grep("(^BA\\.2\\.75)(?![0-9])|^B[LMNRY]\\.|^C[ABHJV]\\.|(^DS\\.)|(^E[JP]\\.)", unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA2.75 <- setdiff(B529.BA2.75, c(B529.BA2.75.2, B529.BN.1, B529.BN.1.3, B529.BN.1.5, B529.CH.1.1))
+  B529.BA2.75 <- sort(grep("(^BA\\.2\\.75)(?![0-9])|^B[LMNRY]\\.|^C[ABHJV]\\.|(^D[SV]\\.)|(^E[JP]\\.)|(^F[JK]\\.)", unique(src.dat$VARIANT), perl = T, value = T))
+  B529.BA2.75 <- setdiff(B529.BA2.75, c(B529.BA2.75.2, B529.BN.1, B529.BN.1.3, B529.BN.1.5, B529.CH.1.1.1, B529.CH.1.1))
 }else B529.BA2.75 <- NULL
 if('BA.2.12' %in% voc) {
   B529.BA2.12 <- sort(grep("^BG\\.|(^BA\\.2\\.12)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
   B529.BA2.12 <- setdiff(B529.BA2.12, c(B529.BA2.12.1))
 } else B529.BA2.12 <- NULL
 if('BA.2' %in% voc){
-  B529.BA2 <- sort(grep("^B[HJGPSLMNRY]\\.|(^BA\\.2)(?![0-9])|^C[ABHJVM]\\.|(^D[DS]\\.)|(^E[JP]\\.)", unique(src.dat$VARIANT), perl = T, value = T))
+  B529.BA2 <- sort(grep("^B[GHJLMNPRSY]\\.|(^BA\\.2)(?![0-9])|^C[ABHJVM]\\.|(^D[DSV]\\.)|(^E[JP]\\.)|(^F[JK]\\.)", unique(src.dat$VARIANT), perl = T, value = T))
   # BA.2 subvariants do not include subvariants already included in B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA2.12.1, B529.BA2.12
-  B529.BA2 <- setdiff(B529.BA2, c(B529.BA2.3, B529.BA2.3.20, B529.BA2.9, B529.BA2.10, B529.BA2.10.1, B529.BA2.12.1, B529.BA2.12, B529.BA2.18, B529.BA2.75, B529.BA2.75.2, B529.BN.1, B529.BN.1.3, B529.BN.1.5, B529.CH.1.1))
+  B529.BA2 <- setdiff(B529.BA2, c(B529.BA2.3, B529.BA2.3.20, B529.BA2.9, B529.BA2.10, B529.BA2.10.1, B529.BA2.12.1, B529.BA2.12, B529.BA2.18, B529.BA2.75, B529.BA2.75.2, B529.BN.1, B529.BN.1.3, B529.BN.1.5, B529.CH.1.1.1, B529.CH.1.1))
 } else B529.BA2 <- NULL
 if('BA.3' %in% voc) B529.BA3 <- sort(grep("(^BA\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA3 <- NULL
 if('BA.4.4' %in% voc) B529.BA4.4 <- sort(grep("(^BA\\.4\\.4)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA4.4 <- NULL
@@ -678,18 +710,18 @@ if('BA.4' %in% voc) {
   B529.BA4 <- setdiff(B529.BA4, c(B529.BA4.1, B529.BA4.4, B529.BA4.6))
 } else B529.BA4 <- NULL
 # BA.5 sublineages includes BE.x [NOTE! Change this if any BE sublineages are added to the VOCs]
-if('BQ.1.1.1' %in% voc) B529.BQ.1.1.1 <- sort(grep("(^BQ\\.1\\.1\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.1 <- NULL
+if('BQ.1.1.1' %in% voc) B529.BQ.1.1.1 <- sort(grep("(^BQ\\.1\\.1\\.1)(?![0-9])|(^CZ\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.1 <- NULL
 if('BQ.1.1.3' %in% voc) B529.BQ.1.1.3 <- sort(grep("(^BQ\\.1\\.1\\.3)(?![0-9])|(^DR\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.3 <- NULL
 if('BQ.1.1.4' %in% voc) B529.BQ.1.1.4 <- sort(grep("(^BQ\\.1\\.1\\.4)(?![0-9])|(^EE\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.4 <- NULL
 if('BQ.1.1.5' %in% voc) B529.BQ.1.1.5 <- sort(grep("(^BQ\\.1\\.1\\.5)(?![0-9])|(^DN\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.5 <- NULL
-if('BQ.1.1.7' %in% voc) B529.BQ.1.1.7 <- sort(grep("(^BQ\\.1\\.1\\.7)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.7 <- NULL
-if('BQ.1.1.10' %in% voc) B529.BQ.1.1.10 <- sort(grep("(^BQ\\.1\\.1\\.10)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.10 <- NULL
-if('BQ.1.1.13' %in% voc) B529.BQ.1.1.13 <- sort(grep("(^BQ\\.1\\.1\\.13)(?![0-9])|(^EF\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.13 <- NULL
-if('BQ.1.1.18' %in% voc) B529.BQ.1.1.18 <- sort(grep("(^BQ\\.1\\.1\\.18)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.18 <- NULL
+if('BQ.1.1.7' %in% voc) B529.BQ.1.1.7 <- sort(grep("(^BQ\\.1\\.1\\.7)(?![0-9])|(^DK\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.7 <- NULL
+if('BQ.1.1.10' %in% voc) B529.BQ.1.1.10 <- sort(grep("(^BQ\\.1\\.1\\.10)(?![0-9])|(^FA\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.10 <- NULL
+if('BQ.1.1.13' %in% voc) B529.BQ.1.1.13 <- sort(grep("(^BQ\\.1\\.1\\.13)(?![0-9])|(^E[FY]\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.13 <- NULL
+if('BQ.1.1.18' %in% voc) B529.BQ.1.1.18 <- sort(grep("(^BQ\\.1\\.1\\.18)(?![0-9])|(^ED\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.18 <- NULL
 if('BQ.1.1.32' %in% voc) B529.BQ.1.1.32 <- sort(grep("(^BQ\\.1\\.1\\.32)(?![0-9])|(^DT\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.32 <- NULL
 if('BQ.1.1.41' %in% voc) B529.BQ.1.1.41 <- sort(grep("(^BQ\\.1\\.1\\.41)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.41 <- NULL
 if('BQ.1.1' %in% voc) {
-  B529.BQ.1.1 <- sort(grep("(^BQ\\.1\\.1)(?![0-9])|(^C[WZ]\\.)|(^D[KMNPRTU]\\.)|(^E[ADEFHN]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
+  B529.BQ.1.1 <- sort(grep("(^BQ\\.1\\.1)(?![0-9])|(^C[WZ]\\.)|(^D[KMNPRTU]\\.)|(^E[ADEFHNRSTVWYZ]|^F[ACMN]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
   B529.BQ.1.1 <- setdiff(B529.BQ.1.1, c(B529.BQ.1.1.1, B529.BQ.1.1.3, B529.BQ.1.1.4, B529.BQ.1.1.5, B529.BQ.1.1.7, B529.BQ.1.1.10, B529.BQ.1.1.13, B529.BQ.1.1.18, B529.BQ.1.1.32, B529.BQ.1.1.41))
  } else B529.BQ.1.1 <- NULL
 if('BQ.1.10' %in% voc) B529.BQ.1.10 <- sort(grep("(^BQ\\.1\\.10)(?![0-9])|(^EC\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.10 <- NULL
@@ -698,7 +730,7 @@ if('BQ.1.12' %in% voc) B529.BQ.1.12 <- sort(grep("(^BQ\\.1\\.12)(?![0-9])",uniqu
 if('BQ.1.13' %in% voc) B529.BQ.1.13 <- sort(grep("(^BQ\\.1\\.13)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.13 <- NULL
 if('BQ.1.14' %in% voc) B529.BQ.1.14 <- sort(grep("(^BQ\\.1\\.14)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.14 <- NULL
 if('BQ.1.19' %in% voc) B529.BQ.1.19 <- sort(grep("(^BQ\\.1\\.19)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.19 <- NULL
-if('BQ.1.2' %in% voc) B529.BQ.1.2 <- sort(grep("(^BQ\\.1\\.2)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.2 <- NULL
+if('BQ.1.2' %in% voc) B529.BQ.1.2 <- sort(grep("(^BQ\\.1\\.2)(?![0-9])|(^FB\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.2 <- NULL
 if('BQ.1.3' %in% voc) B529.BQ.1.3 <- sort(grep("(^BQ\\.1\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.3 <- NULL
 if('BQ.1.5' %in% voc) B529.BQ.1.5 <- sort(grep("(^BQ\\.1\\.5)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.5 <- NULL
 if('BQ.1.22' %in% voc) B529.BQ.1.22 <- sort(grep("(^BQ\\.1\\.22)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.22 <- NULL
@@ -710,24 +742,24 @@ if('BQ.1.25' %in% voc) {
   } else B529.BQ.1.25 <- NULL
 if('BQ.1.28' %in% voc) B529.BQ.1.28 <- sort(grep("(^BQ\\.1\\.28)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.28 <- NULL
 if('BQ.1' %in% voc) {
-  B529.BQ.1 <- sort(grep("(^BQ\\.1)(?![0-9])|(^C[WZ]\\.)|(^D[KMNPRTU]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
+  B529.BQ.1 <- sort(grep("(^BQ\\.1)(?![0-9])|(^C[WZ]\\.)|(^D[KMNPRTU]\\.)|(^E[ACDEFHNRSTVWYZ]\\.)|(^F[ABCFMN]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
   B529.BQ.1 <- setdiff(B529.BQ.1, c(B529.BQ.1.1, B529.BQ.1.1.1, B529.BQ.1.1.3, B529.BQ.1.1.4, B529.BQ.1.1.5, B529.BQ.1.1.7, B529.BQ.1.1.10, B529.BQ.1.1.13, B529.BQ.1.1.18, B529.BQ.1.1.32, B529.BQ.1.1.41, 
                        B529.BQ.1.2, B529.BQ.1.3, B529.BQ.1.5, B529.BQ.1.10, B529.BQ.1.11, B529.BQ.1.12, B529.BQ.1.13, B529.BQ.1.14, B529.BQ.1.19, B529.BQ.1.22, B529.BQ.1.23, B529.BQ.1.25, B529.BQ.1.25.1, B529.BQ.1.28))
 }else B529.BQ.1 <- NULL
 if('BE.1.1' %in% voc) {
-  B529.BE.1.1 <- sort(grep("(^BE\\.1\\.1)(?![0-9])|(^BQ\\.)|(^C[CWZ]\\.)|(^D[KMNPRTU]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
+  B529.BE.1.1 <- sort(grep("(^BE\\.1\\.1)(?![0-9])|(^BQ\\.)|(^C[CWZ]\\.)|(^D[KMNPRTU]\\.)|(^E[ACDEFHNRSTVWYZ]\\.)|(^F[ABCFMN]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
   B529.BE.1.1 <- setdiff(B529.BE.1.1, c(B529.BQ.1, B529.BQ.1.1, B529.BQ.1.1.1, B529.BQ.1.1.3, B529.BQ.1.1.4, B529.BQ.1.1.5, B529.BQ.1.1.7, B529.BQ.1.1.10, B529.BQ.1.1.13, B529.BQ.1.1.18, B529.BQ.1.1.32, B529.BQ.1.1.41,
                          B529.BQ.1.2, B529.BQ.1.3, B529.BQ.1.5, B529.BQ.1.10, B529.BQ.1.11, B529.BQ.1.12, B529.BQ.1.13, B529.BQ.1.14, B529.BQ.1.19, B529.BQ.1.22, B529.BQ.1.23, B529.BQ.1.25, B529.BQ.1.25.1, B529.BQ.1.28))
 }else B529.BE.1.1 <- NULL
 if('BE.1' %in% voc) {
-  B529.BE.1 <- sort(grep("(^BE\\.1)(?![0-9])|(^BQ\\.)|(^C[CWZ]\\.)|(^D[KMNPRTUW]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
+  B529.BE.1 <- sort(grep("(^BE\\.1)(?![0-9])|(^BQ\\.)|(^C[CWZ]\\.)|(^D[KMNPRTUW]\\.)|(^E[ACDEFHNRSTVWYZ]\\.)|(^F[ABCFMN]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
   B529.BE.1 <- setdiff(B529.BE.1, c(B529.BE.1.1, B529.BQ.1, B529.BQ.1.1, B529.BQ.1.1.1, B529.BQ.1.1.3, B529.BQ.1.1.4, B529.BQ.1.1.5, B529.BQ.1.1.7, B529.BQ.1.1.10, B529.BQ.1.1.13, B529.BQ.1.1.18, B529.BQ.1.1.32, B529.BQ.1.1.41,
                        B529.BQ.1.2, B529.BQ.1.3, B529.BQ.1.5, B529.BQ.1.10, B529.BQ.1.11, B529.BQ.1.12, B529.BQ.1.13, B529.BQ.1.14, B529.BQ.1.19, B529.BQ.1.22, B529.BQ.1.23, B529.BQ.1.25, B529.BQ.1.25.1, B529.BQ.1.28))
 } else B529.BE.1 <- NULL
 if('BE.3' %in% voc) B529.BE.3 <- sort(grep("(^BE\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BE.3 <- NULL
 if('CQ.2' %in% voc) B529.CQ.2 <- sort(grep("(^CQ\\.2)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.CQ.2 <- NULL
 if('BA.5.3.1' %in% voc) {
-  B529.BA5.3.1 <- sort(grep("(^BA\\.5\\.3\\.1)(?![0-9])|(^B[EQ]\\.)|(^C[CWZQ]\\.)|(^D[KMNPRTU]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
+  B529.BA5.3.1 <- sort(grep("(^BA\\.5\\.3\\.1)(?![0-9])|(^B[EQ]\\.)|(^C[CWZQ]\\.)|(^D[KMNPRTUW]\\.)|(^E[ACDEFHNRSTVWYZ]\\.)|(^F[ABCFMN]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
   B529.BA5.3.1 <- setdiff(B529.BA5.3.1, c(B529.BE.1, B529.BE.1.1, B529.BE.3, B529.BQ.1, B529.BQ.1.1, B529.BQ.1.1.1, B529.BQ.1.1.3, B529.BQ.1.1.4, B529.BQ.1.1.5, B529.BQ.1.1.7, B529.BQ.1.1.10, B529.BQ.1.1.13, B529.BQ.1.1.18, B529.BQ.1.1.32, B529.BQ.1.1.41,
                           B529.BQ.1.2, B529.BQ.1.3, B529.BQ.1.5, B529.BQ.1.10, B529.BQ.1.11, B529.BQ.1.12, B529.BQ.1.13, B529.BQ.1.14, B529.BQ.1.19, B529.BQ.1.22, B529.BQ.1.23, B529.BQ.1.25, B529.BQ.1.25.1, B529.BQ.1.28, B529.CQ.2))
 } else B529.BA5.3.1 <- NULL
@@ -786,7 +818,7 @@ if('BA.5.1' %in% voc) {
 } else B529.BA5.1 <- NULL
 if('DF.1' %in% voc) B529.DF.1 <- sort(grep("(^DF\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.DF.1 <- NULL
 if('BA.5' %in% voc){
-  B529.BA5 <- sort(grep("(^B[KFEQTUVWZ]\\.)|(^C[CDEFGLKNPQRTUWYZ]\\.)|(^D[ABEFGHJKLMNPQRTUWYZ])\\.|((^BA\\.5)(?![0-9]))|(^E[ABCDEFHNQ]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
+  B529.BA5 <- sort(grep("(^B[KFEQTUVWZ]\\.)|(^C[CDEFGLKNPQRTUWYZ]\\.)|(^D[ABEFGHJKLMNPQRTUWYZ])\\.|((^BA\\.5)(?![0-9]))|(^E[ABCDEFHNQRSTVWYZ]\\.)|(^F[ABCFMN]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
   B529.BA5 <- setdiff(B529.BA5, c(B529.BA5.1, B529.BA5.1.1, B529.BA5.1.10, B529.BA5.1.2, B529.BA5.1.5, B529.BA5.1.18, B529.BA5.1.22, B529.BA5.1.23, B529.BA5.1.27,
                       B529.BA5.2, B529.BA5.2.1, B529.BA5.2.6, B529.BA5.2.9, B529.BA5.2.20, B529.BA5.2.21, B529.BA5.2.23, B529.CK.1, B529.CR.1.1, B529.BA5.2.31, B529.BA5.2.34, B529.BA5.3.1, B529.BA5.5, B529.BA5.5.1, B529.BA5.6,
                       B529.BE.1, B529.BE.1.1, B529.BE.3, B529.BF.5, B529.BF.7, B529.BF.7.4.1, B529.BF.7.4, B529.BF.8, B529.BF.10, B529.BF.11, B529.BF.13, B529.BF.21, B529.BF.26, B529.BF.27,
@@ -797,7 +829,7 @@ if('BA.5' %in% voc){
 
 # safety check: make sure that no variants are in the multiple sublineage groups
 B.529.all <- c(B529.BA1, B529.BA1.1, B529.BA1.15, B529.BA2, B529.BA2.3, B529.BA2.3.20, B529.BA2.9,
-                B529.BA2.10, B529.BA2.10.1, B529.BA2.12, B529.BA2.12.1, B529.BA2.18, B529.BA2.75.2, B529.BA2.75,B529.BN.1, B529.BN.1.3, B529.BN.1.5, B529.CH.1.1, B529.BA3, B529.BA4,
+                B529.BA2.10, B529.BA2.10.1, B529.BA2.12, B529.BA2.12.1, B529.BA2.18, B529.BA2.75.2, B529.BA2.75,B529.BN.1, B529.BN.1.3, B529.BN.1.5, B529.CH.1.1.1, B529.CH.1.1, B529.BA3, B529.BA4,
                 B529.BA4.1, B529.BA4.4, B529.BA4.6, B529.BA5, B529.BA5.1, B529.BA5.1.1, B529.BA5.1.10, B529.BA5.1.18, B529.BA5.1.22, B529.BA5.1.23, B529.BA5.1.27,
                 B529.BA5.1.2, B529.BA5.1.5, B529.BA5.2, B529.BA5.2.1, B529.BA5.2.6, B529.BA5.2.9, B529.BA5.2.20, B529.BA5.2.21, B529.BA5.2.23, B529.CK.1, B529.CR.1.1, B529.BA5.2.31, B529.BA5.2.34, 
                 B529.BA5.3.1, B529.BA5.5, B529.BA5.5.1, B529.BA5.6,
@@ -807,7 +839,7 @@ B.529.all <- c(B529.BA1, B529.BA1.1, B529.BA1.15, B529.BA2, B529.BA2.3, B529.BA2
                 B529.CQ.2, B529.DF.1)
 
 if(any(duplicated(B.529.all))) stop(message = paste0(B.529.all[duplicated(B.529.all)], ' appear in multiple BA sublineage groups. Check B529.BA1, B529.BA1.1, B529.BA.1.15, B529.BA2, B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA3, B529.BA4, B529.BA5.'))
-B529=sort(grep("(^B\\.1\\.1\\.529)|(^B[AC-HJ-NP-VYZ]\\.)|(^C[A-HJ-NP-WYZ]\\.)|(^D[A-HJ-NP-WYZ]\\.)|(^E[A-FHJNPQ]\\.)",unique(src.dat$VARIANT), value = T))
+B529=sort(grep("(^B\\.1\\.1\\.529)|(^B[AC-HJ-NP-VYZ]\\.)|(^C[A-HJ-NP-WYZ]\\.)|(^D[A-HJ-NP-WYZ]\\.)|(^E[A-FHJNPQRSTVWYZ]\\.)|(^F[ABCFJKMN]\\.)",unique(src.dat$VARIANT), value = T))
 B529=B529[ B529 %notin% c(voc, B.529.all) ] #vector of the B529s to aggregate
 
 
@@ -831,6 +863,7 @@ if(B.1.1.529_agg==TRUE)  {
   src.dat[src.dat$VARIANT %in% B529.BA2.10[B529.BA2.10 %notin% voc],"VARIANT"] <- "BA.2.10"
   src.dat[src.dat$VARIANT %in% B529.BA2.12[B529.BA2.12 %notin% voc],"VARIANT"] <- "BA.2.12"
   src.dat[src.dat$VARIANT %in% B529.BA2.75[B529.BA2.75 %notin% voc],"VARIANT"] <- "BA.2.75"
+  src.dat[src.dat$VARIANT %in% B529.CH.1.1.1[B529.CH.1.1.1 %notin% voc],"VARIANT"] <- "CH.1.1.1"
   src.dat[src.dat$VARIANT %in% B529.CH.1.1[B529.CH.1.1 %notin% voc],"VARIANT"] <- "CH.1.1"
   src.dat[src.dat$VARIANT %in% B529.BA2.75.2[B529.BA2.75.2 %notin% voc],"VARIANT"] <- "BA.2.75.2"
   src.dat[src.dat$VARIANT %in% B529.BA2.12.1[B529.BA2.12.1 %notin% voc],"VARIANT"] <- "BA.2.12.1"
@@ -915,11 +948,27 @@ if(XBB_agg) {
   src.dat[src.dat$VARIANT %in% XBB.1.5.1[XBB.1.5.1 %notin% voc],"VARIANT"] <- "XBB.1.5.1"
   src.dat[src.dat$VARIANT %in% XBB.1.5.2[XBB.1.5.2 %notin% voc],"VARIANT"] <- "XBB.1.5.2"
   src.dat[src.dat$VARIANT %in% XBB.1.5.4[XBB.1.5.4 %notin% voc],"VARIANT"] <- "XBB.1.5.4"
+  src.dat[src.dat$VARIANT %in% XBB.1.5.5[XBB.1.5.5 %notin% voc],"VARIANT"] <- "XBB.1.5.5"
+  src.dat[src.dat$VARIANT %in% XBB.1.5.13[XBB.1.5.13 %notin% voc],"VARIANT"] <- "XBB.1.5.13"
+  src.dat[src.dat$VARIANT %in% XBB.1.5.15[XBB.1.5.15 %notin% voc],"VARIANT"] <- "XBB.1.5.15"
+  src.dat[src.dat$VARIANT %in% XBB.1.5.16[XBB.1.5.16 %notin% voc],"VARIANT"] <- "XBB.1.5.16"
+  src.dat[src.dat$VARIANT %in% XBB.1.5.17[XBB.1.5.17 %notin% voc],"VARIANT"] <- "XBB.1.5.17"
+  src.dat[src.dat$VARIANT %in% XBB.1.5.19[XBB.1.5.19 %notin% voc],"VARIANT"] <- "XBB.1.5.19"
+  src.dat[src.dat$VARIANT %in% XBB.1.5.20[XBB.1.5.20 %notin% voc],"VARIANT"] <- "XBB.1.5.20"
+  src.dat[src.dat$VARIANT %in% XBB.1.5.21[XBB.1.5.21 %notin% voc],"VARIANT"] <- "XBB.1.5.21"
+  src.dat[src.dat$VARIANT %in% XBB.1.5.31[XBB.1.5.31 %notin% voc],"VARIANT"] <- "XBB.1.5.31"
+  src.dat[src.dat$VARIANT %in% XBB.1.5.32[XBB.1.5.32 %notin% voc],"VARIANT"] <- "XBB.1.5.32"
+  src.dat[src.dat$VARIANT %in% XBB.1.5.33[XBB.1.5.33 %notin% voc],"VARIANT"] <- "XBB.1.5.33"
+  src.dat[src.dat$VARIANT %in% XBB.1.5.35[XBB.1.5.35 %notin% voc],"VARIANT"] <- "XBB.1.5.35"
   src.dat[src.dat$VARIANT %in% XBB.1.5[XBB.1.5 %notin% voc],"VARIANT"] <- "XBB.1.5"
   src.dat[src.dat$VARIANT %in% XBB.1.9.1[XBB.1.9.1 %notin% voc],"VARIANT"] <- "XBB.1.9.1"
   src.dat[src.dat$VARIANT %in% XBB.1.9.2[XBB.1.9.2 %notin% voc],"VARIANT"] <- "XBB.1.9.2"
+  src.dat[src.dat$VARIANT %in% XBB.1.15[XBB.1.15 %notin% voc],"VARIANT"] <- "XBB.1.15"
+  src.dat[src.dat$VARIANT %in% XBB.1.16[XBB.1.16 %notin% voc],"VARIANT"] <- "XBB.1.16"
+  src.dat[src.dat$VARIANT %in% XBB.1.17.1[XBB.1.17.1 %notin% voc],"VARIANT"] <- "XBB.1.17.1"
   src.dat[src.dat$VARIANT %in% XBB.1[XBB.1 %notin% voc],"VARIANT"] <- "XBB.1"
   src.dat[src.dat$VARIANT %in% XBB.2[XBB.2 %notin% voc],"VARIANT"] <- "XBB.2"
+  src.dat[src.dat$VARIANT %in% XBB.2.3[XBB.2.3 %notin% voc],"VARIANT"] <- "XBB.2.3"
   src.dat[src.dat$VARIANT %in% XBB[XBB %notin% voc],"VARIANT"] <- "XBB"
 }
 
@@ -2938,9 +2987,9 @@ if ( grepl("Run2",tag) ){
     # this returns all variants with "AY" in the name
     AY_vars = model_vars[grep("^AY\\.", model_vars, perl=T)]
     # this returns all variants with BA. in the name (Omicron sublineages)
-    BA_vars = model_vars[grep("^B[ACDEFGHJKLMNPQRSTUVWYZ]\\.|^C[A-HJ-NP-WYZ]\\.|^D[A-HJ-L]", model_vars, perl=T)]
+    BA_vars = model_vars[grep("(^B[AC-HJ-NP-VYZ]\\.)|(^C[A-HJ-NP-WYZ]\\.)|(^D[A-HJ-NP-WYZ]\\.)|(^E[A-FHJNPQRSTVWYZ]\\.)|(^F[ABCFJKMN]\\.)", model_vars, perl=T)]
     # this returns all variants with XBB. in the name   
-    XBB_vars = model_vars[grep("^XBB\\.", model_vars, perl=T)]
+    XBB_vars = model_vars[grep("(^XBB\\.)|^E[GKLMU]|^F[DEGHL]\\.", model_vars, perl=T)]
 
     # get the names of the lineages included in Run1
     if(custom_lineages){
@@ -2984,7 +3033,7 @@ if ( grepl("Run2",tag) ){
       for (ll in XBBs_in_r1l){
         if(exists('ll_agg')) rm(ll_agg)
         if(ll == 'XBB.1.5'){
-          ll_agg <- grep("^XBB\\.1\\.5(?![0-9])", XBB_vars, perl = T, value = T)
+          ll_agg <- grep("^XBB\\.1\\.5(?![0-9])|^FD\\.", XBB_vars, perl = T, value = T)
           ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
           ll_agg <- c(ll_agg, 'XBB.1.5')
         }
@@ -3059,8 +3108,16 @@ if ( grepl("Run2",tag) ){
 
         if(ll == 'BA.2.75') {
           ll_agg <- grep("(^BA\\.2\\.75)(?![0-9])|(^BN\\.)|(^CH\\.)",BA_vars, perl = T, value = T)
+          if(length(grep("(^CH\\.1\\.1)",run1_lineages, perl = T, value = T)) == 1) {
+            ll_agg_not <- grep("(^CH\\.1\\.1)(?![0-9])",ll_agg, perl = T, value =T)
+            ll_agg <- setdiff(ll_agg, ll_agg_not)
+          }
           ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
           ll_agg <- c(ll_agg, 'BA.2.75')
+        }
+        if(ll == 'CH.1.1'){
+          ll_agg <- grep("(^CH\\.1\\.1)(?![0-9])",BA_vars, perl = T, value =T)
+          ll_agg <- c(ll_agg, 'CH.1.1')
         }
         if (ll == 'BA.3') {
           ll_agg <- grep("(^BA\\.3)(?![0-9])",BA_vars, perl = T, value = T)
