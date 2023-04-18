@@ -609,6 +609,8 @@ if('XBB.1.5.1' %in% voc) XBB.1.5.1 <- sort(grep("^XBB\\.1\\.5\\.1(?![0-9])", uni
 if('XBB.1.5.2' %in% voc) XBB.1.5.2 <- sort(grep("^XBB\\.1\\.5\\.2(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.2 <- NULL
 if('XBB.1.5.4' %in% voc) XBB.1.5.4 <- sort(grep("^XBB\\.1\\.5\\.4(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.4 <- NULL
 if('XBB.1.5.5' %in% voc) XBB.1.5.5 <- sort(grep("^XBB\\.1\\.5\\.5(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.5 <- NULL
+if('XBB.1.5.10' %in% voc) XBB.1.5.10 <- sort(grep("^XBB\\.1\\.5\\.10(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.10 <- NULL
+if('XBB.1.5.11' %in% voc) XBB.1.5.11 <- sort(grep("^XBB\\.1\\.5\\.11(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.11 <- NULL
 if('XBB.1.5.13' %in% voc) XBB.1.5.13 <- sort(grep("^XBB\\.1\\.5\\.13(?![0-9])|(^EK\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.13 <- NULL
 if('FD.2' %in% voc) FD.2 <- sort(grep("^FD\\.2(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else FD.2 <- NULL
 if('XBB.1.5.15' %in% voc) {
@@ -620,25 +622,29 @@ if('XBB.1.5.17' %in% voc) XBB.1.5.17 <- sort(grep("^XBB\\.1\\.5\\.17(?![0-9])|(^
 if('XBB.1.5.19' %in% voc) XBB.1.5.19 <- sort(grep("^XBB\\.1\\.5\\.19(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.19 <- NULL
 if('XBB.1.5.20' %in% voc) XBB.1.5.20 <- sort(grep("^XBB\\.1\\.5\\.20(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.20 <- NULL
 if('XBB.1.5.21' %in% voc) XBB.1.5.21 <- sort(grep("^XBB\\.1\\.5\\.21(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.21 <- NULL
+if('XBB.1.5.30' %in% voc) XBB.1.5.30 <- sort(grep("^XBB\\.1\\.5\\.30(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.30 <- NULL
 if('XBB.1.5.31' %in% voc) XBB.1.5.31 <- sort(grep("^XBB\\.1\\.5\\.31(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.31 <- NULL
 if('XBB.1.5.32' %in% voc) XBB.1.5.32 <- sort(grep("^XBB\\.1\\.5\\.32(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.32 <- NULL
 if('XBB.1.5.33' %in% voc) XBB.1.5.33 <- sort(grep("^XBB\\.1\\.5\\.33(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.33 <- NULL
 if('XBB.1.5.35' %in% voc) XBB.1.5.35 <- sort(grep("^XBB\\.1\\.5\\.35(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.35 <- NULL
 if('XBB.1.5' %in% voc){
   XBB.1.5 <- sort(grep("^XBB\\.1\\.5(?![0-9])|^E[KLMU]|^F[DGH]\\.", unique(src.dat$VARIANT), perl = T, value = T))
-  XBB.1.5 <- setdiff(XBB.1.5, c(XBB.1.5.1, XBB.1.5.2, XBB.1.5.4, XBB.1.5.5, XBB.1.5.13, XBB.1.5.15, FD.2, XBB.1.5.16, XBB.1.5.17, 
-                                XBB.1.5.19, XBB.1.5.20, XBB.1.5.21, XBB.1.5.31, XBB.1.5.32, XBB.1.5.33, XBB.1.5.35))
+  XBB.1.5 <- setdiff(XBB.1.5, c(XBB.1.5.1, XBB.1.5.2, XBB.1.5.4, XBB.1.5.5, XBB.1.5.10, XBB.1.5.11, XBB.1.5.13, XBB.1.5.15, FD.2, XBB.1.5.16, XBB.1.5.17, 
+                                XBB.1.5.19, XBB.1.5.20, XBB.1.5.21, XBB.1.5.30, XBB.1.5.31, XBB.1.5.32, XBB.1.5.33, XBB.1.5.35))
   } else XBB.1.5 <- NULL
 if('XBB.1.9.1' %in% voc) XBB.1.9.1 <- sort(grep("^XBB\\.1\\.9\\.1(?![0-9])|(^FL\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.9.1 <- NULL
 if('XBB.1.9.2' %in% voc) XBB.1.9.2 <- sort(grep("^XBB\\.1\\.9\\.2(?![0-9])|(^EG\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.9.2 <- NULL
 if('XBB.1.15' %in% voc) XBB.1.15 <- sort(grep("^XBB\\.1\\.15(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.15 <- NULL
-if('XBB.1.16' %in% voc) XBB.1.16 <- sort(grep("^XBB\\.1\\.16(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.16 <- NULL
-if('XBB.1.17.1' %in% voc) XBB.1.17.1 <- sort(grep("^XBB\\.1\\.17\\.1(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.17.1 <- NULL
+if('XBB.1.16.1' %in% voc) XBB.1.16.1 <- sort(grep("^XBB\\.1\\.16\\.1(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.16.1 <- NULL
+if('XBB.1.16' %in% voc) {
+  XBB.1.16 <- sort(grep("^XBB\\.1\\.16(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
+  XBB.1.16 <- setdiff(XBB.1.16, XBB.1.16.1)
+ } else XBB.1.16 <- NULL
 if('XBB.1' %in% voc){
   XBB.1 <- sort(grep("^XBB\\.1(?![0-9])|^E[GKLMU]|^F[DEGHL]\\.", unique(src.dat$VARIANT), perl = T, value = T))
-  XBB.1 <- setdiff(XBB.1, c(XBB.1.5.1, XBB.1.5.2, XBB.1.5.4, XBB.1.5.5, XBB.1.5.13, XBB.1.5.15, FD.2, XBB.1.5.16, XBB.1.5.17, 
-                            XBB.1.5.19, XBB.1.5.20, XBB.1.5.21, XBB.1.5.31, XBB.1.5.32, XBB.1.5.33, XBB.1.5.35, XBB.1.9.1, XBB.1.9.2,
-                            XBB.1.15, XBB.1.16, XBB.1.17.1))
+  XBB.1 <- setdiff(XBB.1, c(XBB.1.5.1, XBB.1.5.2, XBB.1.5.4, XBB.1.5.5, XBB.1.5.10, XBB.1.5.11, XBB.1.5.13, XBB.1.5.15, FD.2, XBB.1.5.16, XBB.1.5.17, 
+                            XBB.1.5.19, XBB.1.5.20, XBB.1.5.21, XBB.1.5.30, XBB.1.5.31, XBB.1.5.32, XBB.1.5.33, XBB.1.5.35, XBB.1.9.1, XBB.1.9.2,
+                            XBB.1.15, XBB.1.16, XBB.1.16.1))
   } else XBB.1 <- NULL
 if('XBB.2.3' %in% voc) XBB.2.3 <- sort(grep("^XBB\\.2\\.3(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.2.3 <- NULL
 if('XBB.2' %in% voc) {
@@ -647,9 +653,9 @@ if('XBB.2' %in% voc) {
  } else XBB.2 <- NULL
 if('XBB' %in% voc) {
   XBB <- sort(grep("(^XBB\\.)|^E[GKLMU]|^F[DEGHL]\\.", unique(src.dat$VARIANT), perl = T, value = T))
-  XBB <- setdiff(XBB, c(XBB.1, XBB.1.5.1, XBB.1.5.2, XBB.1.5.4, XBB.1.5.5, XBB.1.5.13, XBB.1.5.15, FD.2, XBB.1.5.16, XBB.1.5.17, 
-                        XBB.1.5.19, XBB.1.5.20, XBB.1.5.21, XBB.1.5.31, XBB.1.5.32, XBB.1.5.33, XBB.1.5.35, XBB.1.9.1, XBB.1.9.2, XBB.2, XBB.2.3,
-                        XBB.1.15, XBB.1.16, XBB.1.17.1))
+  XBB <- setdiff(XBB, c(XBB.1, XBB.1.5.1, XBB.1.5.2, XBB.1.5.4, XBB.1.5.5, XBB.1.5.10, XBB.1.5.11, XBB.1.5.13, XBB.1.5.15, FD.2, XBB.1.5.16, XBB.1.5.17, 
+                        XBB.1.5.19, XBB.1.5.20, XBB.1.5.21, XBB.1.5.30, XBB.1.5.31, XBB.1.5.32, XBB.1.5.33, XBB.1.5.35, XBB.1.9.1, XBB.1.9.2, XBB.1.15, XBB.1.16, XBB.1.16.1,
+                        XBB.2, XBB.2.3))
  } else XBB <- NULL
 
 B429=B429[which(B429 %notin% voc)] #vector of the B429s to aggregate
@@ -949,6 +955,8 @@ if(XBB_agg) {
   src.dat[src.dat$VARIANT %in% XBB.1.5.2[XBB.1.5.2 %notin% voc],"VARIANT"] <- "XBB.1.5.2"
   src.dat[src.dat$VARIANT %in% XBB.1.5.4[XBB.1.5.4 %notin% voc],"VARIANT"] <- "XBB.1.5.4"
   src.dat[src.dat$VARIANT %in% XBB.1.5.5[XBB.1.5.5 %notin% voc],"VARIANT"] <- "XBB.1.5.5"
+  src.dat[src.dat$VARIANT %in% XBB.1.5.10[XBB.1.5.10 %notin% voc],"VARIANT"] <- "XBB.1.5.10"
+  src.dat[src.dat$VARIANT %in% XBB.1.5.11[XBB.1.5.11 %notin% voc],"VARIANT"] <- "XBB.1.5.11"
   src.dat[src.dat$VARIANT %in% XBB.1.5.13[XBB.1.5.13 %notin% voc],"VARIANT"] <- "XBB.1.5.13"
   src.dat[src.dat$VARIANT %in% XBB.1.5.15[XBB.1.5.15 %notin% voc],"VARIANT"] <- "XBB.1.5.15"
   src.dat[src.dat$VARIANT %in% XBB.1.5.16[XBB.1.5.16 %notin% voc],"VARIANT"] <- "XBB.1.5.16"
@@ -956,6 +964,7 @@ if(XBB_agg) {
   src.dat[src.dat$VARIANT %in% XBB.1.5.19[XBB.1.5.19 %notin% voc],"VARIANT"] <- "XBB.1.5.19"
   src.dat[src.dat$VARIANT %in% XBB.1.5.20[XBB.1.5.20 %notin% voc],"VARIANT"] <- "XBB.1.5.20"
   src.dat[src.dat$VARIANT %in% XBB.1.5.21[XBB.1.5.21 %notin% voc],"VARIANT"] <- "XBB.1.5.21"
+  src.dat[src.dat$VARIANT %in% XBB.1.5.30[XBB.1.5.30 %notin% voc],"VARIANT"] <- "XBB.1.5.30"
   src.dat[src.dat$VARIANT %in% XBB.1.5.31[XBB.1.5.31 %notin% voc],"VARIANT"] <- "XBB.1.5.31"
   src.dat[src.dat$VARIANT %in% XBB.1.5.32[XBB.1.5.32 %notin% voc],"VARIANT"] <- "XBB.1.5.32"
   src.dat[src.dat$VARIANT %in% XBB.1.5.33[XBB.1.5.33 %notin% voc],"VARIANT"] <- "XBB.1.5.33"
@@ -965,7 +974,7 @@ if(XBB_agg) {
   src.dat[src.dat$VARIANT %in% XBB.1.9.2[XBB.1.9.2 %notin% voc],"VARIANT"] <- "XBB.1.9.2"
   src.dat[src.dat$VARIANT %in% XBB.1.15[XBB.1.15 %notin% voc],"VARIANT"] <- "XBB.1.15"
   src.dat[src.dat$VARIANT %in% XBB.1.16[XBB.1.16 %notin% voc],"VARIANT"] <- "XBB.1.16"
-  src.dat[src.dat$VARIANT %in% XBB.1.17.1[XBB.1.17.1 %notin% voc],"VARIANT"] <- "XBB.1.17.1"
+  src.dat[src.dat$VARIANT %in% XBB.1.16.1[XBB.1.16.1 %notin% voc],"VARIANT"] <- "XBB.1.16.1"
   src.dat[src.dat$VARIANT %in% XBB.1[XBB.1 %notin% voc],"VARIANT"] <- "XBB.1"
   src.dat[src.dat$VARIANT %in% XBB.2[XBB.2 %notin% voc],"VARIANT"] <- "XBB.2"
   src.dat[src.dat$VARIANT %in% XBB.2.3[XBB.2.3 %notin% voc],"VARIANT"] <- "XBB.2.3"
@@ -2989,7 +2998,7 @@ if ( grepl("Run2",tag) ){
     # this returns all variants with BA. in the name (Omicron sublineages)
     BA_vars = model_vars[grep("(^B[AC-HJ-NP-VYZ]\\.)|(^C[A-HJ-NP-WYZ]\\.)|(^D[A-HJ-NP-WYZ]\\.)|(^E[A-FHJNPQRSTVWYZ]\\.)|(^F[ABCFJKMN]\\.)", model_vars, perl=T)]
     # this returns all variants with XBB. in the name   
-    XBB_vars = model_vars[grep("(^XBB\\.)|^E[GKLMU]|^F[DEGHL]\\.", model_vars, perl=T)]
+    XBB_vars = model_vars[grep("(^XBB\\.)|^E[GKLMU]\\.|^F[DEGHL]\\.", model_vars, perl=T)]
 
     # get the names of the lineages included in Run1
     if(custom_lineages){
@@ -3014,18 +3023,44 @@ if ( grepl("Run2",tag) ){
     # Columns B529.BF.7.4are the lineages in the nowcast model, so all the defined lineages
     #  plus the "other" lineage
     # Rows are the aggregated lineages desired
+
+    # Check whether any of the large parent lineage aggregation has zero sublineage in the model variant list
     agg_var_mat <- matrix(data = 0,
-                          nrow = 4,
+                          nrow = 1,
                           ncol = (length(model_vars)+1))
     colnames(agg_var_mat) <- c(model_vars,"Other")
+    agg_var_mat[1,] <- ifelse(colnames(agg_var_mat) %in% c(Other_agg, "Other"),1,0)
+    row.names(agg_var_mat) <- c("Other Aggregated")
 
-    # Fill in matrix values: if lineage is to be aggregated to parent lineage in
-    # given row, then value = 1, else value = 0
-    agg_var_mat[1,] <- ifelse(colnames(agg_var_mat) %in% c("B.1.617.2", AY_agg),1,0)
-    agg_var_mat[2,] <- ifelse(colnames(agg_var_mat) %in% c("B.1.1.529", BA_agg),1,0)
-    agg_var_mat[3,] <- ifelse(colnames(agg_var_mat) %in% c(Other_agg, "Other"),1,0)
-    agg_var_mat[4,] <- ifelse(colnames(agg_var_mat) %in% c("XBB", XBB_agg),1,0)
-    row.names(agg_var_mat) <-c("Delta Aggregated", "Omicron Aggregated", "Other Aggregated", "XBB Aggregated")
+    if(length(AY_agg) != 0) {
+      extra_row <- ifelse(colnames(agg_var_mat) %in% c("B.1.617.2", AY_agg),1,0)
+      agg_var_mat <- rbind(agg_var_mat, extra_row)
+      row.names(agg_var_mat)[nrow(agg_var_mat)] <- c("Delta Aggregated")
+    }
+    if(length(BA_agg) != 0) {
+      extra_row <- ifelse(colnames(agg_var_mat) %in% c("B.1.1.529", BA_agg),1,0)
+      agg_var_mat <- rbind(agg_var_mat, extra_row)
+      row.names(agg_var_mat)[nrow(agg_var_mat)] <- c("Omicron Aggregated")
+    }    
+    if(length(XBB_agg) != 0) {
+      extra_row <- ifelse(colnames(agg_var_mat) %in% c("XBB", XBB_agg),1,0)
+      agg_var_mat <- rbind(agg_var_mat, extra_row)
+      row.names(agg_var_mat)[nrow(agg_var_mat)] <- c("XBB Aggregated")
+    }   
+    
+    # agg_var_mat <- matrix(data = 0,
+    #                       nrow = 4,
+    #                       ncol = (length(model_vars)+1))
+    # colnames(agg_var_mat) <- c(model_vars,"Other")
+
+    # # Fill in matrix values: if lineage is to be aggregated to parent lineage in
+    # # given row, then value = 1, else value = 0
+    # agg_var_mat[1,] <- ifelse(colnames(agg_var_mat) %in% c("B.1.617.2", AY_agg),1,0)
+    # agg_var_mat[2,] <- ifelse(colnames(agg_var_mat) %in% c("B.1.1.529", BA_agg),1,0)
+    # agg_var_mat[3,] <- ifelse(colnames(agg_var_mat) %in% c(Other_agg, "Other"),1,0)
+    # agg_var_mat[4,] <- ifelse(colnames(agg_var_mat) %in% c("XBB", XBB_agg),1,0)
+    # row.names(agg_var_mat) <-c(#"Delta Aggregated", 
+    #                             "Omicron Aggregated", "Other Aggregated", "XBB Aggregated")
 
     # add rows to agg_var_mat for each XBB subvariant in run1_lingeages
     {
@@ -3036,6 +3071,11 @@ if ( grepl("Run2",tag) ){
           ll_agg <- grep("^XBB\\.1\\.5(?![0-9])|^FD\\.", XBB_vars, perl = T, value = T)
           ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
           ll_agg <- c(ll_agg, 'XBB.1.5')
+        }
+        if(ll == 'XBB.1.16'){
+          ll_agg <- grep("^XBB\\.1\\.16(?![0-9])", XBB_vars, perl = T, value = T)
+          ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
+          ll_agg <- c(ll_agg, 'XBB.1.16')
         }
         if(exists('ll_agg')){
           # if ll_agg contains subvariants of ll, then add a new row to agg_var_mat
