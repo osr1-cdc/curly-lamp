@@ -406,7 +406,7 @@ if(custom_lineages == TRUE) {
       -- THEN "R346T_B11529"
       ELSE P.', lineage_field, '
   END as lineage')
-  #  custom_lineages_sql = paste0(' ', lineage_field, ' as lineage') # Save nextclade_pango lineage as _custom dataset. No custom lineage names.
+  custom_lineages_sql = paste0(' ', lineage_field, ' as lineage') # Save nextclade_pango lineage as _custom dataset. No custom lineage names.
   if(current_data){
     # if custom_lineages == TRUE & current_data == TRUE
     # define custom AY.35+ and AY.4.2+ lineages based on amino acid positions of interest
@@ -828,7 +828,7 @@ pops     = distinct(pops)
 
 ## Some general parameters:
 # start day is the first Sunday of 2020
-week0day1 = as.Date("2020-01-05")
+#week0day1 = as.Date("2020-01-05") Get parameter from config/config.R
 
 # HHS regions
 HHS_reg = list(HHS1 = c("CT", "ME", "MA", "NH", "RI", "VT"),
