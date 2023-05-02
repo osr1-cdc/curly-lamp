@@ -50,7 +50,7 @@ use_previously_imported_data <- FALSE
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "Biweek"
+results_tag <- "Biweek2"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
@@ -67,9 +67,9 @@ pre_aggregation <- FALSE
 # All other lineages (including AY.4.2 and AY.35) are from default pangolin calls.
 
 # Set custom lineages
-custom_lineage_names <- "S146K_XBB.1.5"    # 2023-03-07 added
+#custom_lineage_names <- "S146K_XBB.1.5"    # 2023-03-07 added
 # custom_lineage_names <- c("R346T_BQ11","R346T_BQ1","R346T_BE11","R346T_BA1","R346T_BA275","R346T_BA2121","R346T_BA2","R346T_BA46","R346T_BA4","R346T_BF7","R346T_BA5","R346T_B11529")
-# custom_lineage_names <- NULL #Save nextclade_pango lineage as _custom dataset. No custom lineage named. 2023-02-15
+custom_lineage_names <- NULL #Save nextclade_pango lineage as _custom dataset. No custom lineage named. 2023-02-15
 # NOTE! If you change the custom lineages, you much also change the "custom"
 #       pangolin sql query (lines 305-320) in variant_surveillance_system.R to match!
 
@@ -320,7 +320,7 @@ calc_confirmed_infections <- TRUE
 # Option to just fit the nowcast model and avoid the slower parts of the script
 # (this is only valid if the run number == 2)
 # this can be removed eventually. It's here to make it easier to make updates to the Nowcast model.
-nowcast_only = FALSE
+nowcast_only = TRUE
 
 # This is an option that probably won't be used, but I don't want to delete it yet
 # so it's hiding here just in case I want to use it again.

@@ -3296,13 +3296,13 @@ if ( grepl("Run2",tag) ){
       }
 
       # get the week for the timepoint
-      wk = as.numeric(as.Date(ftn, origin="1970-01-01") - week0day1) %/% 7
+      wk = as.numeric(as.Date(ftn, origin="1970-01-01") - (week0day1+3) - 6) / 7
+      #wk = as.numeric(as.Date(ftn, origin="1970-01-01") - week0day1) %/% 7
       # convert week to model_week
-      wk = wk - model_week_min - model_week_mid - 3.5
+      wk = wk - model_week_min - model_week_mid
       # same as date_to_model_week(ftn - 3)
         # should the fortnightly prediction really be for the middle of the 2nd week?? Shouldn't it be for the middle of the 2-wk period? (i.e.  date_to_model_week(ftn - 6.5) )
-      # modify wk to be  wk - model_week_min - model_week_mid - 3.5 in order to get estimates for the middle of the fortnight - 2023-04-25
-
+      # Incorrect! modify wk to be  wk - model_week_min - model_week_mid - 3.5 in order to get estimates for the middle of the fortnight - 2023-04-25
       # get the estimates (and SE) for the given place & time
       ests = se.multinom(mlm = mlm,
                          newdata_1row = data.frame(
