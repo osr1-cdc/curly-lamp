@@ -3087,6 +3087,12 @@ if ( grepl("Run2",tag) ){
           ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
           ll_agg <- c(ll_agg, 'XBB.1.9.2')
         }
+        if(ll == 'XBB.2.3'){
+          ll_agg <- grep("^XBB\\.2\\.3(?![0-9])", XBB_vars, perl = T, value = T)
+          ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
+          ll_agg <- c(ll_agg, 'XBB.2.3')
+
+        }
         if(exists('ll_agg')){
           # if ll_agg contains subvariants of ll, then add a new row to agg_var_mat
           # if ll_agg only contains ll, don't add a new row
@@ -3296,7 +3302,7 @@ if ( grepl("Run2",tag) ){
       }
 
       # get the week for the timepoint
-      wk = as.numeric(as.Date(ftn, origin="1970-01-01") - (week0day1+3) - 6) / 7
+      wk = as.numeric(as.Date(ftn, origin="1970-01-01") - (week0day1+3) - 6.5) / 7
       #wk = as.numeric(as.Date(ftn, origin="1970-01-01") - week0day1) %/% 7
       # convert week to model_week
       wk = wk - model_week_min - model_week_mid
