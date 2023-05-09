@@ -31,8 +31,8 @@
 #$ -m ea
 # 
 # Choose queue
-# -q all.q
-#$ -q covid.q
+#$ -q all.q
+# -q covid.q
 #
 # Set the parallel_environment to "smp" and use xx cores (smp = Symmetric multiprocessing or shared-memory multiprocessing); MAKE SURE THIS IS >= p CORES!
 #$ -pe smp 2

@@ -605,6 +605,60 @@ if(is.na(voc2_manual)){
 # "data_date" must be a date on which archive data was created.
 
 # for the moment just use the old query that does not group by HHS region:
+# voc2_df = DBI::dbGetQuery(
+#     conn = impala,
+#     statement = paste0(
+#     "SELECT QQ.*,
+#     cor.*
+# FROM
+# (SELECT Q.lineage,
+#         max(week_ending) AS most_recent,
+#         max(fraction) AS max_fraction,
+#         max(lineage_count) AS max_virus_count,
+#         to_timestamp('", data_date, "', 'yyyy-MM-dd') AS pull_date
+# FROM
+#     (SELECT l.", lineage_field, " as lineage,
+#             c.variant_type,
+#             date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) AS week_ending,
+#             count(a.primary_virus_name) AS lineage_count,
+#             z.region_total,
+#             count(a.primary_virus_name) / z.region_total AS fraction,
+#             if(count(a.primary_virus_name) / z.region_total >= 0.01, TRUE, FALSE) AS is_one_percent,
+#             if(count(a.primary_virus_name) / z.region_total >= 0.005, TRUE, FALSE) AS is_zerofive_percent
+#     FROM sc2_air.analytics_metadata a
+#     LEFT JOIN ", lineage_table, " l on a.primary_nt_id = l.nt_id
+#     LEFT JOIN
+#         (SELECT date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) AS week_ending,
+#                 count(za.primary_virus_name) AS region_total
+#         FROM sc2_air.analytics_metadata za
+#         WHERE
+#         ( za.contractor_vendor_name IS NOT NULL OR za.eventid_all LIKE '%1771%' OR za.primary_sampling_strategy = 'Baseline_Surveillance' )
+#         -- (za.contractor_vendor_id IS NOT NULL OR za.cdceventid = '1771')
+#         AND za.primary_country = 'United States'
+#         GROUP BY week_ending) z ON date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) = z.week_ending
+#     AND 1=1
+#     LEFT JOIN sc2_src.variant_definitions c ON a.lineage = c.lineage
+#     WHERE -- THis is generally the weeks
+#         datediff(date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), 5), date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5))>=14
+#         AND datediff(date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), 5), date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5))< 98
+#         -- AND (a.contractor_vendor_id IS NOT NULL OR a.cdceventid = '1771')
+#         AND ( a.contractor_vendor_name IS NOT NULL OR a.eventid_all LIKE '%1771%' OR a.primary_sampling_strategy = 'Baseline_Surveillance' )
+#         AND a.primary_country = 'United States'
+#     GROUP BY l.", lineage_field, ",
+#             c.variant_type,
+#             week_ending,
+#             z.region_total --order by week_ending, b.hhs_region, lineage
+# ) Q
+# WHERE Q.is_one_percent IS TRUE --OR Q.variant_type is not null
+#     OR (Q.is_zerofive_percent IS TRUE AND Q.week_ending = date_add(date_trunc('week', date_add(now(), 1)), -16))
+# GROUP BY lineage) QQ
+# LEFT JOIN sc2_air.analytics_lineage_corr cor ON QQ.lineage = cor.lineage
+# WHERE cor.date_range_of_calc LIKE '%US:3mo'"
+#     ))
+
+# 2023-05-09 starting this week, change to modeling 2-week periods, so voc2_auto sql is changed to get the list of voc with >= 1% proportion 
+# in any 2-week period or >= 0.5% in the last weighted period
+
 voc2_df = DBI::dbGetQuery(
     conn = impala,
     statement = paste0(
@@ -612,14 +666,14 @@ voc2_df = DBI::dbGetQuery(
     cor.*
 FROM
 (SELECT Q.lineage,
-        max(week_ending) AS most_recent,
+        max(biweek_ending) AS most_recent,
         max(fraction) AS max_fraction,
         max(lineage_count) AS max_virus_count,
         to_timestamp('", data_date, "', 'yyyy-MM-dd') AS pull_date
 FROM
     (SELECT l.", lineage_field, " as lineage,
             c.variant_type,
-            date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) AS week_ending,
+            date_add(primary_collection_date,datediff('2023-05-13',primary_collection_date)%14) AS biweek_ending,
             count(a.primary_virus_name) AS lineage_count,
             z.region_total,
             count(a.primary_virus_name) / z.region_total AS fraction,
@@ -628,29 +682,28 @@ FROM
     FROM sc2_air.analytics_metadata a
     LEFT JOIN ", lineage_table, " l on a.primary_nt_id = l.nt_id
     LEFT JOIN
-        (SELECT date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) AS week_ending,
+        (SELECT date_add(primary_collection_date, datediff('2023-05-13',primary_collection_date)%14) AS biweek_ending,
                 count(za.primary_virus_name) AS region_total
         FROM sc2_air.analytics_metadata za
         WHERE
-        ( za.contractor_vendor_name IS NOT NULL OR za.eventid_all LIKE '%1771%' OR za.primary_sampling_strategy = 'Baseline_Surveillance' )
-        -- (za.contractor_vendor_id IS NOT NULL OR za.cdceventid = '1771')
-        AND za.primary_country = 'United States'
-        GROUP BY week_ending) z ON date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) = z.week_ending
+            ( contractor_vendor_name IS NOT NULL OR eventid_all LIKE '%1771%' OR primary_sampling_strategy = 'Baseline_Surveillance' )
+            AND primary_country = 'United States'
+        GROUP BY biweek_ending) z ON date_add(primary_collection_date,datediff('2023-05-13',primary_collection_date)%14) = z.biweek_ending
     AND 1=1
     LEFT JOIN sc2_src.variant_definitions c ON a.lineage = c.lineage
     WHERE -- THis is generally the weeks
         datediff(date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), 5), date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5))>=14
-        AND datediff(date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), 5), date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5))< 98
+        AND datediff(date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), 5), date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5))< 112
         -- AND (a.contractor_vendor_id IS NOT NULL OR a.cdceventid = '1771')
-        AND ( a.contractor_vendor_name IS NOT NULL OR a.eventid_all LIKE '%1771%' OR a.primary_sampling_strategy = 'Baseline_Surveillance' )
-        AND a.primary_country = 'United States'
+        AND ( contractor_vendor_name IS NOT NULL OR eventid_all LIKE '%1771%' OR primary_sampling_strategy = 'Baseline_Surveillance' )
+        AND primary_country = 'United States'
     GROUP BY l.", lineage_field, ",
             c.variant_type,
-            week_ending,
-            z.region_total --order by week_ending, b.hhs_region, lineage
+            biweek_ending,
+            z.region_total
 ) Q
 WHERE Q.is_one_percent IS TRUE --OR Q.variant_type is not null
-    OR (Q.is_zerofive_percent IS TRUE AND Q.week_ending = date_add(date_trunc('week', date_add(now(), 1)), -16))
+    OR (Q.is_zerofive_percent IS TRUE AND Q.biweek_ending = date_add(date_trunc('week', date_add(now(), 1)), -23))
 GROUP BY lineage) QQ
 LEFT JOIN sc2_air.analytics_lineage_corr cor ON QQ.lineage = cor.lineage
 WHERE cor.date_range_of_calc LIKE '%US:3mo'"

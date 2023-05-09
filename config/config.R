@@ -291,8 +291,8 @@ model_time_end = time_end
 
 # start of the first week
 week0day1 = get0("week0day1",
-                 ifnotfound = as.Date("2020-01-05"))
-                 # for 2023-5 to be implemented biweek estimates, change to 2020-01-12
+                 ifnotfound = as.Date("2020-01-12"))
+                 # for 2023-5-9 to be implemented biweek estimates, change to 2020-01-12
 
 # current week
 current_week = as.numeric(as.Date(data_date) - week0day1) %/% 7
@@ -310,8 +310,8 @@ weighted_weeks <- 12
 # start-time for the weighted estimates
 # (this speeds up calculations by only calculating weighted variant proportions for the most recent "weighted_weeks")
 # time_start_weights <- time_end - 6 - weighted_weeks*7
-time_start_weights <- as.Date('2021-05-02') # keep using week of (2021-05-02 to 2021-05-08) for consistency
-# for 2023-5 to be implemented biweek estimates, change to 2021-05-09
+time_start_weights <- as.Date('2021-05-09') # keep using week of (2021-05-02 to 2021-05-08) for consistency
+# for 2023-5-9 to be implemented biweek estimates, change to 2021-05-09
 # start time will be the earlier of: 1) time_start_weights; 2) "model_weeks" before time_end
 time_start <- min(time_start_weights, time_end - model_weeks*7 + 1) # +1 to start on Monday
 
