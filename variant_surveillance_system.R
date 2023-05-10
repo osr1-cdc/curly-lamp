@@ -188,40 +188,44 @@ if(toupper(opts$nextclade_pango) %in% c('T', 'TRUE', 'Y', 'YES')){
 
 # Import Data ------------------------------------------------------------------
 
-# If the data was already pulled and you want to just use that data instead of re-pulling it, set here. 
+# If the data was already pulled and you want to just use that data instead of re-pulling it, set here.
 # This is useful if you aggregate some lab names at the end of this code and then want to re-run the
-# script after changing which labs get aggregated. 
+# script after changing which labs get aggregated.
 
 # use previously pulled data if it exists
 if(use_previously_imported_data & date_frozen_toread == data_date &
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_data", custom_tag, ".RDS")) & 
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin", custom_tag, ".RDS")) & 
-    #file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline", custom_tag, ".RDS")) & 
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS")) & 
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS"))){
-     
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_data", custom_tag, ".RDS")) &
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin", custom_tag, ".RDS")) &
+    #file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline", custom_tag, ".RDS")) &
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS")) &
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS")) &
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests_nrevss", custom_tag, ".RDS"))){
+
   print('Reading in previously pulled data')
-  dat <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_data", custom_tag, ".RDS"))
-  pangolin <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin", custom_tag, ".RDS"))
-  #baseline <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline", custom_tag, ".RDS"))
-  tests <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS"))
-  pops <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS"))
+  dat          <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_data",         custom_tag, ".RDS"))
+  pangolin     <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin",     custom_tag, ".RDS"))
+  #baseline    <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline",     custom_tag, ".RDS"))
+  tests        <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests",        custom_tag, ".RDS"))
+  tests_nrevss <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests_nrevss", custom_tag, ".RDS"))
+  pops         <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops",         custom_tag, ".RDS"))
   #s1_groups <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_s1_groups", custom_tag, ".RDS"))
   print('Finished reading in data.')
 } else if (use_previously_imported_data & date_frozen_toread != data_date &
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", date_frozen_toread, "_data", custom_tag, ".RDS")) & 
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", date_frozen_toread, "_pangolin", custom_tag, ".RDS")) & 
-    #file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline", custom_tag, ".RDS")) & 
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS")) & 
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS"))
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", date_frozen_toread, "_data",         custom_tag, ".RDS")) &
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", date_frozen_toread, "_pangolin",     custom_tag, ".RDS")) &
+    #file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date,         "_baseline",     custom_tag, ".RDS")) &
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date,          "_tests",        custom_tag, ".RDS")) &
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date,          "_pops",         custom_tag, ".RDS")) &
+    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date,          "_tests_nrevss", custom_tag, ".RDS"))
     #file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_s1_groups", custom_tag, ".RDS"))
     ){
   print('Reading in previously pulled data. analytics_metadata frozen date different from test date')
-  dat <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", date_frozen_toread, "_data", custom_tag, ".RDS"))
-  pangolin <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", date_frozen_toread, "_pangolin", custom_tag, ".RDS"))
-  #baseline <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline", custom_tag, ".RDS"))
-  tests <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS"))
-  pops <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS"))
+  dat          <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", date_frozen_toread, "_data",         custom_tag, ".RDS"))
+  pangolin     <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", date_frozen_toread, "_pangolin",     custom_tag, ".RDS"))
+  #baseline    <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date,          "_baseline",     custom_tag, ".RDS"))
+  tests        <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date,          "_tests",        custom_tag, ".RDS"))
+  tests_nrevss <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date,          "_tests_nrevss", custom_tag, ".RDS"))
+  pops         <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date,          "_pops",         custom_tag, ".RDS"))
   #s1_groups <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_s1_groups", custom_tag, ".RDS"))
   print('Finished reading in data.')
 
@@ -358,8 +362,8 @@ query = paste(
     WHERE to_date(ma.date_frozen) = ', date_frozen, ') as M
     ON A.date_frozen = M.max_frozen'
   ),
-  ' WHERE A.primary_country in ("United States", "USA") 
-  AND A.primary_host = "Human" 
+  ' WHERE A.primary_country in ("United States", "USA")
+  AND A.primary_host = "Human"
   AND ( A.contractor_vendor_name IS NOT NULL OR A.eventid_all LIKE "%1771%" OR A.primary_sampling_strategy = "Baseline_Surveillance" )'
   # AND A.primary_submitter IS NOT NULL'
 ) # if unavailable, use test_deduplication_cdcncbigisaid_auto for testing
@@ -512,6 +516,22 @@ tests_exclusion <- tests %>%
 tests <- bind_rows(tests_valid, tests_exclusion)
 }
 
+# download NREVSS testing data
+tests_nrevss = DBI::dbGetQuery(
+  conn = impala,
+  statement = paste0( # 'SELECT * FROM sc2_archive.nrevss_frozen'
+'SELECT
+  H.*,
+  to_date(to_timestamp(H.mmwrweek_end, "ddMMMyyyy:HH:mm:ss.SSS")) as collection_week
+FROM sc2_archive.nrevss_frozen H
+INNER JOIN
+(SELECT max(date_frozen) as max_frozen
+    FROM sc2_archive.nrevss_frozen hf
+    WHERE to_date(hf.date_frozen) = ", date_frozen,"
+) as F
+ON H.date_frozen = F.max_frozen'
+))
+
 # Get the vocs included in run 2
 # only if voc2_manual is not set
 if(is.na(voc2_manual)){
@@ -612,14 +632,14 @@ voc2_df = DBI::dbGetQuery(
     cor.*
 FROM
 (SELECT Q.lineage,
-        max(week_ending) AS most_recent,
+        max(biweek_ending) AS most_recent,
         max(fraction) AS max_fraction,
         max(lineage_count) AS max_virus_count,
         to_timestamp('", data_date, "', 'yyyy-MM-dd') AS pull_date
 FROM
     (SELECT l.", lineage_field, " as lineage,
             c.variant_type,
-            date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) AS week_ending,
+            date_add(primary_collection_date,datediff('2023-05-13',primary_collection_date)%14) AS biweek_ending,
             count(a.primary_virus_name) AS lineage_count,
             z.region_total,
             count(a.primary_virus_name) / z.region_total AS fraction,
@@ -628,29 +648,28 @@ FROM
     FROM sc2_air.analytics_metadata a
     LEFT JOIN ", lineage_table, " l on a.primary_nt_id = l.nt_id
     LEFT JOIN
-        (SELECT date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) AS week_ending,
+        (SELECT date_add(primary_collection_date, datediff('2023-05-13',primary_collection_date)%14) AS biweek_ending,
                 count(za.primary_virus_name) AS region_total
         FROM sc2_air.analytics_metadata za
         WHERE
-        ( za.contractor_vendor_name IS NOT NULL OR za.eventid_all LIKE '%1771%' OR za.primary_sampling_strategy = 'Baseline_Surveillance' )
-        -- (za.contractor_vendor_id IS NOT NULL OR za.cdceventid = '1771')
-        AND za.primary_country = 'United States'
-        GROUP BY week_ending) z ON date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5) = z.week_ending
+            ( contractor_vendor_name IS NOT NULL OR eventid_all LIKE '%1771%' OR primary_sampling_strategy = 'Baseline_Surveillance' )
+            AND primary_country = 'United States'
+        GROUP BY biweek_ending) z ON date_add(primary_collection_date,datediff('2023-05-13',primary_collection_date)%14) = z.biweek_ending
     AND 1=1
     LEFT JOIN sc2_src.variant_definitions c ON a.lineage = c.lineage
     WHERE -- THis is generally the weeks
         datediff(date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), 5), date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5))>=14
-        AND datediff(date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), 5), date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5))< 98
+        AND datediff(date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), 5), date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5))< 112
         -- AND (a.contractor_vendor_id IS NOT NULL OR a.cdceventid = '1771')
-        AND ( a.contractor_vendor_name IS NOT NULL OR a.eventid_all LIKE '%1771%' OR a.primary_sampling_strategy = 'Baseline_Surveillance' )
-        AND a.primary_country = 'United States'
+        AND ( contractor_vendor_name IS NOT NULL OR eventid_all LIKE '%1771%' OR primary_sampling_strategy = 'Baseline_Surveillance' )
+        AND primary_country = 'United States'
     GROUP BY l.", lineage_field, ",
             c.variant_type,
-            week_ending,
-            z.region_total --order by week_ending, b.hhs_region, lineage
+            biweek_ending,
+            z.region_total
 ) Q
 WHERE Q.is_one_percent IS TRUE --OR Q.variant_type is not null
-    OR (Q.is_zerofive_percent IS TRUE AND Q.week_ending = date_add(date_trunc('week', date_add(now(), 1)), -16))
+    OR (Q.is_zerofive_percent IS TRUE AND Q.biweek_ending = date_add(date_trunc('week', date_add(now(), 1)), -23))
 GROUP BY lineage) QQ
 LEFT JOIN sc2_air.analytics_lineage_corr cor ON QQ.lineage = cor.lineage
 WHERE cor.date_range_of_calc LIKE '%US:3mo'"
@@ -723,6 +742,9 @@ saveRDS(pangolin,
 # )
 saveRDS(tests,
   file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS")
+)
+saveRDS(tests_nrevss,
+  file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests_nrevss", custom_tag, ".RDS")
 )
 # saveRDS(s1_groups,
 #   file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_s1_groups", custom_tag, ".RDS")
@@ -820,11 +842,12 @@ print('Finished reading in data.')
 }
 
 ## exclude duplicates from each table
-dat      = distinct(dat.dt) # use the data.table version to speed up calculation of why sequences are being dropped
-pangolin = distinct(pangolin)
-#baseline = distinct(baseline)
-tests    = distinct(tests)
-pops     = distinct(pops)
+dat          = distinct(dat.dt) # use the data.table version to speed up calculation of why sequences are being dropped
+pangolin     = distinct(pangolin)
+#baseline    = distinct(baseline)
+tests        = distinct(tests)
+tests_nrevss = distinct(tests_nrevss)
+pops         = distinct(pops)
 
 ## Some general parameters:
 # start day is the first Sunday of 2020
@@ -839,7 +862,7 @@ HHS_reg = list(HHS1 = c("CT", "ME", "MA", "NH", "RI", "VT"),
                HHS6 = c("AR", "LA", "NM", "OK", "TX"),
                HHS7 = c("IA", "KS", "MO", "NE"),
                HHS8 = c("CO", "MT", "ND", "SD", "UT", "WY"),
-               HHS9 = c("AZ", "CA", "HI", "NV", "AS", "MP", "GU", "MH"),
+               HHS9 = c("AZ", "CA", "HI", "NV", "AS", "MP", "GU", "MH", "PW"),
                HHS10= c("AK", "ID", "OR", "WA")
 )
 
@@ -847,9 +870,10 @@ HHS_reg = list(HHS1 = c("CT", "ME", "MA", "NH", "RI", "VT"),
 # (b/c they're not in the "ACStable_B01001_40_2018_5.txt" file)
 # Territory 2020-07-01 populations from https://en.wikipedia.org/wiki/List_of_states_and_territories_of_the_United_States_by_population (2021-04-19)
 # Marshall Islands 2018 estimate https://en.wikipedia.org/wiki/Marshall_Islands (2021-04-19)
+# Palau 2018 estimate https://en.wikipedia.org/wiki/Palau#:~:text=%E2%80%A2-,2018%20estimate,18%2C024,-%5B3%5D%5B4 (2023-05-09)
 pops = rbind(pops,
-             data.frame(STUSAB = c("AS", "GU", "MP", "VI", "MH"),
-                        `Total.`=c(49437, 168485, 51433, 106235, 58413)))
+             data.frame(STUSAB = c("AS", "GU", "MP", "VI", "MH", "PW"),
+                        `Total.`=c(49437, 168485, 51433, 106235, 58413, 18024)))
 # create a lookup table with states & their HHS regions
 hhs = data.frame(STUSAB = toupper(pops$STUSAB))
 # get the HHS region for each state
@@ -1161,6 +1185,93 @@ tests_state_bins_list <- lapply(X = state_time_end, FUN = function(dd){
 })
 
 names(tests_state_bins_list) <- state_time_end
+
+
+
+
+
+
+
+## NREVSS testing data (used in place of CLERS data for test positivity only in updated weighting scheme)
+tests_nrevss <- data.table::as.data.table(tests_nrevss)
+
+# double-check that we're only using NREVSS testing aggregated to the state level (I don't think this will ever exclude anything)
+tests_nrevss <- tests_nrevss[ level == 'State' & source == 'NREVSS']
+
+# convert to date format
+if(!('collection_week' %in% names(tests_nrevss))) tests_nrevss[, 'collection_week' := as.Date( as.POSIXct(mmwrweek_end, format = '%d%b%Y:%H:%M:%S') , format = '%Y-%m-%d')]
+if( class(tests_nrevss$collection_week) == 'character' ) tests_nrevss[, 'collection_week' := as.Date(x = collection_week, format = "%Y-%m-%d")] # UPDATE format
+
+# exclude unreasonable dates
+tests_nrevss <- tests_nrevss[collection_week >= as.Date("2019-10-01") &
+                               collection_week <= data_date,] # this will exclude the current week (which should be ok)
+
+# Add a column for the date of the first day of the week
+tests_nrevss[,'yr_wk' := as.character(collection_week - as.numeric(strftime(collection_week, format="%w")))]
+tests_nrevss[, 'week' := as.numeric(as.Date(yr_wk) - week0day1)/7]
+tests_nrevss[, 'fortnight_end' := as.character(week0day1 + week %/% 2 * 14 + 13)]
+
+# rename columns to match "tests"
+tests_nrevss[, 'TOTAL'    := as.integer(tests)]
+tests_nrevss[, 'POSITIVE' := as.integer(detections)]
+tests_nrevss[, 'STUSAB'   := state]
+
+# Replace NAs with 0
+tests_nrevss[is.na(POSITIVE), 'POSITIVE' := 0]
+
+# Aggregate tests by state & week for weighting
+#   this shouldn't ever be necessary b/c the data are already aggregated by state-week
+#   there can be missing state-week combinations in tests_nrevss, but there shouldn't ever be multiple rows per state-week.
+#     SELECT DISTINCT A.week_count FROM (SELECT count(mmwrweek_end) as week_count FROM sc2_src.nrevss GROUP BY mmwrweek_end, state) as A;
+tests_nrevss_wk <- tests_nrevss[,
+                  .(
+                    'POSITIVE' = unique(na.omit(POSITIVE)), # I'll assume that if there are multiple rows, that the data were duplicated.
+                    'TOTAL'    = unique(na.omit(TOTAL))
+                  ),
+                  by = c('STUSAB', 'yr_wk')]
+# aggregate tests_nrevss by state & fortnight (currently no plan to use this)
+tests_nrevss_fn <- tests_nrevss[,
+                                .(
+                                  'POSITIVE' = unique(na.omit(POSITIVE)), # I'll assume that if there are multiple rows, that the data were duplicated.
+                                  'TOTAL'    = unique(na.omit(TOTAL))
+                                ),
+                                by = c('STUSAB', 'fortnight_end')]
+
+# Add in HHS region & population
+tests_nrevss = merge(x = merge(x = tests_nrevss,
+                              y = hhs,
+                              all.x=TRUE),
+                    y = data.frame(STUSAB = toupper(pops$STUSAB),
+                                   state_population = pops$Total.),
+                    all.x = TRUE)
+
+# summarize NREVSS testing data by HHS region & week (and hhs-fortnight)
+tests_nrevss_hhs_wk <- tests_nrevss[,
+                  .(
+                    'POSITIVE' = sum(POSITIVE, na.rm = T), # I'll assume that if there are multiple rows, that the data were duplicated.
+                    'TOTAL'    = sum(TOTAL, na.rm = T),
+                    'hhs_population_reporting.nrevss' = sum(state_population[!is.na(tests)], na.rm = T) # total population of the states reporting NREVSS testing data
+                  ),
+                  by = c('HHS', 'yr_wk')]
+# aggregate tests_nrevss by hhs & fortnight (currently no plan to use this)
+tests_nrevss_hhs_fn <- tests_nrevss[,
+                  .(
+                    'POSITIVE' = sum(POSITIVE, na.rm = T), # I'll assume that if there are multiple rows, that the data were duplicated.
+                    'TOTAL'    = sum(TOTAL, na.rm = T),
+                    'hhs_population_reporting.nrevss' = sum(state_population[!is.na(tests)], na.rm = T) # total population of the states reporting NREVSS testing data
+                  ),
+                  by = c('HHS', 'fortnight_end')]
+# tests_nrevss_hhs_wk is the info that we'll actually use in weighting (for now)
+
+
+
+
+
+
+
+
+
+
 # Weighting---------------------------------------------------------------------
 # (weights are calculated here & recalculated in weekly_variant_report_nowcast.R
 #  after data are subset.)
@@ -1247,25 +1358,37 @@ test_tallies_gp = within(data = test_tallies_gp,
 test_tallies_wk$week = as.numeric(as.Date(test_tallies_wk$yr_wk) - week0day1)%/%7
 test_tallies_gp$week = as.numeric(as.Date(test_tallies_gp$group) - week0day1)%/%7
 # Aggregate infections & populations by HHS region
-incidence_by_region = merge(
-  x = aggregate(formula = INFECTIONS ~ yr_wk + HHS,
-                data = test_tallies_wk,
-                FUN = sum),
-  y = aggregate(formula = state_population ~ yr_wk + HHS,
-                data = test_tallies_wk,
-                FUN = sum)
-)
-incidence_by_region_gp = merge(
-  x = aggregate(formula = INFECTIONS ~ group + HHS,
-                data = test_tallies_gp,
-                FUN = sum),
-  y = aggregate(formula = group_population ~ group + HHS,
-                data = test_tallies_gp,
-                FUN = sum)
-)
-# calculate infection rate
-incidence_by_region$HHS_INCIDENCE = incidence_by_region$INFECTIONS / incidence_by_region$state_population
-incidence_by_region_gp$HHS_INCIDENCE_gp = incidence_by_region_gp$INFECTIONS / incidence_by_region_gp$group_population
+# incidence_by_region = merge(
+#   x = aggregate(formula = INFECTIONS ~ yr_wk + HHS,
+#                 data = test_tallies_wk,
+#                 FUN = sum),
+#   y = aggregate(formula = state_population ~ yr_wk + HHS,
+#                 data = test_tallies_wk,
+#                 FUN = sum)
+# )
+# incidence_by_region_gp = merge(
+#   x = aggregate(formula = INFECTIONS ~ group + HHS,
+#                 data = test_tallies_gp,
+#                 FUN = sum),
+#   y = aggregate(formula = group_population ~ group + HHS,
+#                 data = test_tallies_gp,
+#                 FUN = sum)
+# )
+# # calculate infection rate
+# incidence_by_region$HHS_INCIDENCE       = incidence_by_region$INFECTIONS    / incidence_by_region$state_population
+# incidence_by_region_gp$HHS_INCIDENCE_gp = incidence_by_region_gp$INFECTIONS / incidence_by_region_gp$group_population
+
+# # Aggregate infections & populations by HHS region
+test_tallies_wk.HHS <- test_tallies_wk[
+  ,
+  .(POSITIVE.HHS = sum(POSITIVE),
+    TOTAL.HHS    = sum(TOTAL),
+    population_reporting.HHS = sum(state_population),
+    INFECTIONS.HHS = sum(INFECTIONS)),
+  by = c('HHS', 'yr_wk', 'week')]
+# NOTE! This is different than aggregating state populations by HHS region, merging to the testing data, and calculating totals and infections that way, because that method would count state populations for states that do NOT have testing, which would result in lower testing rates and generally higher infection estimates.
+test_tallies_wk.HHS[, 'HHS_INCIDENCE' := INFECTIONS.HHS / population_reporting.HHS]
+
 
 ## SGTF over-sampling weights
 # (only correcting for the Helix upsampling; other labs were not specifically SGTF up-sampling)
@@ -1342,6 +1465,17 @@ incidence_by_region_gp$HHS_INCIDENCE_gp = incidence_by_region_gp$INFECTIONS / in
 #                                       yes = 1,
 #                                       no = test_tallies_gp$sgtf_weights)
 
+# create a column to group source by type (NS3, Contractor, or baseline tagged)
+us.dat[ source == 'NS3' , source_type := 'NS3']
+# us.dat[, prop.table(table(source_type))]
+us.dat[ (toupper(contractor_vendor_name) != "NULL") &
+          (toupper(contractor_vendor_name) != "NS3" &
+             source != 'NS3'),
+        source_type := 'Contractor']
+# us.dat[, prop.table(table(source_type))]
+us.dat[ is.na(source_type) & primary_sampling_strategy == 'Baseline_Surveillance', source_type := 'Tagged']
+# us.dat[, prop.table(table(source_type))]
+
 # Transform the received_date field as date in R
 #us.dat$received_date_dt = as.Date(sapply(strsplit(x = us.dat$received_date, split = ' '), FUN = function(x) x[1]))
 us.dat$received_date_dt = as.Date(us.dat$received_date)
@@ -1363,6 +1497,7 @@ svy.dat = data.table::data.table(
   # CDC_DT  = us.dat$contractor_receive_date_to_cdc,
   # AGE     = us.dat$age_group,
   LAB     = toupper(us.dat$source),
+  source_type     = us.dat$source_type,
   SGTF_UPSAMPLING = (us.dat$contractor_targeted_sequencing %in% "Screened for S dropout"),
   # SOURCE  = us.dat$source,
   VARIANT = us.dat$lineage,
@@ -1640,7 +1775,7 @@ labnames_df_ct <- data.frame(old_name = CT_labs_to_agg,
 svy.dat[LAB %in% CT_labs_to_agg, 'LAB2' := labnames_df_ct$new_name[1]]
 
 # added 2022-05-19 (Bushman)
-# Aggregate Bushman lab 
+# Aggregate Bushman lab
 # "THE BUSHMAN LAB, SCHOOL OF MEDICINE, UNIVERSITY OF PENNSYLVANIA"
 # "BUSHMAN"
 BU_labs_to_agg <- grep(pattern = '(^BUSHMAN$)|(THE BUSHMAN LAB)',
@@ -1785,6 +1920,7 @@ prcvsi_labs_to_agg <- grep(pattern = "(PUERTO RICO SCIENCE)|(PRCVSI)",
                          value = T)
 labnames_df_prcvsi <- data.frame(old_name = prcvsi_labs_to_agg,
                              new_name = "PUERTO RICO SCIENCE, TECHNOLOGY & RESEARCH TRUST - PRCVSI")
+svy.dat[LAB %in% prcvsi_labs_to_agg, 'LAB2' := labnames_df_prcvsi$new_name[1]]
 
 unm_labs_to_agg <- grep(pattern = "CENTER FOR GLOBAL HEALTH",
                          x = unique_labs,
@@ -1792,6 +1928,7 @@ unm_labs_to_agg <- grep(pattern = "CENTER FOR GLOBAL HEALTH",
                          value = T)
 labnames_df_unm <- data.frame(old_name = unm_labs_to_agg,
                              new_name = "CENTER FOR GLOBAL HEALTH, UNIVERSITY OF NEW MEXICO HEALTH SCIENCES CENTER")
+svy.dat[LAB %in% labnames_df_unm$old_name, 'LAB2' := labnames_df_unm$new_name[1]]
 
 ummc_labs_to_agg <- grep(pattern = "UNIVERSITY OF MISSISSIPPI",
                          x = unique_labs,
@@ -1799,14 +1936,17 @@ ummc_labs_to_agg <- grep(pattern = "UNIVERSITY OF MISSISSIPPI",
                          value = T)
 labnames_df_ummc <- data.frame(old_name = ummc_labs_to_agg,
                              new_name = "UNIVERSITY OF MISSISSIPPI MEDICAL CENTER, MOLECULAR AND GENOMICS CORE FACILITY")
+svy.dat[LAB %in% labnames_df_ummc$old_name, 'LAB2' := labnames_df_ummc$new_name[1]]
 
-# Steps to add more lab aggregations 
-# 1. find lab names that almost assuredly refer to the same lab 
-# 2. copy-and-paste one of the blocks of code above 
+
+
+# Steps to add more lab aggregations
+# 1. find lab names that almost assuredly refer to the same lab
+# 2. copy-and-paste one of the blocks of code above
 # 3. change "XX_labs_to_agg" and "labnames_df_xx" to new AND UNIQUE names (do a control-F for the new name to make sure it's unique)
 # 4. change the regex pattern to something that will return ONLY your set of labs
 # 5. add "labnames_df_xx" to "labnames_df" below
-# 6. after running the new code, look at ./data/backup_YYYY-MM-DD/lab_name_updates_YYYY-MM-DD.csv to make sure that ONLY the intended labs are being renamed. 
+# 6. after running the new code, look at ./data/backup_YYYY-MM-DD/lab_name_updates_YYYY-MM-DD.csv to make sure that ONLY the intended labs are being renamed.
 
 # Other labs that might be duplicates, but that I have not combined:
 # 1. "INFECTIOUS DISEASE PROGRAM, BROAD INSTITUTE OF HARVARD AND MIT"
@@ -1829,16 +1969,6 @@ labnames_df_ummc <- data.frame(old_name = ummc_labs_to_agg,
 
 # create a dataframe of all the lab names that were changed
 labnames_df <- rbind(
-  labnames_df_ummc,
-  labnames_df_unm,
-  labnames_df_prcvsi,
-  labnames_df_sflu,
-  labnames_df_um,
-  labnames_df_broad,
-  labnames_df_pi,
-  labnames_df_sp,
-  labnames_df_la,
-  labnames_df_fs,
   labnames_df_md,
   labnames_df_nj,
   labnames_df_tx,
@@ -1868,7 +1998,17 @@ labnames_df <- rbind(
   labnames_df_ms,
   labnames_df_hhd,
   labnames_df_ga,
-  labnames_df_pa
+  labnames_df_pa,
+  labnames_df_fs,
+  labnames_df_la,
+  labnames_df_sp,
+  labnames_df_pi,
+  labnames_df_broad,
+  labnames_df_um,
+  labnames_df_sflu,
+  labnames_df_prcvsi,
+  labnames_df_unm,
+  labnames_df_ummc
 )
 
 # print the list of lab names that were changed to the console
@@ -2121,6 +2261,12 @@ svy.dat = merge(x = svy.dat,
                 y = test_tallies_wk[, c("STUSAB", "yr_wk", "POSITIVE", "TOTAL")],
                 all.x = TRUE,
                 by = c('STUSAB', 'yr_wk'))
+# Add in HHS region testing data
+# used for updated weighting methods
+svy.dat = merge(x = svy.dat,
+                y = test_tallies_wk.HHS[, c("HHS", "yr_wk", 'population_reporting.HHS', "POSITIVE.HHS", "TOTAL.HHS", 'INFECTIONS.HHS', 'HHS_INCIDENCE')], # HHS_INCIDENCE now comes from here instead of incidence_by_region
+                all.x = TRUE,
+                by = c("HHS", "yr_wk"))
 
 # add in grouped test tallies
 {
@@ -2152,6 +2298,7 @@ if(TRUE){
   saveRDS(list('tests_daily'  = test_tallies_dly,
                'tests_group'  = test_tallies_gp,
                'tests_weekly' = test_tallies_wk,
+               'tests_weekly.HHS' = test_tallies_wk.HHS,
                'tests_fortnight' = test_tallies_fn,
                'tests_4weeks' = tests_state_bins_list),
           file = paste0(script.basename,
@@ -2161,17 +2308,65 @@ if(TRUE){
                         custom_tag, ".RDS"))
 }
 
-# Add in HHS region data
-# (used for states missing testing data (OH), using the region level incidence)
+# save aggregated NREVSS testing data to file
+if(TRUE){
+  saveRDS(list(
+    # aggregated by state and:
+    'tests_weekly'    = tests_nrevss_wk,
+    'tests_fortnight' = tests_nrevss_fn,
+    # 'tests_4weeks'    = tests_nrevss_state_bins_list, # UPDATE! CREATE THIS
+    # aggregated by hhs region and:
+    'tests_hhs_weekly'    = tests_nrevss_hhs_wk,
+    'tests_hhs_fortnight' = tests_nrevss_hhs_fn
+    ),
+    file = paste0(script.basename,
+                  "/data/backup_",
+                  data_date, custom_tag, "/",
+                  data_date, "_tests_nrevss_aggregated",
+                  custom_tag, ".RDS"))
+}
+
+# Add in NREVSS testing data (grouped by state & week)
+# currently no plan to use this
 svy.dat = merge(x = svy.dat,
-                y = incidence_by_region[, c("HHS", "yr_wk", "HHS_INCIDENCE")],
-                all.x = TRUE,
-                by = c("HHS", "yr_wk"))
-incidence_by_region_gp$yr_wk = incidence_by_region_gp$group
+                y = tests_nrevss_wk[, .(STUSAB, yr_wk,
+                                       # number of positive tests
+                                       'POSITIVE.state.nrevss' = POSITIVE,
+                                       # number of total tests
+                                       'TOTAL.state.nrevss' = TOTAL)],
+                      all.x = TRUE,
+                      by = c("STUSAB", "yr_wk"))
+# add in NREVSS tests data (grouped by HHS & week)
+# this is what we use in updated weights (May 2023)
 svy.dat = merge(x = svy.dat,
-                y = incidence_by_region_gp[, c("HHS", "yr_wk", "HHS_INCIDENCE_gp")],
-                all.x = TRUE,
-                by = c("HHS", "yr_wk"))
+                y = tests_nrevss_hhs_wk[, .(HHS, yr_wk,
+                                           # number of positive tests
+                                           'POSITIVE.HHS.nrevss' = POSITIVE,
+                                           # number of total tests
+                                           'TOTAL.HHS.nrevss' = TOTAL,
+                                           # population of the states reporting NREVSS testing
+                                           'population_reporting.HHS.nrevss' = hhs_population_reporting.nrevss)],
+                      all.x = TRUE,
+                      by = c("HHS", "yr_wk"))
+
+
+
+
+
+
+# we don't actually use these.
+# # Add in CLERS testing data by HHS region
+# # (used for states missing testing data (OH), using the region level incidence)
+# svy.dat = merge(x = svy.dat,
+#                 y = incidence_by_region[, c("HHS", "yr_wk", "HHS_INCIDENCE")],
+#                 all.x = TRUE,
+#                 by = c("HHS", "yr_wk"))
+# # these group estimates were an attempt to deal with extreme weights in recent weeks when sample sizes are low, but we chose to use weight trimming instead of this
+# incidence_by_region_gp$yr_wk = incidence_by_region_gp$group
+# svy.dat = merge(x = svy.dat,
+#                 y = incidence_by_region_gp[, c("HHS", "yr_wk", "HHS_INCIDENCE_gp")],
+#                 all.x = TRUE,
+#                 by = c("HHS", "yr_wk"))
 
 # Add in columns that were previously calculated in "weekly_variant_report_nowcast.R" -----
 # so that they're calculated once instead of many times

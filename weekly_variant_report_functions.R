@@ -72,6 +72,7 @@ myciprop = function(voc,
       survey::svyciprop(~VOC,
                         design = srv_design,
                         method = "xlogit",
+                        level = level,
                         ...)
     )
   } else {
@@ -80,6 +81,7 @@ myciprop = function(voc,
     res = suppressWarnings(
       svycipropkg(~VOC,
                   design = srv_design,
+                  level = level,
                   ...)
     )
   }
@@ -820,20 +822,28 @@ se.multinom = function(mlm,
 # Function to get binomial confidence interval based on the point estimated
 # proportion and associated SE
 # (based on output from svymultinom & se.multinom functions)
-svyCI = function(p, s) {
+svyCI = function(p, s, ...) {
   # p = point estimate
   # s = estimated standard error
+  # ... optional arguments passed on to prop.test (e.g. conf.level = 0.95)
 
   # if se is 0, n will be Inf (possibly because of non-invertible Hessian); return CI of 0,0
-  if(s == 0){
-    return(c(0,0))
+  if (s == 0) {
+    return(c(0, 0)) # return confidence interval of [0,0]
+  } else if (p == 0) {
+    # if p == 0 or p == 1, then n will be 0 & prop.test will throw an error
+    return(c(0, 0)) # return confidence interval of [0,0]
+  } else if (p == 1) {
+    return(c(1, 1)) # return confidence interval of [1,1]
   } else {
     # calculate the sample size
-    n = p*(1-p)/s^2
+    n = p * (1 - p) / s^2
 
     # calculate the confidence interval using a proportion test
-    out = prop.test(x = n * p,   # a vector of counts of successes
-                    n = n        # a vector of counts of trials
+    out = prop.test(
+      x = n * p, # a vector of counts of successes
+      n = n, # a vector of counts of trials
+      ...
     )$conf.int
 
     ### UPDATE ####
@@ -862,13 +872,9 @@ svyCI = function(p, s) {
     # the nominal value.
 
     # return the lower and upper confidence interval limits
-    return(c(out[1],out[2]))
+    return(c(out[1], out[2]))
   }
 }
-
-
-
-
 
 
 
