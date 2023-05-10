@@ -1399,6 +1399,9 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
             unwt_doubling_time_logodds = log(2) / unwt_growth_rate_logodds * 7
           )
       ]
+
+      # convert to character (for merging)
+      unwt.ftnt[, 'Fortnight_ending' := as.character(Fortnight_ending)]
     } # end calculated unweighted proportions
 
     # calculate weighted and/or unweighted estimates with survey design
@@ -1861,6 +1864,8 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
         # remove temporary columns
         all.ftnt2[, time_diff_days := NULL]
         all.ftnt2[, start_share    := NULL]
+        # convert time back to character for merging
+        all.ftnt2[, Fortnight_ending := as.character(Fortnight_ending)]
       } # end calc w-o-w growth rate
 
       # select columns for the final results
@@ -1907,6 +1912,12 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
                                                     .('total_test_positives' = sum(POSITIVE, na.rm = T)),
                                                     by = c('fortnight_end', 'HHS')]
 
+          # fortnightly tests
+          tests_fn <- rbind(tests_fn_us,
+                            tests_fn_hhs)
+          # convert time to character for merging
+          tests_fn[, fortnight_end := as.character(fortnight_end)]
+
           # merge the positive test results in with the variant proportion estimates
           all.ftnt2 <- merge(
             x = all.ftnt2,
@@ -1932,6 +1943,10 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
 
       # re-order results by HHS region [so that "other" variants are not listed seperately]
       all.ftnt2 <- all.ftnt2[order(all.ftnt2$USA_or_HHSRegion),]
+
+      # make sure both Fortnight_ending columns are the same type
+      all.ftnt2[, 'Fortnight_ending' := as.character(Fortnight_ending)]
+      unwt.ftnt[, 'Fortnight_ending' := as.character(Fortnight_ending)]
 
       # merge on the unweighted estimates
       all.ftnt3 <- merge(
@@ -2097,6 +2112,9 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
                 unwt_doubling_time_logodds = log(2) / unwt_growth_rate_logodds * 7
             )
           ]
+
+            # convert time to character for merging
+            unwt.wkly[, WEEK_END := as.character(WEEK_END)]
       } # end calculated unweighted proportions
 
 
@@ -2547,6 +2565,9 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
           # remove temporary columns
           all.wkly2[, time_diff_days := NULL]
           all.wkly2[, start_share    := NULL]
+
+            # convert time to character for merging
+            all.wkly2[, WEEK_END := as.character(WEEK_END)]
       } # end calculate WoW growth rate
 
       # select the columns to save
@@ -2595,11 +2616,15 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
                                                 .('total_test_positives' = sum(POSITIVE, na.rm = T)),
                                                 by = c('yr_wk', 'HHS')]
 
+          tests_wk <- rbind(tests_wk_us,
+                            tests_wk_hhs)
+          tests_wk[,'WEEK_END' := as.character(as.Date(yr_wk) + 6)]
+          tests_wk[, 'yr_wk' := NULL]
+
           # merge the positive test results in with the variant proportion estimates
           all.wkly2 <- merge(
             x = all.wkly2,
-            y = rbind(tests_wk_us,
-                      tests_wk_hhs)[,'WEEK_END' := as.Date(yr_wk) + 6][, 'yr_wk' := NULL],
+            y = tests_wk,
             by.x = c("USA_or_HHSRegion",
                     "WEEK_END"),
             by.y = c('HHS',
@@ -2623,6 +2648,10 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
 
       # output data file depends on NO change in all.wkly2 column order!!!
       # If new columns are to be added, they need to go to the end.
+
+      # make sure both WEEK_END columns are the same type
+      all.wkly2[, 'WEEK_END' := as.character(WEEK_END)]
+      unwt.wkly[, 'WEEK_END' := as.character(WEEK_END)]
 
       # merge on the unweighted estimates
       all.wkly3 <- merge(
