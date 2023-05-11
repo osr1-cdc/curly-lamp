@@ -31,19 +31,25 @@
 #$ -m ea
 # 
 # Choose queue
-# -q all.q
-#$ -q covid.q
+#$ -q all.q
+# -q covid.q
 #
 # Set the parallel_environment to "smp" and use xx cores (smp = Symmetric multiprocessing or shared-memory multiprocessing); MAKE SURE THIS IS >= p CORES!
-#$ -pe smp 8
+#$ -pe smp 24
+# Set the amount of RAM (per processor) to use (default is 32 GB)
+#$ -l h_vmem=360G
+# set the run-time <hh:mm:ss> (default is 72 hrs)
+#$ -l h_rt=03:00:00
 
 source /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
 
-Rscript weekly_variant_report_nowcast.R -r 2 -c F -v F -t quantile_99 -s T -p 10
+Rscript weekly_variant_report_nowcast.R -r 2 -c F -v F -t quantile_99 -s T -p 20 -w weighted -b updated
 # -r = run number
 # -c = include custom lineages
+# -n = nextclade_pango
 # -v = use reduced vocs
 # -t = trim weights
 # -s = save datasets (results are always saved)
 # -p = number of parallel cores to use (or FALSE for not using parallel); MAKE SURE TO SET SMP SETTINGS TO HAVE AT LEAST p CORES!
-
+# -w = weighted_methods ("weighted", "unweighted", or "both")
+# -b = weight_type ("original", "updated", or "population")
