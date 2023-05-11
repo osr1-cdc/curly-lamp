@@ -37,10 +37,14 @@
 #
 # Set the parallel_environment to "smp" and use xx cores (smp = Symmetric multiprocessing or shared-memory multiprocessing); MAKE SURE THIS IS >= p CORES!
 #$ -pe smp 2
+# Set the amount of RAM (per processor) to use (default is 32 GB)
+#$ -l h_vmem=120G
+# set the run-time <hh:mm:ss> (default is 72 hrs)
+#$ -l h_rt=03:00:00
 
 source /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
 
-Rscript weekly_variant_report_nowcast.R -r 3 -c F -v F -t quantile_99 -s T -p 10
+Rscript weekly_variant_report_nowcast.R -r 3 -c F -v F -t quantile_99 -s T -p 10 -w weighted -b updated
 # -r = run number
 # -c = include custom lineages
 # -v = use reduced vocs

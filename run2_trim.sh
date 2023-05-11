@@ -19,7 +19,7 @@
 #
 # Set up mail address for script
 # -M ncy6@cdc.gov,fep2@cdc.gov,nyy7@cdc.gov,qiu5@cdc.gov,rsv4@cdc.gov,oow9@cdc.gov
-#$ -M rsv4@cdc.gov
+#$ -M qiu5@cdc.gov
 # ncy6 = Norman Hassell
 # fep2 = Clinton Paden
 # nyy7 = Sandra Seby
@@ -35,9 +35,9 @@
 # -q covid.q
 #
 # Set the parallel_environment to "smp" and use xx cores (smp = Symmetric multiprocessing or shared-memory multiprocessing); MAKE SURE THIS IS >= p CORES!
-#$ -pe smp 16
+#$ -pe smp 24
 # Set the amount of RAM (per processor) to use (default is 32 GB)
-#$ -l h_vmem=240G
+#$ -l h_vmem=360G
 # set the run-time <hh:mm:ss> (default is 72 hrs)
 #$ -l h_rt=03:00:00
 

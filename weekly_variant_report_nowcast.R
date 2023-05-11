@@ -34,7 +34,7 @@ options(survey.adjust.domain.lonely = T,
         stringsAsFactors = FALSE)
 
    # optionally calculate 99% confidence intervals (in addition to 95% intervals)
-   calc_99_CI_weighted <- TRUE
+   calc_99_CI_weighted <- FALSE
    calc_99_CI_nowcast  <- TRUE
 
 ## optparse option list --------------------------------------------------------
@@ -4550,9 +4550,7 @@ if ( grepl("Run2",tag) ){
       "doubling_time_hi",
       "date",
       "week_start",
-      "model_week",
-      "growth_rate_2",
-      "doubling_time_2"
+      "model_week"
     )
     if(calc_99_CI_nowcast) proj.res_column_names <- c(proj.res_column_names, 'Share_lo_99', 'Share_hi_99')
     # subset to the columns we want
@@ -4827,7 +4825,7 @@ if ( grepl("Run2",tag) ){
                               "_daily.csv"),
                 row.names = FALSE)
     } # end QA check for daily results
-  # end loop over weighted_methods (unweighted, weighted)
+  }# end loop over weighted_methods (unweighted, weighted)
 } # end Run2
 
 
