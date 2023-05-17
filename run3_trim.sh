@@ -38,7 +38,7 @@
 # Set the parallel_environment to "smp" and use xx cores (smp = Symmetric multiprocessing or shared-memory multiprocessing); MAKE SURE THIS IS >= p CORES!
 #$ -pe smp 2
 # Set the amount of RAM (per processor) to use (default is 32 GB)
-#$ -l h_vmem=120G
+#$ -l h_vmem=240G
 # set the run-time <hh:mm:ss> (default is 72 hrs)
 #$ -l h_rt=03:00:00
 

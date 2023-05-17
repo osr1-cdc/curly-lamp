@@ -527,7 +527,7 @@ FROM sc2_archive.nrevss_frozen H
 INNER JOIN
 (SELECT max(date_frozen) as max_frozen
     FROM sc2_archive.nrevss_frozen hf
-    WHERE to_date(hf.date_frozen) = ", date_frozen,"
+    WHERE to_date(hf.date_frozen) = ', date_frozen, '
 ) as F
 ON H.date_frozen = F.max_frozen'
 ))
@@ -1668,10 +1668,12 @@ NC_labs_to_agg <- grep(pattern = "(INFECTIOUS DISEASES,  NC SLPH COVID-19 RESPON
                        x = unique_labs,
                        ignore.case = T,
                        value = T)
-labnames_df_nc <- data.frame(old_name = NC_labs_to_agg,
-                             new_name = "INFECTIOUS DISEASES, NC SLPH COVID-19 RESPONSE TEAM")
-# svy.dat[svy.dat$LAB %in% NC_labs_to_agg,"LAB2"] <- labnames_df_nc$new_name[1]
-svy.dat[LAB %in% NC_labs_to_agg, "LAB2" := labnames_df_nc$new_name[1]]
+if (length(NC_labs_to_agg)>0){
+  labnames_df_nc <- data.frame(old_name = NC_labs_to_agg,
+                              new_name = "INFECTIOUS DISEASES, NC SLPH COVID-19 RESPONSE TEAM")
+  # svy.dat[svy.dat$LAB %in% NC_labs_to_agg,"LAB2"] <- labnames_df_nc$new_name[1]
+  svy.dat[LAB %in% NC_labs_to_agg, "LAB2" := labnames_df_nc$new_name[1]]
+} else labnames_df_nc <- NULL
 
 # Aggregate other NC labs
 NC2_labs_to_agg <- unique_labs[grepl(pattern = "NORTH CAROLINA STATE LABORATORY OF PUBLIC HEALTH",
