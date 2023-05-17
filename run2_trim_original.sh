@@ -5,13 +5,13 @@
 # This is the same as adding these lines to the actual qsub line
 #
 # save the standard output text to this file instead of the the default jobID.o file
-#$ -o Run2_CDT_o.out
+#$ -o Run2_CDT_O.out
 #
 # save the standard error text to this file instead of the the default jobID.e file
-#$ -e Run2_CDT_o.err
+#$ -e Run2_CDT_O.err
 # 
 # Rename the job to be this string instead of the default which is the name of the script
-#$ -N run2_CDT_o
+#$ -N run2_CDT_O
 # 
 # Refer all file reference to work the current working directory which is
 # the directory from which the script was qsubbed
@@ -37,7 +37,7 @@
 # Set the parallel_environment to "smp" and use xx cores (smp = Symmetric multiprocessing or shared-memory multiprocessing); MAKE SURE THIS IS >= p CORES!
 #$ -pe smp 24
 # Set the amount of RAM (per processor) to use (default is 32 GB)
-#$ -l h_vmem=360G
+#$ -l h_vmem=280G
 # set the run-time <hh:mm:ss> (default is 72 hrs)
 #$ -l h_rt=03:00:00
 
