@@ -32,11 +32,16 @@
 #$ -m ea
 # 
 # Choose queue
-# -q all.q
-#$ -q covid.q
+#$ -q all.q
+# -q covid.q
 #
 # Set the parallel_environment to "smp" and use xx cores (smp = Symmetric multiprocessing or shared-memory multiprocessing); MAKE SURE THIS IS >= p CORES!
 #$ -pe smp 2
+# Set the amount of RAM (per processor) to use (default is 32 GB)
+#$ -l h_vmem=32G
+# set the run-time <hh:mm:ss> (default is 72 hrs)
+#$ -l h_rt=01:00:00
+
 
 source /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
 
