@@ -527,10 +527,10 @@ FROM sc2_archive.nrevss_frozen H
 INNER JOIN
 (SELECT max(date_frozen) as max_frozen
     FROM sc2_archive.nrevss_frozen hf
-    WHERE to_date(hf.date_frozen) = ', date_frozen, '
+    WHERE to_date(hf.date_frozen) = ', '"2023-05-24"', '
 ) as F
 ON H.date_frozen = F.max_frozen'
-))
+)) #     WHERE to_date(hf.date_frozen) = ', date_frozen, '
 
 # Get the vocs included in run 2
 # only if voc2_manual is not set
@@ -1890,6 +1890,15 @@ labnames_df_pi <- data.frame(old_name = PI_labs_to_agg,
                              new_name = "THE PIANTADOSI LAB,  DEPARTMENT OF PATHOLOGY AND LABORATORY MEDICINE, EMORY UNIVERSITY SCHOOL OF MEDICINE")
 svy.dat[LAB %in% PI_labs_to_agg, 'LAB2' := labnames_df_pi$new_name[1]]
 
+
+# added 2023-05-24: remove sequences from "Broad Institute's Genomic Center For Infectious Diseases (GCID)" that were collected in 2023
+# added here before they get aggregated into "BROAD INSTITUTE"
+print(paste('Removing', 
+    svy.dat[ (LAB == toupper("Broad Institute's Genomic Center For Infectious Diseases (GCID)") & date >= '2023-01-01'), length(date) ],
+    'sequences from "Broad Institute\'s Genomic Center For Infectious Diseases (GCID)" collected since 2023-01-01'))
+svy.dat <- svy.dat[ !(LAB == toupper("Broad Institute's Genomic Center For Infectious Diseases (GCID)") & date >= '2023-01-01') ]
+
+
 broad_labs_to_agg <- grep(pattern = "BROAD INSTITUTE",
                          x = unique_labs,
                          ignore.case = T,
@@ -2216,7 +2225,7 @@ low_lab <- check_count$LAB2[ check_count$count < 100 ]
   #  dropped_sequences[is.na(count) & reason == 'n_dropped_CDC_lab', 'count' := 0]
 
    # counts of low lab sequences by week
-   low_by_wk <- us.dat[ low_lab_seqs, .('count' = .N), by = 'yr_wk']
+   low_by_wk <- svy.dat[ low_lab_seqs, .('count' = .N), by = 'yr_wk']
    low_by_wk[, 'yr_wk' := as.Date(yr_wk)]
    # merge in the counts of low lab sequences by week
    if(nrow(low_by_wk) > 0)
@@ -2236,8 +2245,8 @@ write.csv(x = dropped_sequences,
 
 # print('table of omicron sequences from labs with > 100 sequences:')
 # table(svy.dat$VARIANT[grep('(B\\.1\\.1\\.529)|(BA\\.[0-9])', x = svy.dat$VARIANT)])
-print('table of omicron sequences that will be included in analysis:')
-table(svy.dat$VARIANT[ svy.dat$LAB2 != 'OTHER'][grep('(B\\.1\\.1\\.529)|(BA\\.[0-9])|(BC\\.[0-9])|(BD\\.[0-9])|(BE\\.[0-9])|(BF\\.[0-9])|(BG\\.[0-9])', x = svy.dat$VARIANT[ svy.dat$LAB2 != 'OTHER'])])
+# print('table of omicron sequences that will be included in analysis:')
+# table(svy.dat$VARIANT[ svy.dat$LAB2 != 'OTHER'][grep('(B\\.1\\.1\\.529)|(BA\\.[0-9])|(BC\\.[0-9])|(BD\\.[0-9])|(BE\\.[0-9])|(BF\\.[0-9])|(BG\\.[0-9])', x = svy.dat$VARIANT[ svy.dat$LAB2 != 'OTHER'])])
 
 # Create survey weights --------------------------------------------------------
 

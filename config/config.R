@@ -37,7 +37,7 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 #data_date <- Sys.Date()
-data_date <- as.Date('2023-05-16')
+data_date <- as.Date('2023-05-23')
 # This needs to be a date on which data were frozen in the CDP database
 # Set specific date_frozen to read sequencing data; but read test data and voc list from the data_date backup files. This can be used to rerun modeling using later date backfilled data. 
 # Default would be data_date
@@ -50,7 +50,7 @@ use_previously_imported_data <- FALSE
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
 # the specified run set before each set is run
-results_tag <- "test"
+results_tag <- "set2"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
@@ -96,6 +96,7 @@ voc1 = c(# "AY.1", "AY.2",
          'FD.2',
          'XBB.1.9.2',
          'XBB.1.16',
+         'XBB.1.16.1',
          'XBB.2.3',
          "B.1.617.2", # Delta
          "B.1.1.529") # Omicron
