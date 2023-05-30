@@ -19,7 +19,7 @@
 #
 # Set up mail address for script
 # -M ncy6@cdc.gov,fep2@cdc.gov,nyy7@cdc.gov,qiu5@cdc.gov,rsv4@cdc.gov,oow9@cdc.gov
-#$ -M qiu5@cdc.gov
+#$ -M rsv4@cdc.gov
 # ncy6 = Norman Hassell
 # fep2 = Clinton Paden
 # nyy7 = Sandra Seby
@@ -43,7 +43,7 @@
 
 source /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
 
-Rscript weekly_variant_report_nowcast.R -r 2 -c F -v F -t quantile_99 -s T -p 20 -w weighted -b updated
+Rscript weekly_variant_report_nowcast.R -r 2 -c F -v F -t quantile_99 -s T -p 24 -w weighted -b updated -d FALSE -e updated
 # -r = run number
 # -c = include custom lineages
 # -n = nextclade_pango
@@ -53,3 +53,5 @@ Rscript weekly_variant_report_nowcast.R -r 2 -c F -v F -t quantile_99 -s T -p 20
 # -p = number of parallel cores to use (or FALSE for not using parallel); MAKE SURE TO SET SMP SETTINGS TO HAVE AT LEAST p CORES!
 # -w = weighted_methods ("weighted", "unweighted", or "both")
 # -b = weight_type ("original", "updated", or "population")
+# -d = voc2_extra_preaggregation (TRUE, FALSE)
+# -e = voc_aggregation_method ("original" or "updated")

@@ -37,20 +37,20 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 #data_date <- Sys.Date()
-data_date <- as.Date('2023-05-09')
+data_date <- as.Date('2023-05-23')
 # This needs to be a date on which data were frozen in the CDP database
-# Set specific date_frozen to read sequencing data; but read test data and voc list from the data_date backup files. This can be used to rerun modeling using later date backfilled data. 
+# Set specific date_frozen to read sequencing data; but read test data and voc list from the data_date backup files. This can be used to rerun modeling using later date backfilled data.
 # Default would be data_date
 date_frozen_toread <- data_date
 # date_frozen_toread <- as.Date('2023-01-10')
-# If the data was already pulled and you want to just use that data instead of re-pulling it, set here. 
+# If the data was already pulled and you want to just use that data instead of re-pulling it, set here.
 # This is useful if you aggregate some lab names at the end of this code and then want to re-run the
-# script after changing which labs get aggregated. 
+# script after changing which labs get aggregated.
 use_previously_imported_data <- FALSE
 
-# results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
+# results folder name inherits from data_date for auto completion, however the set name needs to be edited to
 # the specified run set before each set is run
-results_tag <- "CDT_O"
+results_tag <- "O2"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
@@ -96,6 +96,7 @@ voc1 = c(# "AY.1", "AY.2",
          'FD.2',
          'XBB.1.9.2',
          'XBB.1.16',
+         'XBB.1.16.1',
          'XBB.2.3',
          "B.1.617.2", # Delta
          "B.1.1.529") # Omicron
@@ -278,7 +279,7 @@ n_top = 10
 n_recent_weeks = 7
 
 # Multinomial model includes current week + model_weeks weeks of previous data
-# To exclude the -1 and -2 week (last week and the week before last week) from modeling, 
+# To exclude the -1 and -2 week (last week and the week before last week) from modeling,
 # change the model_weeks to 19 and use the model_time_end as data_date - as.numeric(format(data_date, '%w')) - 15
 model_weeks = 21 # early on the model ended up including 1 more week than was set here. Now it includes the number set here.
 #Model_week ends with the last weighted week
@@ -361,7 +362,7 @@ force_aggregate_omicron_except <- c(
          'BA.5',
          'BA.5.2.6',
          "BQ.1",
-         "BQ.1.1") 
+         "BQ.1.1")
 #c('BA.1.1','BA.2','BA.3','BA.4','BA.5','BA.5.2.6', 'BA.2.12.1','BA.4.6', 'BA.2.75', 'BF.7', 'BA.2.75.2', 'BQ.1', 'BQ.1.1') # 'BA.2.12', 'BA.1.1'
 
 
@@ -387,7 +388,7 @@ force_aggregate_B.1 <- TRUE
 # this can help avoid numerical overflow when trying to calculate prediction intervals.
 rescale_model_weights <- TRUE
 # how to rescale model weights
-rescale_model_weights_by <- 'max'
+rescale_model_weights_by <- 100
 # options: "max", "mean", [number]
 
 # optionally remove UTAH PHL sequences (b/c they were causing issues with Region 8 estimates in January, 2022)

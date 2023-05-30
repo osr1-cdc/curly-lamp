@@ -6,3 +6,10 @@ data/
 .Rproj.user
 Notes_to_self_on_git.txt
 config/config.R.orig
+02_weekly_variant_report_functions.R
+Run2_*.err
+Run2_*.out
+config_sherry.R
+weights_comparison.R
+variant_surveillance_system_sherry
+variant_surveillance_system_sherry.R
