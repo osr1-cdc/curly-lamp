@@ -5,13 +5,13 @@
 # This is the same as adding these lines to the actual qsub line
 #
 # save the standard output text to this file instead of the the default jobID.o file
-#$ -o Run2_CDT.out
+#$ -o Run2_CDT_oldagg.out
 #
 # save the standard error text to this file instead of the the default jobID.e file
-#$ -e Run2_CDT.err
+#$ -e Run2_CDT_oldagg.err
 # 
 # Rename the job to be this string instead of the default which is the name of the script
-#$ -N run2_CDT
+#$ -N run2_CDT_oldagg
 # 
 # Refer all file reference to work the current working directory which is
 # the directory from which the script was qsubbed
@@ -43,7 +43,7 @@
 
 source /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
 
-Rscript weekly_variant_report_nowcast.R -r 2 -c F -v F -t quantile_99 -s T -p 24 -w weighted -b updated -d FALSE -e updated
+Rscript weekly_variant_report_nowcast.R -r 2 -c F -v F -t quantile_99 -s T -p 24 -w weighted -b updated -d FALSE -e original
 # -r = run number
 # -c = include custom lineages
 # -n = nextclade_pango
