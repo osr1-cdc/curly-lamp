@@ -33,12 +33,24 @@ options(survey.adjust.domain.lonely = T,
         survey.lonely.psu = "average",
         stringsAsFactors = FALSE)
 
-   # optionally calculate 99% confidence intervals (in addition to 95% intervals)
-   calc_99_CI_weighted <- FALSE
-   calc_99_CI_nowcast  <- TRUE
+# optionally calculate 99% confidence intervals (in addition to 95% intervals)
+calc_99_CI_weighted <- FALSE # these might add a lot of time
+calc_99_CI_nowcast  <- TRUE  # these should not add a lot of time
 
 ## optparse option list --------------------------------------------------------
 {
+  # -r run_number
+  # -c custom_lineages
+  # -n nextclade_pango
+  # -v reduced_vocs
+  # -t trim_weights
+  # -s save_datasets_to_file
+  # -p parallel_cores
+  # -w weighted_methods
+  # -b weight_type
+  # -d voc2_extra_preaggregation
+  # -e voc_aggregation_method
+
   # (get the run number from the command line)
   option_list <- list(
 
@@ -66,6 +78,7 @@ options(survey.adjust.domain.lonely = T,
       help    = "Whether or not to use custom lineages (character value of T or F)",
       metavar = "character"
     ),
+
     # Get lineage definition from sc2_src.nextclade instead of the default sc2_src.pangolin
     optparse::make_option(
       opt_str = c("-n", "--nextclade_pango"),
@@ -74,6 +87,7 @@ options(survey.adjust.domain.lonely = T,
       help    = "Whether or not to swith to get lineage defintion from sc2_src.nextclade instead of sc2_src.pangolin (character value of T or F)",
       metavar = "character"
     ),
+
     # whether or not to use reduced vocs
     optparse::make_option(
       opt_str = c("-v", "--reduced_vocs"),
@@ -117,7 +131,7 @@ options(survey.adjust.domain.lonely = T,
       default = "12",
       help    = "Number of cores for parallel estimation of weighted proportions",
       metavar = "character"
-         ),
+    ),
 
     # choose how to calculated proportions (and CI)
     # options: weighted   =   weighted estimate with survey-design-based CI
@@ -142,6 +156,30 @@ options(survey.adjust.domain.lonely = T,
       default = "updated",
       help    = 'options include "original", "updated", and "population" ',
       metavar = "character"
+    ),
+
+    # whether or not to aggregate subvariants when looking for voc2 that are
+    # over 0.5% in lag week -3
+    # e.g. when TRUE, if variant xyz.123 meets the 0.5% criterion for inclusion in voc2,
+    #      then all subvariants of xyz.123 (that are not already included in voc2) will be
+    #      aggregated into xyz.123. This scenario is unlikely to occur unless a variant and
+    #      its subvariants are split out in at the same time.
+    optparse::make_option(
+      opt_str = c("-d", "--voc2_extra_preaggregation"),
+      type    = "character",
+      default = "FALSE",
+      help    = 'T/F, whether or not to pre-aggregate subvariants (to myriad parent variants) when looking for extra vocs to include in Nowcast modeling',
+      metavar = "character"
+    ),
+    # voc aggregation method
+    # original = the lengthy code based on abbreviated pango lineages
+    # updated = shorter/faster code based on lineage_expanded
+    optparse::make_option(
+      opt_str = c("-e", "--voc_aggregation_method"),
+      type    = "character",
+      default = "updated", # "original"; "updated"/"lineage_expanded"
+      help    = "Whether to use the original voc aggregation method (based on variant name) or the updated method (based on lineage_expanded)",
+      metavar = "character"
     )
   )
 
@@ -159,7 +197,7 @@ options(survey.adjust.domain.lonely = T,
         custom_lineages = TRUE
         custom_tag = "_custom_nextcladepango"
       } else {
-      errorCondition(message = paste0('nextclade_pango must be "T" or "F". Argument provide: ', opts$nextclade_pango))
+        errorCondition(message = paste0('nextclade_pango must be "T" or "F". Argument provide: ', opts$nextclade_pango))
       }
     }
   } else {
@@ -167,12 +205,12 @@ options(survey.adjust.domain.lonely = T,
       if(toupper(opts$nextclade_pango) %in% c('F', 'FALSE', 'N', 'NO')){
         custom_lineages = FALSE
         custom_tag = ""
-    } else {
-      if(toupper(opts$nextclade_pango) %in% c('T', 'TRUE', 'Y', 'YES')){
-        custom_lineages = FALSE
-        custom_tag = "_nextcladepango"
+      } else {
+        if(toupper(opts$nextclade_pango) %in% c('T', 'TRUE', 'Y', 'YES')){
+          custom_lineages = FALSE
+          custom_tag = "_nextcladepango"
+        }
       }
-    }
     }
   }
 
@@ -210,6 +248,14 @@ options(survey.adjust.domain.lonely = T,
     use_parallel = TRUE
     ncores = as.numeric(opts$parallel_cores)
   }
+
+  # whether or not to aggregate subvariants to various parent levels when looking for extra voc to include in Nowcast modeling
+  if( toupper(opts$voc2_extra_preaggregation) %in% c('F', 'FALSE', 'N', 'NO', '0')){
+    voc2_extra_preaggregation = FALSE
+  } else {
+    voc2_extra_preaggregation = TRUE
+  }
+
 
   # type of estimates to produce
   if( toupper(opts$weighted_methods) %in% c('BOTH')){
@@ -270,6 +316,118 @@ output_folder <- paste0("/results/", results_folder)
 # create a tag for the filenames to differentiate results from different runs
 tag <- paste0("_",state_source,"_Run", opts$run_number, reduced_voc_tag, custom_tag)
 
+
+# define some functions for automated lineage aggregation
+# these will be needed for both "voc2_extra_preaggregation" and "voc_aggregation_method" == 'updated',
+{
+  # define a function to find a variant's nearest parent from a list of
+  # options. It defines "parent" as the longest string that is a subset
+  # of the child variant name. (So it only works on extended names.)
+  # If no match is found, it returns "Other"
+  # takes 3 arguments:
+  # arg x  = (string) variant name to look up
+  # arg y  = (string) vector of voc (extended)
+  # arg no_match = (string) what to return if there is no match
+  # returns string with the parent's name
+  np = function(x, y, no_match = 'Other') {
+
+    # only look for parents in y, so each y MUST be shorter than x
+    y <- y[ nchar(y) <= nchar(x) ]
+
+    # add a "." to all y that are shorter than x (to make sure that the parent variant IS a parent)
+    # e.g. without the extra ".", the parent of BA.5.22 might be identified as BA.5.2 (shorter & a perfect subset)
+    y. <- y
+    y.[ nchar(y) < nchar(x) ] <- paste0(y[ nchar(y) < nchar(x) ], '.')
+
+    # split out each character in x & y
+    sx = strsplit(x, "", fixed = TRUE)
+    sy = strsplit(y., "", fixed = TRUE)
+
+    # calculate an array of match proportions (based on: https://stackoverflow.com/a/33120009/3174566)
+    match_array <- array(
+      # cycle over each string in X and Y
+      data = mapply(function(X, Y) {
+        # get the length of the shorter (parent) string
+        #slen = seq_len(min(length(X), length(Y)))
+        ylen <- seq_len(length(Y))
+
+        # test if the first slen characters are the same in both strings
+        # if they're not the same, calculate the proportion of characters (starting from the beginning) that are the same (i.e. how far you get through the string before the first mismatch)
+        # wh <- (X[slen] == Y[slen])
+        # if(all(wh)) return(1) else (which.min(wh) - 1) / length(slen)
+        wh <- (X[ylen] == Y[ylen])
+        if(all(wh)) return(1) else (which.min(wh) - 1) / length(ylen)
+      },
+      # values of X to pass to mapply function (just repeat x for each item in y)
+      rep(sx, each = length(sy)),
+      # values of Y to pass to mapply function
+      sy),
+      # dimensions for the array
+      dim = c(length(x), length(y)),
+      # names of the dimensions for the array
+      dimnames = list(x, y)
+    )
+    # match_array has x strings on the x-axis and y strings on the
+    # y-axis. The numbers in the array are the proportion of the 2 strings
+    # that match (starting from beginning; so the proportion is how far through
+    # the string you get before the first mismatch). A value of 1
+    # means that the shorter string is a subset of the longer string.
+
+    # id which matches are complete matches
+    match100 <- colnames(match_array)[ match_array[1,] == 1 ]
+
+    # if there are complete matches, get the parent
+    if( length(match100) > 0 ) {
+
+      # the longest complete match is the closest parent
+      return(match100[ nchar(match100) == max(nchar(match100)) ])
+
+      # # return the longest complete match (that is still shorter than x) as the nearest parent
+      # match100_2 <- match100[ (nchar(match100) < nchar(x)) ]
+      #
+      # # if there are complete matches where
+      # if( length(match100_2) > 0 ) return(match100_2[ nchar(match100_2) == max(nchar(match100_2)) ])
+      # else return(no_match)
+    } else {
+      # if there are no complete matches, return "Other"
+      return(no_match)
+    }
+  }
+  # sapply(sort(unname(unlist(extra_voc_to_consider))), function(x) nearest_parent(x, vocxl))
+
+  # convert function "np" to work on a vector of x (reuses the same y vector for each element in x)
+  nearest_parent <- function(x, y, no_match = 'Other') {
+    # this just uses "sapply" to look for the nearest parent of each x in y
+    sapply( x, function(x_i) np(x_i,  y ) )
+  }
+
+  # # This is a shorter & easier-to-understand version of the "np" function
+  # # (but it runs about 8 times slower than "np")
+  # np2 <- function(x, y, no_match = 'Other'){
+  #
+  #    # y is a parent of x if x & y start with identical characters, then the next character in x is either "\\." or end of string "$"
+  #    # all the parent variants in y
+  #    all_pv <- y[unlist(lapply(y, function(p){
+  #       grepl(pattern = paste0(gsub(pattern = '\\.', replacement = '\\\\.', paste0('^', p)), '((\\.)|($))'),
+  #            x = x)
+  #    }))]
+  #
+  #    # if there are complete matches, get the parent
+  #    if( length(all_pv) > 0 ) {
+  #
+  #       # only the max-length parent variant
+  #       all_pv[ nchar(all_pv) == max(nchar(all_pv))]
+  #
+  #    } else {
+  #       # if there are no complete matches, return "Other"
+  #       return(no_match)
+  #    }
+  # }
+}
+
+
+
+
 ### choose vocs ----------------------------------------------------------------
 # - run number
 # - custom_lineage
@@ -304,24 +462,208 @@ if( grepl("Run2", tag) ) {
         ))
       # copy the 'voc2_auto' file over to the results folder
       file.copy(
-         from = paste0(script.basename,
-                       "/data/voc2_auto_", data_date, custom_tag, ".RDS"),
-         to = paste0(script.basename,
-                     output_folder, "/voc2_auto_", data_date, custom_tag, ".RDS")
+        from = paste0(script.basename,
+                      "/data/voc2_auto_", data_date, custom_tag, ".RDS"),
+        to = paste0(script.basename,
+                    output_folder, "/voc2_auto_", data_date, custom_tag, ".RDS")
       )
+
+      # these will be needed for both "voc2_extra_preaggregation" and "voc_aggregation_method" == 'updated',
+      if (voc2_extra_preaggregation | (tolower(opts$voc_aggregation_method) == 'updated')) {
+        # create a table of alias & expanded lineages
+        lut <- svy.dat[, .(expanded_lineage = unique(expanded_lineage)), by = 'VARIANT']
+
+        # create a table of all samples with short & long names
+        dat.voc <- svy.dat[,.(week, VARIANT, expanded_lineage)]
+
+        # all the expanded lineages
+        xl <- unique(svy.dat$expanded_lineage)
+        # voc list (using expanded names)
+        vocxl <- lut[ VARIANT %in% voc ][['expanded_lineage']]
+        # sort by the number of "." in the name
+        # (this is so that subvariants are analyzed before their parents)
+        vocxl <- vocxl[order(nchar(as.character(vocxl)) - nchar( gsub("\\.", "", vocxl)), decreasing = T)]
+      }
+
+      # voc2_extra_preaggregation looks for sublineages of rare variants.
+      # currently lineages can be added to voc2 if they're > 0.5% in a particular
+      # timeframe, but that's only 0.5% without ANY aggregation.
+      # Instead of looking through every possible aggregation among all variants in
+      # the dataset, this takes the shortcut of only looking at possible aggregations
+      # among sublineages of the variants that are in "voc".
+      if(voc2_extra_preaggregation){
+
+        # subset of svy.dat including only the weeks used for 1p
+        # dat.voc.1p  <- svy.dat[ week > (current_week - 14) & week < (current_week - 2) , .(yr_wk, FORTNIGHT_END, VARIANT, expanded_lineage)]
+        dat.voc.1p  <- svy.dat[ week > (current_week - 16) & week <= (current_week - 2) , .(yr_wk, FORTNIGHT_END, VARIANT, expanded_lineage)]
+        # subset of svy.dat including only the weeks used for .5p
+        # dat.voc.05p <- svy.dat[ week == (current_week - 2) , , .(yr_wk, FORTNIGHT_END, VARIANT, expanded_lineage)]
+        dat.voc.05p <- svy.dat[ FORTNIGHT_END == (svy.dat[week == (current_week - 4),unique(FORTNIGHT_END)]) , .(yr_wk, FORTNIGHT_END, VARIANT, expanded_lineage)]
+        # These filters need to match this query:   https://cdp-01.biotech.cdc.gov:8889/hue/editor?editor=72645
+
+        # vector to hold the extra vocs that I may want to add to voc2
+        # to speed things up, I'll only look for extra sublineages of the vocs, NOT extra sublineages within "OTHER"
+        # (any individual sublineage that meets the criteria will already be included)
+        extra_voc_to_consider <- vector(mode = 'list', length = length(vocxl))
+        # each item in the list corresponds to one of the parent variants in voc
+        # each item contains 0 or more subvariants of that voc that will be included
+        # (split out into a list like this to make double-checking easier)
+        names(extra_voc_to_consider) <- vocxl
+
+        # find sublineages to aggregate
+        # and check their (unweighted) proportion
+        for(v in vocxl){
+          # all subvariants of "v" in the data
+          # identified b/c they start with identical characters, followed by "."
+          sv <- grep(pattern = paste0(gsub(pattern = '\\.', replacement = '\\\\.', paste0('^',v)), '\\.'),
+                     x = xl,
+                     value = T)
+          # identify subvariants of v that are already included in voc
+          svv_in_voc <- base::intersect(vocxl, sv)
+
+          # remove lineages from sve that are already included in voc
+          sve <- setdiff(sv, vocxl)
+
+          # sub-lineages of "v" should not include any lineages that are sub-lineages
+          # of a child lineage that's included in voc
+          for( cl in svv_in_voc ){
+            # identify sub-lineage of (sublineage of v that's in voc)
+            sv_sv <- grep(pattern = paste0(gsub(pattern = '\\.', replacement = '\\\\.', paste0('^',cl)), '\\.'),
+                       x = xl,
+                       value = T)
+            # exclude those sublineages from sv
+            sve <- setdiff(sve,
+                           sv_sv)
+          }
+          # sve
+
+          # only proceed if there are sub-lineages
+          if(length(sve)>0){
+            # count the "." in each name
+            svedf <- data.frame(
+              lin = sve,
+              np = nchar(as.character(sve)) - nchar( gsub("\\.", "", sve)) # count the "." by removing all "." and seeing how much the total length changes
+            )
+
+            # order the subvariants by number of periods and then lineage
+            svedf <- svedf[order(-svedf$np, svedf$lin, decreasing = F),]
+            row.names(svedf) <- 1:nrow(svedf)
+
+            # add columns for whether or not the subvariant meets the qualification
+            # for inclusion in Nowcast model based on unweighted proportion
+            svedf$over0.5 <- 0
+            svedf$over1   <- 0
+
+            # cycle through the lineages, aggregate any sub-lineages into their
+            #  nearest parent, and see if they're over 0.5 or 1 in the relevant weeks
+            for (r in 1:nrow(svedf)){
+
+              # all subvariants for row r
+              # identified b/c they start with identical characters, followed by "." and something else
+              svr <- grep(pattern = paste0(gsub(pattern = '\\.', replacement = '\\\\.', paste0('^', svedf$lin[r])), '\\.'),
+                          x = xl, # all extended lineages in the data
+                          value = T)
+
+              # exclude subvariants that are already included in some other subvariant of v
+              # (svr above includes all subvariants of variant v, but we want to exclude
+              #   subvariants (along with their children) of v that are themselves voc)
+              #   e.g. when looking for subvariants of BA.2, if BA.2.12.1 is also in voc,
+              #        then we don't want to include subvariants of BA.2.12.1 in the list
+              #        of subvariants of BA.2
+              {
+                # exclude subvariants in svr that are subvariants of (a voc that is a subvariant of v)
+                # e.g. when looking for subvariants of BA.2, if BA.2.12.1 is also in voc, then we
+                #      don't want to include subvariants of BA.2.12.1 in the list of subvariants of BA.2
+                # for XBB, XBB.1.18.1 should be excluded b/c of XBB.1, why is it not filtered out??
+                svr <- setdiff(svr,
+                               # get all the subvariants of the vocs that are subvariants of svr (they will be excluded)
+                               unlist(lapply(base::intersect(vocxl, svr), # for each variant in vocxl or in svr
+                                             # look for any child variants (starts the same followed by ".")
+                                             function(v) grep(pattern = paste0(gsub(pattern = '\\.', replacement = '\\\\.', paste0('^', v)), '\\.'),
+                                                              x = xl, value = T)))
+                )
+
+                # exclude subvariants in svr that have already been identified for inclusion in voc2
+                # example: if BA.2.12.1 meets criteria for inclusion in voc2, then do NOT include BA.2.12.1
+                #          in calculations of BA.2.12 frequencies
+                svr <- setdiff(svr,
+                               # get all the rows of svedf that are subvariants of svr & get all their subvariants (they will be excluded)
+                               unlist(lapply(intersect(svedf[ (svedf$over0.5 == 1) | (svedf$over1 == 1), 'lin'], svr),
+                                             function(v) grep(pattern = paste0(gsub(pattern = '\\.', replacement = '\\\\.', paste0('^', v)), '\\.'),
+                                                              x = xl, value = T)))
+                )
+
+                # exclude subvariants in svr that are subvariants of (anything in extra_voc_to_consider that is a subvariant of v)
+                svr <- setdiff(svr,
+                               # get all the rows of svedf that are subvariants of svr & get all their subvariants (they will be excluded)
+                               unlist(lapply(intersect(unlist(extra_voc_to_consider), svr),
+                                             function(v) grep(pattern = paste0(gsub(pattern = '\\.', replacement = '\\\\.', paste0('^', v)), '\\.'),
+                                                              x = xl, value = T)))
+                )
+              }
+
+              # determine whether or not the variant meets the criteria for inclusion in voc2
+              {
+                # subset the data to get the number of sequences in each time frame that's in the specified lineage
+                # whether or not the lineage is in "svr"
+                dat.voc.1p[, 'in_SVR' := expanded_lineage %in% svr]
+                # the number of observations of svr in each fortnight
+                counts_by_var_and_fn <- dat.voc.1p[, .(fortnight_count = sum(in_SVR)), by = 'FORTNIGHT_END']
+                # total counts in each time period
+                counts_by_fn <- dat.voc.1p[, .(count = .N), by = 'FORTNIGHT_END']
+                counts_by_var_and_fn <- merge(counts_by_var_and_fn, counts_by_fn, by = 'FORTNIGHT_END')
+                counts_by_var_and_fn[, 'proportion' := fortnight_count / count]
+
+                # identify variants that meet inclusion critera
+                if( any(counts_by_var_and_fn$proportion > 0.01) )                              svedf[r, 'over1']   <- 1
+                if( nrow(dat.voc.05p[expanded_lineage %in% svr ]) / nrow(dat.voc.05p)> 0.005)  svedf[r, "over0.5"] <- 1
+
+                # clean up
+                rm('counts_by_var_and_fn', 'counts_by_fn')
+                dat.voc.1p[, 'in_SVR' := NULL]
+              }
+            } # end for loop over rows in svedf
+            # extra VOCs to consider aggregating into their nearest parent
+            # svedf[ (svedf$over0.5 == 1) | (svedf$over1 == 1), ]
+            # columns are
+            # - lin = lineage
+            # - np = number of periods in the expanded lineage
+            # - over0.5 = the lineage (plus any child variants) is over 0.5% in the 0.5% time period
+            # - over1 = the lineage (plus any child variants) is over 1% in the 1% time period
+
+            # add the variants to the list of vocs to consider adding to voc2
+            # extra_voc_to_consider <- c(extra_voc_to_consider, svedf[ (svedf$over0.5 == 1) | (svedf$over1 == 1), 'lin'])
+            extra_voc_to_consider[[ which(v == vocxl) ]] <- svedf[ (svedf$over0.5 == 1) | (svedf$over1 == 1), 'lin']
+          } # end if statement (only proceed if there are subvariants)
+        } # end loop over vocs to look for all subvariants
+        # get all levels of all expanded_lineages
+        # extra_voc_to_consider[sapply(extra_voc_to_consider, function(x) !is.null(x) & length(x) > 0)]
+
+        # add the extra_voc_to_consider to voc (after converting back to abbreviated variant names)
+        extra_voc_to_consider_shortname <- setdiff(
+          unname(setNames(lut$VARIANT, lut$expanded_lineage)[unname(unlist(extra_voc_to_consider))]),
+          voc
+        )
+        voc <- c(voc, extra_voc_to_consider_shortname)
+
+        # save the extra voc's to file
+        write.csv(x = data.frame('Added because of voc_extra_preaggregation' = extra_voc_to_consider_shortname ),
+                  file = paste0(script.basename, output_folder, '/voc_extra_preaggregation_variants_', data_date, tag, '.csv'),
+                  row.names = F)
+      } # end if (voc2_extra_preaggregation)
 
     } else {
       voc = voc2_manual
     }
-  }
-}
+  } # end (NOT reduced_vocs) and (NOT pre_aggregation)
+} # end Run2 voc definitions
 if ( grepl("Run3", tag) ) {
   if (reduced_vocs){
     voc = voc3_reduced
   } else {
     voc = voc3
   }
-}
+} # end Run3 voc definitions
 
 # optionally add on the custom lineages
 if (custom_lineages == TRUE) {
@@ -385,6 +727,61 @@ if (force_aggregate_B.1 & ('B.1' %in% voc)) {
 }
 
 
+# Define voc_lut (VOC look-up table) after voc is finalized
+if (voc2_extra_preaggregation | (tolower(opts$voc_aggregation_method) == 'updated')){
+
+  # if these are not already defined, define them
+  # (these will already be defined for only run2)
+  if ( !exists('lut') ) {
+    # create a table of alias & expanded lineages
+    lut <- svy.dat[, .(expanded_lineage = unique(expanded_lineage)), by = 'VARIANT']
+
+    # create a table of all samples with short & long names
+    dat.voc <- svy.dat[,.(week, VARIANT, expanded_lineage)]
+
+    # all the expanded lineages
+    xl <- unique(svy.dat$expanded_lineage)
+    # voc list (using expanded names)
+    vocxl <- lut[ VARIANT %in% voc ][['expanded_lineage']]
+    # sort by the number of "." in the name
+    # (this is so that subvariants are analyzed before their parents)
+    vocxl <- vocxl[order(nchar(as.character(vocxl)) - nchar( gsub("\\.", "", vocxl)), decreasing = T)]
+  }
+
+  # lineage_expanded for each voc
+  voc_expanded <- lut[ VARIANT %in% voc ][['expanded_lineage']]
+
+  # all variants in the data
+  unique_vars <- na.omit(unique(svy.dat$VARIANT))
+  # lineage_expanded for each of unique_vars
+  unique_lineage_expanded <- unname(setNames(lut$expanded_lineage, lut$VARIANT)[ unique_vars ])
+
+  # create a lookup table for all the variants in the data
+  # (originally "lut" included all Pango lineages in the database)
+  # variant = abreviated variant name
+  # lineage_expanded
+  # parent_lineage_expanded = lineage_expanded that this variant will be aggregated into
+  # parent_variant = variant that this variant will be aggregated into
+  voc_lut <- data.frame(
+    'variant'                  = unique_vars,
+    'lineage_expanded'         = unique_lineage_expanded,
+    'parent_lineage_expanded'  = nearest_parent(unique_lineage_expanded, voc_expanded)
+  )
+
+  # add in the parent variant
+  voc_lut$parent_variant <- setNames(voc_lut$variant, voc_lut$lineage_expanded)[voc_lut$parent_lineage_expanded]
+  # update the row names
+  row.names(voc_lut) <- 1:nrow(voc_lut)
+
+  # save the voc aggregation look-up table to file
+  write.csv(x = voc_lut,
+            file = paste0(script.basename, output_folder, '/voc_aggregation_table_', data_date, tag, '.csv'),
+            row.names = F)
+}
+
+
+
+
 ############# REMOVE specified labs
 if (remove_utahphl){
   # grep(pattern = 'utah', x = unique(svy.dat$SOURCE), ignore.case = T, value = T)
@@ -419,7 +816,7 @@ if(state_source == "state_tag_included"){
   # NOTE! This does not include labs that are explicity excluded above by "remove_utahphl" and "remove_broad"
   invalid_labname <- svy.dat$SOURCE == 'OTHER'
   # invalid_labname <- is.na(svy.dat$SOURCE)
-# index of sequences to be excluded b/c of invalid variant name
+  # index of sequences to be excluded b/c of invalid variant name
   invalid_variant <- is.na(svy.dat$VARIANT) | svy.dat$VARIANT == "None" | svy.dat$VARIANT == "Unassigned"
 
   # count sequences that are excluded by week
@@ -583,19 +980,19 @@ src.dat[, "population_weight" := state_population / sum(count), by = c('STUSAB',
 # POSITIVE.HHS        = number of positive tests reported to CLERS in a given HHS region in a given week
 # population_reporting.HHS.nrevss = total population of the states in a given HHS region that reported tests to NREVSS in a given week
 src.dat[
-   ,
-   "proxy_infections" := state_population * sqrt(POSITIVE.HHS.nrevss / TOTAL.HHS.nrevss) *
-      sqrt( POSITIVE.HHS / population_reporting.HHS )]
+  ,
+  "proxy_infections" := state_population * sqrt(POSITIVE.HHS.nrevss / TOTAL.HHS.nrevss) *
+    sqrt( POSITIVE.HHS / population_reporting.HHS )]
 # this formula is equivalent to calculating the regional infections as: sqrt(POSITIVE.HHS.nrevss / TOTAL.HHS.nrevss * population_reporting.HHS * POSITIVE.HHS) and then splitting it up among states in the region based on population (i.e. multiplying by): (state_population / population_reporting.HHS)
 
 # calculate the updated weight (number of infections represented by each sequence) based on "proxy_infections"
 src.dat[, 'updated_weight' := proxy_infections / sum(count), by = c('STUSAB', 'yr_wk')] # this still works for states that are missing POSITIVE in a given week
 # choose which weights to use
 src.dat$SIMPLE_ADJ_WT <- switch(
-   EXPR = tolower(opts$weight_type),
-   'original'       = {src.dat$SIMPLE_ADJ_WT0},
-   'population'     = {src.dat$population_weight},
-   'updated'        = {src.dat$updated_weight}
+  EXPR = tolower(opts$weight_type),
+  'original'       = {src.dat$SIMPLE_ADJ_WT0},
+  'population'     = {src.dat$population_weight},
+  'updated'        = {src.dat$updated_weight}
 )
 
 
@@ -659,403 +1056,420 @@ src.dat = subset(x = src.dat,
 # (redundant with "stringsAsFactors = FALSE")
 src.dat$VARIANT <- src.dat$lineage <- as.character(src.dat$VARIANT)
 
-#Identify all the clades/lineages to aggregate in the surveillance dataset
-# all the AY variants
-AY = sort(unique(src.dat$VARIANT)[grep("^AY",unique(src.dat$VARIANT), perl = T)])
-# just the AY variants that are to be aggregated (i.e. not listed in "voc")
-AY = AY[which(AY %notin% voc)]
-P1=sort(unique(src.dat$VARIANT)[grep("^P\\.1",unique(src.dat$VARIANT), perl = T)])
-P1=P1[which(P1 %notin% voc)] #vector of the P1s to aggregate
-Q=sort(unique(src.dat$VARIANT)[grep("^Q\\.",unique(src.dat$VARIANT), perl = T)])
-Q=Q[which(Q %notin% voc)] #vector of the Qs to aggregate
-B351=sort(unique(src.dat$VARIANT)[grep("^B\\.1\\.351",unique(src.dat$VARIANT), perl = T)])
-B351=B351[which(B351 %notin% voc)] #vector of the B351s to aggregate
-B621=sort(unique(src.dat$VARIANT)[grep("^B\\.1\\.621|^BB\\.",unique(src.dat$VARIANT), perl = T)])
-B621=B621[which(B621 %notin% voc)] #vector of the B621s to aggregate
-B429=sort(unique(src.dat$VARIANT)[grep("^B\\.1\\.429",unique(src.dat$VARIANT), perl = T)])
+if( tolower(opts$voc_aggregation_method) %in% c('updated', 'lineage_expanded') ){
 
-# XBB recombinant lineages
-if('XBB.1.5.1' %in% voc) XBB.1.5.1 <- sort(grep("^XBB\\.1\\.5\\.1(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.1 <- NULL
-if('XBB.1.5.2' %in% voc) XBB.1.5.2 <- sort(grep("^XBB\\.1\\.5\\.2(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.2 <- NULL
-if('XBB.1.5.4' %in% voc) XBB.1.5.4 <- sort(grep("^XBB\\.1\\.5\\.4(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.4 <- NULL
-if('XBB.1.5.5' %in% voc) XBB.1.5.5 <- sort(grep("^XBB\\.1\\.5\\.5(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.5 <- NULL
-if('XBB.1.5.10' %in% voc) XBB.1.5.10 <- sort(grep("^XBB\\.1\\.5\\.10(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.10 <- NULL
-if('XBB.1.5.11' %in% voc) XBB.1.5.11 <- sort(grep("^XBB\\.1\\.5\\.11(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.11 <- NULL
-if('XBB.1.5.13' %in% voc) XBB.1.5.13 <- sort(grep("^XBB\\.1\\.5\\.13(?![0-9])|(^EK\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.13 <- NULL
-if('FD.2' %in% voc) FD.2 <- sort(grep("^FD\\.2(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else FD.2 <- NULL
-if('XBB.1.5.15' %in% voc) {
-  XBB.1.5.15 <- sort(grep("^XBB\\.1\\.5\\.15(?![0-9])|(^FD\\.)", unique(src.dat$VARIANT), perl = T, value = T))
-  XBB.1.5.15 <- setdiff(XBB.1.5.15, c(FD.2))
-} else XBB.1.5.15 <- NULL
-if('XBB.1.5.16' %in% voc) XBB.1.5.16 <- sort(grep("^XBB\\.1\\.5\\.16(?![0-9])|(^FG\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.16 <- NULL
-if('XBB.1.5.17' %in% voc) XBB.1.5.17 <- sort(grep("^XBB\\.1\\.5\\.17(?![0-9])|(^FH\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.17 <- NULL
-if('XBB.1.5.19' %in% voc) XBB.1.5.19 <- sort(grep("^XBB\\.1\\.5\\.19(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.19 <- NULL
-if('XBB.1.5.20' %in% voc) XBB.1.5.20 <- sort(grep("^XBB\\.1\\.5\\.20(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.20 <- NULL
-if('XBB.1.5.21' %in% voc) XBB.1.5.21 <- sort(grep("^XBB\\.1\\.5\\.21(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.21 <- NULL
-if('XBB.1.5.30' %in% voc) XBB.1.5.30 <- sort(grep("^XBB\\.1\\.5\\.30(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.30 <- NULL
-if('XBB.1.5.31' %in% voc) XBB.1.5.31 <- sort(grep("^XBB\\.1\\.5\\.31(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.31 <- NULL
-if('XBB.1.5.32' %in% voc) XBB.1.5.32 <- sort(grep("^XBB\\.1\\.5\\.32(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.32 <- NULL
-if('XBB.1.5.33' %in% voc) XBB.1.5.33 <- sort(grep("^XBB\\.1\\.5\\.33(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.33 <- NULL
-if('XBB.1.5.35' %in% voc) XBB.1.5.35 <- sort(grep("^XBB\\.1\\.5\\.35(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.35 <- NULL
-if('XBB.1.5' %in% voc){
-  XBB.1.5 <- sort(grep("^XBB\\.1\\.5(?![0-9])|^E[KLMU]|^F[DGH]\\.", unique(src.dat$VARIANT), perl = T, value = T))
-  XBB.1.5 <- setdiff(XBB.1.5, c(XBB.1.5.1, XBB.1.5.2, XBB.1.5.4, XBB.1.5.5, XBB.1.5.10, XBB.1.5.11, XBB.1.5.13, XBB.1.5.15, FD.2, XBB.1.5.16, XBB.1.5.17,
-                                XBB.1.5.19, XBB.1.5.20, XBB.1.5.21, XBB.1.5.30, XBB.1.5.31, XBB.1.5.32, XBB.1.5.33, XBB.1.5.35))
+  # use the voc_lut to get the aggregation variant ("parent_variant") for each variant
+  src.dat$VARIANT <- setNames(voc_lut$parent_variant, voc_lut$variant)[ src.dat$VARIANT ]
+
+} else {
+  # use the original variant aggregation code
+  # IMPORTANT! LAST UPDATED on 2023-05-31 for pangolin-data v1.19, pangolin v4.2, usher v0.6.2
+  # This version would not be suitable for usage unless manually updated
+
+  #Identify all the clades/lineages to aggregate in the surveillance dataset
+  # all the AY variants
+  AY = sort(unique(src.dat$VARIANT)[grep("^AY",unique(src.dat$VARIANT), perl = T)])
+  # just the AY variants that are to be aggregated (i.e. not listed in "voc")
+  AY = AY[which(AY %notin% voc)]
+  P1=sort(unique(src.dat$VARIANT)[grep("^P\\.1",unique(src.dat$VARIANT), perl = T)])
+  P1=P1[which(P1 %notin% voc)] #vector of the P1s to aggregate
+  Q=sort(unique(src.dat$VARIANT)[grep("^Q\\.",unique(src.dat$VARIANT), perl = T)])
+  Q=Q[which(Q %notin% voc)] #vector of the Qs to aggregate
+  B351=sort(unique(src.dat$VARIANT)[grep("^B\\.1\\.351",unique(src.dat$VARIANT), perl = T)])
+  B351=B351[which(B351 %notin% voc)] #vector of the B351s to aggregate
+  B621=sort(unique(src.dat$VARIANT)[grep("^B\\.1\\.621|^BB\\.",unique(src.dat$VARIANT), perl = T)])
+  B621=B621[which(B621 %notin% voc)] #vector of the B621s to aggregate
+  B429=sort(unique(src.dat$VARIANT)[grep("^B\\.1\\.429",unique(src.dat$VARIANT), perl = T)])
+
+  # XBB recombinant lineages
+  if('XBB.1.5.1' %in% voc) XBB.1.5.1 <- sort(grep("^XBB\\.1\\.5\\.1(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.1 <- NULL
+  if('XBB.1.5.2' %in% voc) XBB.1.5.2 <- sort(grep("^XBB\\.1\\.5\\.2(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.2 <- NULL
+  if('XBB.1.5.4' %in% voc) XBB.1.5.4 <- sort(grep("^XBB\\.1\\.5\\.4(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.4 <- NULL
+  if('XBB.1.5.5' %in% voc) XBB.1.5.5 <- sort(grep("^XBB\\.1\\.5\\.5(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.5 <- NULL
+  if('XBB.1.5.10' %in% voc) XBB.1.5.10 <- sort(grep("^XBB\\.1\\.5\\.10(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.10 <- NULL
+  if('XBB.1.5.11' %in% voc) XBB.1.5.11 <- sort(grep("^XBB\\.1\\.5\\.11(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.11 <- NULL
+  if('XBB.1.5.13' %in% voc) XBB.1.5.13 <- sort(grep("^XBB\\.1\\.5\\.13(?![0-9])|(^EK\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.13 <- NULL
+  if('FD.2' %in% voc) FD.2 <- sort(grep("^FD\\.2(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else FD.2 <- NULL
+  if('XBB.1.5.15' %in% voc) {
+    XBB.1.5.15 <- sort(grep("^XBB\\.1\\.5\\.15(?![0-9])|(^FD\\.)", unique(src.dat$VARIANT), perl = T, value = T))
+    XBB.1.5.15 <- setdiff(XBB.1.5.15, c(FD.2))
+  } else XBB.1.5.15 <- NULL
+  if('XBB.1.5.16' %in% voc) XBB.1.5.16 <- sort(grep("^XBB\\.1\\.5\\.16(?![0-9])|(^FG\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.16 <- NULL
+  if('XBB.1.5.17' %in% voc) XBB.1.5.17 <- sort(grep("^XBB\\.1\\.5\\.17(?![0-9])|(^FH\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.17 <- NULL
+  if('XBB.1.5.19' %in% voc) XBB.1.5.19 <- sort(grep("^XBB\\.1\\.5\\.19(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.19 <- NULL
+  if('XBB.1.5.20' %in% voc) XBB.1.5.20 <- sort(grep("^XBB\\.1\\.5\\.20(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.20 <- NULL
+  if('XBB.1.5.21' %in% voc) XBB.1.5.21 <- sort(grep("^XBB\\.1\\.5\\.21(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.21 <- NULL
+  if('XBB.1.5.30' %in% voc) XBB.1.5.30 <- sort(grep("^XBB\\.1\\.5\\.30(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.30 <- NULL
+  if('XBB.1.5.31' %in% voc) XBB.1.5.31 <- sort(grep("^XBB\\.1\\.5\\.31(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.31 <- NULL
+  if('XBB.1.5.32' %in% voc) XBB.1.5.32 <- sort(grep("^XBB\\.1\\.5\\.32(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.32 <- NULL
+  if('XBB.1.5.33' %in% voc) XBB.1.5.33 <- sort(grep("^XBB\\.1\\.5\\.33(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.33 <- NULL
+  if('XBB.1.5.35' %in% voc) XBB.1.5.35 <- sort(grep("^XBB\\.1\\.5\\.35(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.5.35 <- NULL
+  if('XBB.1.5' %in% voc){
+    XBB.1.5 <- sort(grep("^XBB\\.1\\.5(?![0-9])|^E[KLMU]|^F[DGH]\\.", unique(src.dat$VARIANT), perl = T, value = T))
+    XBB.1.5 <- setdiff(XBB.1.5, c(XBB.1.5.1, XBB.1.5.2, XBB.1.5.4, XBB.1.5.5, XBB.1.5.10, XBB.1.5.11, XBB.1.5.13, XBB.1.5.15, FD.2, XBB.1.5.16, XBB.1.5.17,
+                                  XBB.1.5.19, XBB.1.5.20, XBB.1.5.21, XBB.1.5.30, XBB.1.5.31, XBB.1.5.32, XBB.1.5.33, XBB.1.5.35))
   } else XBB.1.5 <- NULL
-if('XBB.1.9.1' %in% voc) XBB.1.9.1 <- sort(grep("^XBB\\.1\\.9\\.1(?![0-9])|(^FL\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.9.1 <- NULL
-if('EG.1' %in% voc) EG.1 <- sort(grep("^EG\\.1(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else EG.1 <- NULL
-if('XBB.1.9.2' %in% voc) {
-  XBB.1.9.2 <- sort(grep("^XBB\\.1\\.9\\.2(?![0-9])|(^EG\\.)", unique(src.dat$VARIANT), perl = T, value = T))
-  XBB.1.9.2 <- setdiff(XBB.1.9.2, EG.1)
- } else XBB.1.9.2 <- NULL
-if('XBB.1.15' %in% voc) XBB.1.15 <- sort(grep("^XBB\\.1\\.15(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.15 <- NULL
-if('XBB.1.16.1' %in% voc) XBB.1.16.1 <- sort(grep("^XBB\\.1\\.16\\.1(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.16.1 <- NULL
-if('XBB.1.16' %in% voc) {
-  XBB.1.16 <- sort(grep("^XBB\\.1\\.16(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
-  XBB.1.16 <- setdiff(XBB.1.16, XBB.1.16.1)
- } else XBB.1.16 <- NULL
-if('XBB.1' %in% voc){
-  XBB.1 <- sort(grep("^XBB\\.1(?![0-9])|^E[GKLMU]|^F[DEGHL]\\.", unique(src.dat$VARIANT), perl = T, value = T))
-  XBB.1 <- setdiff(XBB.1, c(XBB.1.5.1, XBB.1.5.2, XBB.1.5.4, XBB.1.5.5, XBB.1.5.10, XBB.1.5.11, XBB.1.5.13, XBB.1.5.15, FD.2, XBB.1.5.16, XBB.1.5.17,
-                            XBB.1.5.19, XBB.1.5.20, XBB.1.5.21, XBB.1.5.30, XBB.1.5.31, XBB.1.5.32, XBB.1.5.33, XBB.1.5.35, XBB.1.9.1, XBB.1.9.2, EG.1,
-                            XBB.1.15, XBB.1.16, XBB.1.16.1))
+  if('XBB.1.9.1' %in% voc) XBB.1.9.1 <- sort(grep("^XBB\\.1\\.9\\.1(?![0-9])|(^FL\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.9.1 <- NULL
+  if('EG.1' %in% voc) EG.1 <- sort(grep("^EG\\.1(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else EG.1 <- NULL
+  if('XBB.1.9.2' %in% voc) {
+    XBB.1.9.2 <- sort(grep("^XBB\\.1\\.9\\.2(?![0-9])|(^EG\\.)", unique(src.dat$VARIANT), perl = T, value = T))
+    XBB.1.9.2 <- setdiff(XBB.1.9.2, EG.1)
+  } else XBB.1.9.2 <- NULL
+  if('XBB.1.15' %in% voc) XBB.1.15 <- sort(grep("^XBB\\.1\\.15(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.15 <- NULL
+  if('XBB.1.16.1' %in% voc) XBB.1.16.1 <- sort(grep("^XBB\\.1\\.16\\.1(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.1.16.1 <- NULL
+  if('XBB.1.16' %in% voc) {
+    XBB.1.16 <- sort(grep("^XBB\\.1\\.16(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
+    XBB.1.16 <- setdiff(XBB.1.16, XBB.1.16.1)
+  } else XBB.1.16 <- NULL
+  if('FE.1' %in% voc) FE.1 <- sort(grep("^FE\\.1(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else FE.1 <- NULL
+  if('XBB.1' %in% voc){
+    XBB.1 <- sort(grep("^XBB\\.1(?![0-9])|^E[GKLMU]|^F[DEGHL]\\.", unique(src.dat$VARIANT), perl = T, value = T))
+    XBB.1 <- setdiff(XBB.1, c(XBB.1.5.1, XBB.1.5.2, XBB.1.5.4, XBB.1.5.5, XBB.1.5.10, XBB.1.5.11, XBB.1.5.13, XBB.1.5.15, FD.2, XBB.1.5.16, XBB.1.5.17,
+                              XBB.1.5.19, XBB.1.5.20, XBB.1.5.21, XBB.1.5.30, XBB.1.5.31, XBB.1.5.32, XBB.1.5.33, XBB.1.5.35, XBB.1.9.1, XBB.1.9.2, EG.1,
+                              XBB.1.15, XBB.1.16, XBB.1.16.1, FE.1))
   } else XBB.1 <- NULL
-if('XBB.2.3' %in% voc) XBB.2.3 <- sort(grep("^XBB\\.2\\.3(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.2.3 <- NULL
-if('XBB.2' %in% voc) {
-  XBB.2 <- sort(grep("^XBB\\.2(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
-  XBB.2 <- setdiff(XBB.2, XBB.2.3)
- } else XBB.2 <- NULL
-if('XBB' %in% voc) {
-  XBB <- sort(grep("(^XBB\\.)|^E[GKLMU]|^F[DEGHL]\\.", unique(src.dat$VARIANT), perl = T, value = T))
-  XBB <- setdiff(XBB, c(XBB.1, XBB.1.5.1, XBB.1.5.2, XBB.1.5.4, XBB.1.5.5, XBB.1.5.10, XBB.1.5.11, XBB.1.5.13, XBB.1.5.15, FD.2, XBB.1.5.16, XBB.1.5.17,
-                        XBB.1.5.19, XBB.1.5.20, XBB.1.5.21, XBB.1.5.30, XBB.1.5.31, XBB.1.5.32, XBB.1.5.33, XBB.1.5.35, XBB.1.9.1, XBB.1.9.2, EG.1, XBB.1.15, XBB.1.16, XBB.1.16.1,
-                        XBB.2, XBB.2.3))
- } else XBB <- NULL
+  if('XBB.2.3' %in% voc) XBB.2.3 <- sort(grep("^XBB\\.2\\.3(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.2.3 <- NULL
+  if('XBB.2' %in% voc) {
+    XBB.2 <- sort(grep("^XBB\\.2(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
+    XBB.2 <- setdiff(XBB.2, XBB.2.3)
+  } else XBB.2 <- NULL
+  if('XBB' %in% voc) {
+    XBB <- sort(grep("(^XBB\\.)|^E[GKLMU]|^F[DEGHL]\\.", unique(src.dat$VARIANT), perl = T, value = T))
+    XBB <- setdiff(XBB, c(XBB.1, XBB.1.5.1, XBB.1.5.2, XBB.1.5.4, XBB.1.5.5, XBB.1.5.10, XBB.1.5.11, XBB.1.5.13, XBB.1.5.15, FD.2, XBB.1.5.16, XBB.1.5.17,
+                          XBB.1.5.19, XBB.1.5.20, XBB.1.5.21, XBB.1.5.30, XBB.1.5.31, XBB.1.5.32, XBB.1.5.33, XBB.1.5.35, XBB.1.9.1, XBB.1.9.2, EG.1, XBB.1.15, XBB.1.16, XBB.1.16.1,FE.1,
+                          XBB.2, XBB.2.3))
+  } else XBB <- NULL
 
-B429=B429[which(B429 %notin% voc)] #vector of the B429s to aggregate
-# omicrons [including lots of sublineages]
-# aggregate the BA sublineages [NOTE! this *WILL* aggregate all BA.1.1.x sub-sublineages into BA.1.1 *even* if BA.1.1.x is listed in voc.]
-if('BA.1.1' %in% voc) B529.BA1.1 <- sort(grep("^BC\\.|(^BA\\.1\\.1)(?![0-9])",  unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA1.1 <- NULL
-if('BA.1.15' %in% voc) B529.BA1.15 <- sort(grep("(^BA\\.1\\.15)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA1.15 <- NULL
-if('BA.1' %in% voc){
-   B529.BA1 <- sort(grep("^BC\\.|^BD\\.|(^BA\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
-   # BA.1 subvariants do not include subvariants already included in B529.BA1.1, B529.BA1.15
-   B529.BA1 <- setdiff(B529.BA1, c(B529.BA1.1, B529.BA1.15))
-} else B529.BA1 <- NULL
-if('BA.2.9' %in% voc) B529.BA2.9 <- sort(grep("(^BA\\.2\\.9)(?![0-9])",  unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.9 <- NULL
-if('BA.2.10.1' %in% voc) B529.BA2.10.1 <- sort(grep("(^BA\\.2\\.10\\.1)(?![0-9])|^BJ\\.", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.10.1 <- NULL
-if('BA.2.10' %in% voc) {
-  B529.BA2.10 <- sort(grep("(^BA\\.2\\.10)(?![0-9])|^BJ\\.", unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA2.10<- setdiff(B529.BA2.10, B529.BA2.10.1)
-} else B529.BA2.10 <- NULL
-if('BA.2.18' %in% voc) B529.BA2.18 <- sort(grep("(^BA\\.2\\.18)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.18 <- NULL
-if('BA.2.12.1' %in% voc) B529.BA2.12.1 <- sort(grep("^BG\\.|(^BA\\.2\\.12\\.1)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.12.1 <- NULL
-if('BA.2.3.20' %in% voc) B529.BA2.3.20 <- sort(grep("(^BA\\.2\\.3\\.20)(?![0-9])|(^CM\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.3.20 <- NULL
-if('BA.2.3' %in% voc) {
-  B529.BA2.3 <- sort(grep("(^BA\\.2\\.3)(?![0-9])|(^DD\\.)|(^CM\\.)",  unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA2.3 <- setdiff(B529.BA2.3, B529.BA2.3.20)
-} else B529.BA2.3 <- NULL
-if('BA.2.75.2' %in% voc) B529.BA2.75.2 <- sort(grep("(^BA\\.2\\.75\\.2)(?![0-9])|(^CA\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.75.2 <- NULL
-if('CH.1.1.1' %in% voc) B529.CH.1.1.1 <- sort(grep("(^CH\\.1\\.1\\.1)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.CH.1.1.1<- NULL
-if('CH.1.1' %in% voc) {
-  B529.CH.1.1 <- sort(grep("(^CH\\.1\\.1)(?![0-9])|(^DV\\.)|(^F[JK]\\.)", unique(src.dat$VARIANT), perl = T, value = T))
-  B529.CH.1.1 <- setdiff(B529.CH.1.1, B529.CH.1.1.1)
- } else B529.CH.1.1 <- NULL
-if('BN.1.3' %in% voc) B529.BN.1.3 <- sort(grep("(^BN\\.1\\.3)(?![0-9])|(^DS\\.)|(^EJ\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BN.1.3 <- NULL
-if('BN.1.5' %in% voc) B529.BN.1.5 <- sort(grep("(^BN\\.1\\.5)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BN.1.5 <- NULL
-if('BN.1' %in% voc){
-  B529.BN.1 <- sort(grep("(^BN\\.1)(?!([0-9]))|(^DS\\.)|(^EJ\\.)", unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BN.1 <- setdiff(B529.BN.1, c(B529.BN.1.3, B529.BN.1.5))
-} else B529.BN.1 <- NULL
-if('BA.2.75' %in% voc) {
-  B529.BA2.75 <- sort(grep("(^BA\\.2\\.75)(?![0-9])|^B[LMNRY]\\.|^C[ABHJV]\\.|(^D[SV]\\.)|(^E[JP]\\.)|(^F[JK]\\.)", unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA2.75 <- setdiff(B529.BA2.75, c(B529.BA2.75.2, B529.BN.1, B529.BN.1.3, B529.BN.1.5, B529.CH.1.1.1, B529.CH.1.1))
-}else B529.BA2.75 <- NULL
-if('BA.2.12' %in% voc) {
-  B529.BA2.12 <- sort(grep("^BG\\.|(^BA\\.2\\.12)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA2.12 <- setdiff(B529.BA2.12, c(B529.BA2.12.1))
-} else B529.BA2.12 <- NULL
-if('BA.2' %in% voc){
-  B529.BA2 <- sort(grep("^B[GHJLMNPRSY]\\.|(^BA\\.2)(?![0-9])|^C[ABHJVM]\\.|(^D[DSV]\\.)|(^E[JP]\\.)|(^F[JK]\\.)", unique(src.dat$VARIANT), perl = T, value = T))
-  # BA.2 subvariants do not include subvariants already included in B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA2.12.1, B529.BA2.12
-  B529.BA2 <- setdiff(B529.BA2, c(B529.BA2.3, B529.BA2.3.20, B529.BA2.9, B529.BA2.10, B529.BA2.10.1, B529.BA2.12.1, B529.BA2.12, B529.BA2.18, B529.BA2.75, B529.BA2.75.2, B529.BN.1, B529.BN.1.3, B529.BN.1.5, B529.CH.1.1.1, B529.CH.1.1))
-} else B529.BA2 <- NULL
-if('BA.3' %in% voc) B529.BA3 <- sort(grep("(^BA\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA3 <- NULL
-if('BA.4.4' %in% voc) B529.BA4.4 <- sort(grep("(^BA\\.4\\.4)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA4.4 <- NULL
-if('BA.4.6' %in% voc) B529.BA4.6 <- sort(grep("(^BA\\.4\\.6)(?![0-9])|(^DC\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA4.6 <- NULL
-if('BA.4.1' %in% voc) B529.BA4.1 <- sort(grep("(^BA\\.4\\.1)(?![0-9])|(^CS\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA4.1 <- NULL
-if('BA.4' %in% voc) {
-  B529.BA4 <- sort(grep("(^BA\\.4)(?![0-9])|(^CS\\.)|(^DC\\.)",unique(src.dat$VARIANT), perl = T, value = T))
-  # BA.4 subvariants do not include subvariants already included in B529.BA4.1
-  B529.BA4 <- setdiff(B529.BA4, c(B529.BA4.1, B529.BA4.4, B529.BA4.6))
-} else B529.BA4 <- NULL
-# BA.5 sublineages includes BE.x [NOTE! Change this if any BE sublineages are added to the VOCs]
-if('BQ.1.1.1' %in% voc) B529.BQ.1.1.1 <- sort(grep("(^BQ\\.1\\.1\\.1)(?![0-9])|(^CZ\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.1 <- NULL
-if('BQ.1.1.3' %in% voc) B529.BQ.1.1.3 <- sort(grep("(^BQ\\.1\\.1\\.3)(?![0-9])|(^DR\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.3 <- NULL
-if('BQ.1.1.4' %in% voc) B529.BQ.1.1.4 <- sort(grep("(^BQ\\.1\\.1\\.4)(?![0-9])|(^EE\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.4 <- NULL
-if('BQ.1.1.5' %in% voc) B529.BQ.1.1.5 <- sort(grep("(^BQ\\.1\\.1\\.5)(?![0-9])|(^DN\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.5 <- NULL
-if('BQ.1.1.7' %in% voc) B529.BQ.1.1.7 <- sort(grep("(^BQ\\.1\\.1\\.7)(?![0-9])|(^DK\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.7 <- NULL
-if('BQ.1.1.10' %in% voc) B529.BQ.1.1.10 <- sort(grep("(^BQ\\.1\\.1\\.10)(?![0-9])|(^FA\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.10 <- NULL
-if('BQ.1.1.13' %in% voc) B529.BQ.1.1.13 <- sort(grep("(^BQ\\.1\\.1\\.13)(?![0-9])|(^E[FY]\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.13 <- NULL
-if('BQ.1.1.18' %in% voc) B529.BQ.1.1.18 <- sort(grep("(^BQ\\.1\\.1\\.18)(?![0-9])|(^ED\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.18 <- NULL
-if('BQ.1.1.32' %in% voc) B529.BQ.1.1.32 <- sort(grep("(^BQ\\.1\\.1\\.32)(?![0-9])|(^DT\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.32 <- NULL
-if('BQ.1.1.41' %in% voc) B529.BQ.1.1.41 <- sort(grep("(^BQ\\.1\\.1\\.41)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.41 <- NULL
-if('BQ.1.1' %in% voc) {
-  B529.BQ.1.1 <- sort(grep("(^BQ\\.1\\.1)(?![0-9])|(^C[WZ]\\.)|(^D[KMNPRTU]\\.)|(^E[ADEFHNRSTVWYZ]|^F[ACMN]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BQ.1.1 <- setdiff(B529.BQ.1.1, c(B529.BQ.1.1.1, B529.BQ.1.1.3, B529.BQ.1.1.4, B529.BQ.1.1.5, B529.BQ.1.1.7, B529.BQ.1.1.10, B529.BQ.1.1.13, B529.BQ.1.1.18, B529.BQ.1.1.32, B529.BQ.1.1.41))
- } else B529.BQ.1.1 <- NULL
-if('BQ.1.10' %in% voc) B529.BQ.1.10 <- sort(grep("(^BQ\\.1\\.10)(?![0-9])|(^EC\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.10 <- NULL
-if('BQ.1.11' %in% voc) B529.BQ.1.11 <- sort(grep("(^BQ\\.1\\.11)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.11 <- NULL
-if('BQ.1.12' %in% voc) B529.BQ.1.12 <- sort(grep("(^BQ\\.1\\.12)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.12 <- NULL
-if('BQ.1.13' %in% voc) B529.BQ.1.13 <- sort(grep("(^BQ\\.1\\.13)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.13 <- NULL
-if('BQ.1.14' %in% voc) B529.BQ.1.14 <- sort(grep("(^BQ\\.1\\.14)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.14 <- NULL
-if('BQ.1.19' %in% voc) B529.BQ.1.19 <- sort(grep("(^BQ\\.1\\.19)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.19 <- NULL
-if('BQ.1.2' %in% voc) B529.BQ.1.2 <- sort(grep("(^BQ\\.1\\.2)(?![0-9])|(^FB\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.2 <- NULL
-if('BQ.1.3' %in% voc) B529.BQ.1.3 <- sort(grep("(^BQ\\.1\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.3 <- NULL
-if('BQ.1.5' %in% voc) B529.BQ.1.5 <- sort(grep("(^BQ\\.1\\.5)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.5 <- NULL
-if('BQ.1.22' %in% voc) B529.BQ.1.22 <- sort(grep("(^BQ\\.1\\.22)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.22 <- NULL
-if('BQ.1.23' %in% voc) B529.BQ.1.23 <- sort(grep("(^BQ\\.1\\.23)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.23 <- NULL
-if('BQ.1.25.1' %in% voc) B529.BQ.1.25.1 <- sort(grep("(^BQ\\.1\\.25\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.25.1 <- NULL
-if('BQ.1.25' %in% voc) {
-  B529.BQ.1.25 <- sort(grep("(^BQ\\.1\\.25)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BQ.1.25 <- setdiff(B529.BQ.1.25, B529.BQ.1.25.1)
+  B429=B429[which(B429 %notin% voc)] #vector of the B429s to aggregate
+  # omicrons [including lots of sublineages]
+  # aggregate the BA sublineages [NOTE! this *WILL* aggregate all BA.1.1.x sub-sublineages into BA.1.1 *even* if BA.1.1.x is listed in voc.]
+  if('BA.1.1' %in% voc) B529.BA1.1 <- sort(grep("^BC\\.|(^BA\\.1\\.1)(?![0-9])",  unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA1.1 <- NULL
+  if('BA.1.15' %in% voc) B529.BA1.15 <- sort(grep("(^BA\\.1\\.15)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA1.15 <- NULL
+  if('BA.1' %in% voc){
+    B529.BA1 <- sort(grep("^BC\\.|^BD\\.|(^BA\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
+    # BA.1 subvariants do not include subvariants already included in B529.BA1.1, B529.BA1.15
+    B529.BA1 <- setdiff(B529.BA1, c(B529.BA1.1, B529.BA1.15))
+  } else B529.BA1 <- NULL
+  if('BA.2.9' %in% voc) B529.BA2.9 <- sort(grep("(^BA\\.2\\.9)(?![0-9])",  unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.9 <- NULL
+  if('BA.2.10.1' %in% voc) B529.BA2.10.1 <- sort(grep("(^BA\\.2\\.10\\.1)(?![0-9])|^BJ\\.", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.10.1 <- NULL
+  if('BA.2.10' %in% voc) {
+    B529.BA2.10 <- sort(grep("(^BA\\.2\\.10)(?![0-9])|^BJ\\.", unique(src.dat$VARIANT), perl = T, value = T))
+    B529.BA2.10<- setdiff(B529.BA2.10, B529.BA2.10.1)
+  } else B529.BA2.10 <- NULL
+  if('BA.2.18' %in% voc) B529.BA2.18 <- sort(grep("(^BA\\.2\\.18)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.18 <- NULL
+  if('BA.2.12.1' %in% voc) B529.BA2.12.1 <- sort(grep("^BG\\.|(^BA\\.2\\.12\\.1)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.12.1 <- NULL
+  if('BA.2.3.20' %in% voc) B529.BA2.3.20 <- sort(grep("(^BA\\.2\\.3\\.20)(?![0-9])|(^CM\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.3.20 <- NULL
+  if('BA.2.3' %in% voc) {
+    B529.BA2.3 <- sort(grep("(^BA\\.2\\.3)(?![0-9])|(^DD\\.)|(^CM\\.)",  unique(src.dat$VARIANT), perl = T, value = T))
+    B529.BA2.3 <- setdiff(B529.BA2.3, B529.BA2.3.20)
+  } else B529.BA2.3 <- NULL
+  if('BA.2.75.2' %in% voc) B529.BA2.75.2 <- sort(grep("(^BA\\.2\\.75\\.2)(?![0-9])|(^CA\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA2.75.2 <- NULL
+  if('CH.1.1.1' %in% voc) B529.CH.1.1.1 <- sort(grep("(^CH\\.1\\.1\\.1)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.CH.1.1.1<- NULL
+  if('CH.1.1' %in% voc) {
+    B529.CH.1.1 <- sort(grep("(^CH\\.1\\.1)(?![0-9])|(^DV\\.)|(^F[JK]\\.)", unique(src.dat$VARIANT), perl = T, value = T))
+    B529.CH.1.1 <- setdiff(B529.CH.1.1, B529.CH.1.1.1)
+  } else B529.CH.1.1 <- NULL
+  if('BN.1.3' %in% voc) B529.BN.1.3 <- sort(grep("(^BN\\.1\\.3)(?![0-9])|(^DS\\.)|(^EJ\\.)", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BN.1.3 <- NULL
+  if('BN.1.5' %in% voc) B529.BN.1.5 <- sort(grep("(^BN\\.1\\.5)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else B529.BN.1.5 <- NULL
+  if('BN.1' %in% voc){
+    B529.BN.1 <- sort(grep("(^BN\\.1)(?!([0-9]))|(^DS\\.)|(^EJ\\.)", unique(src.dat$VARIANT), perl = T, value = T))
+    B529.BN.1 <- setdiff(B529.BN.1, c(B529.BN.1.3, B529.BN.1.5))
+  } else B529.BN.1 <- NULL
+  if('BA.2.75' %in% voc) {
+    B529.BA2.75 <- sort(grep("(^BA\\.2\\.75)(?![0-9])|^B[LMNRY]\\.|^C[ABHJV]\\.|(^D[SV]\\.)|(^E[JP]\\.)|(^F[JK]\\.)", unique(src.dat$VARIANT), perl = T, value = T))
+    B529.BA2.75 <- setdiff(B529.BA2.75, c(B529.BA2.75.2, B529.BN.1, B529.BN.1.3, B529.BN.1.5, B529.CH.1.1.1, B529.CH.1.1))
+  }else B529.BA2.75 <- NULL
+  if('BA.2.12' %in% voc) {
+    B529.BA2.12 <- sort(grep("^BG\\.|(^BA\\.2\\.12)(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
+    B529.BA2.12 <- setdiff(B529.BA2.12, c(B529.BA2.12.1))
+  } else B529.BA2.12 <- NULL
+  if('BA.2' %in% voc){
+    B529.BA2 <- sort(grep("^B[GHJLMNPRSY]\\.|(^BA\\.2)(?![0-9])|^C[ABHJVM]\\.|(^D[DSV]\\.)|(^E[JP]\\.)|(^F[JK]\\.)", unique(src.dat$VARIANT), perl = T, value = T))
+    # BA.2 subvariants do not include subvariants already included in B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA2.12.1, B529.BA2.12
+    B529.BA2 <- setdiff(B529.BA2, c(B529.BA2.3, B529.BA2.3.20, B529.BA2.9, B529.BA2.10, B529.BA2.10.1, B529.BA2.12.1, B529.BA2.12, B529.BA2.18, B529.BA2.75, B529.BA2.75.2, B529.BN.1, B529.BN.1.3, B529.BN.1.5, B529.CH.1.1.1, B529.CH.1.1))
+  } else B529.BA2 <- NULL
+  if('BA.3' %in% voc) B529.BA3 <- sort(grep("(^BA\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA3 <- NULL
+  if('BA.4.4' %in% voc) B529.BA4.4 <- sort(grep("(^BA\\.4\\.4)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA4.4 <- NULL
+  if('BA.4.6' %in% voc) B529.BA4.6 <- sort(grep("(^BA\\.4\\.6)(?![0-9])|(^DC\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA4.6 <- NULL
+  if('BA.4.1' %in% voc) B529.BA4.1 <- sort(grep("(^BA\\.4\\.1)(?![0-9])|(^CS\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA4.1 <- NULL
+  if('BA.4' %in% voc) {
+    B529.BA4 <- sort(grep("(^BA\\.4)(?![0-9])|(^CS\\.)|(^DC\\.)",unique(src.dat$VARIANT), perl = T, value = T))
+    # BA.4 subvariants do not include subvariants already included in B529.BA4.1
+    B529.BA4 <- setdiff(B529.BA4, c(B529.BA4.1, B529.BA4.4, B529.BA4.6))
+  } else B529.BA4 <- NULL
+  # BA.5 sublineages includes BE.x [NOTE! Change this if any BE sublineages are added to the VOCs]
+  if('BQ.1.1.1' %in% voc) B529.BQ.1.1.1 <- sort(grep("(^BQ\\.1\\.1\\.1)(?![0-9])|(^CZ\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.1 <- NULL
+  if('BQ.1.1.3' %in% voc) B529.BQ.1.1.3 <- sort(grep("(^BQ\\.1\\.1\\.3)(?![0-9])|(^DR\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.3 <- NULL
+  if('BQ.1.1.4' %in% voc) B529.BQ.1.1.4 <- sort(grep("(^BQ\\.1\\.1\\.4)(?![0-9])|(^EE\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.4 <- NULL
+  if('BQ.1.1.5' %in% voc) B529.BQ.1.1.5 <- sort(grep("(^BQ\\.1\\.1\\.5)(?![0-9])|(^DN\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.5 <- NULL
+  if('BQ.1.1.7' %in% voc) B529.BQ.1.1.7 <- sort(grep("(^BQ\\.1\\.1\\.7)(?![0-9])|(^DK\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.7 <- NULL
+  if('BQ.1.1.10' %in% voc) B529.BQ.1.1.10 <- sort(grep("(^BQ\\.1\\.1\\.10)(?![0-9])|(^FA\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.10 <- NULL
+  if('BQ.1.1.13' %in% voc) B529.BQ.1.1.13 <- sort(grep("(^BQ\\.1\\.1\\.13)(?![0-9])|(^E[FY]\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.13 <- NULL
+  if('BQ.1.1.18' %in% voc) B529.BQ.1.1.18 <- sort(grep("(^BQ\\.1\\.1\\.18)(?![0-9])|(^ED\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.18 <- NULL
+  if('BQ.1.1.32' %in% voc) B529.BQ.1.1.32 <- sort(grep("(^BQ\\.1\\.1\\.32)(?![0-9])|(^DT\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.32 <- NULL
+  if('BQ.1.1.41' %in% voc) B529.BQ.1.1.41 <- sort(grep("(^BQ\\.1\\.1\\.41)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.1.41 <- NULL
+  if('BQ.1.1' %in% voc) {
+    B529.BQ.1.1 <- sort(grep("(^BQ\\.1\\.1)(?![0-9])|(^C[WZ]\\.)|(^D[KMNPRTU]\\.)|(^E[ADEFHNRSTVWYZ]|^F[ACMN]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
+    B529.BQ.1.1 <- setdiff(B529.BQ.1.1, c(B529.BQ.1.1.1, B529.BQ.1.1.3, B529.BQ.1.1.4, B529.BQ.1.1.5, B529.BQ.1.1.7, B529.BQ.1.1.10, B529.BQ.1.1.13, B529.BQ.1.1.18, B529.BQ.1.1.32, B529.BQ.1.1.41))
+  } else B529.BQ.1.1 <- NULL
+  if('BQ.1.10' %in% voc) B529.BQ.1.10 <- sort(grep("(^BQ\\.1\\.10)(?![0-9])|(^EC\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.10 <- NULL
+  if('BQ.1.11' %in% voc) B529.BQ.1.11 <- sort(grep("(^BQ\\.1\\.11)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.11 <- NULL
+  if('BQ.1.12' %in% voc) B529.BQ.1.12 <- sort(grep("(^BQ\\.1\\.12)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.12 <- NULL
+  if('BQ.1.13' %in% voc) B529.BQ.1.13 <- sort(grep("(^BQ\\.1\\.13)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.13 <- NULL
+  if('BQ.1.14' %in% voc) B529.BQ.1.14 <- sort(grep("(^BQ\\.1\\.14)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.14 <- NULL
+  if('BQ.1.19' %in% voc) B529.BQ.1.19 <- sort(grep("(^BQ\\.1\\.19)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.19 <- NULL
+  if('BQ.1.2' %in% voc) B529.BQ.1.2 <- sort(grep("(^BQ\\.1\\.2)(?![0-9])|(^FB\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.2 <- NULL
+  if('BQ.1.3' %in% voc) B529.BQ.1.3 <- sort(grep("(^BQ\\.1\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.3 <- NULL
+  if('BQ.1.5' %in% voc) B529.BQ.1.5 <- sort(grep("(^BQ\\.1\\.5)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.5 <- NULL
+  if('BQ.1.22' %in% voc) B529.BQ.1.22 <- sort(grep("(^BQ\\.1\\.22)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.22 <- NULL
+  if('BQ.1.23' %in% voc) B529.BQ.1.23 <- sort(grep("(^BQ\\.1\\.23)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.23 <- NULL
+  if('BQ.1.25.1' %in% voc) B529.BQ.1.25.1 <- sort(grep("(^BQ\\.1\\.25\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.25.1 <- NULL
+  if('BQ.1.25' %in% voc) {
+    B529.BQ.1.25 <- sort(grep("(^BQ\\.1\\.25)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
+    B529.BQ.1.25 <- setdiff(B529.BQ.1.25, B529.BQ.1.25.1)
   } else B529.BQ.1.25 <- NULL
-if('BQ.1.28' %in% voc) B529.BQ.1.28 <- sort(grep("(^BQ\\.1\\.28)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.28 <- NULL
-if('BQ.1' %in% voc) {
-  B529.BQ.1 <- sort(grep("(^BQ\\.1)(?![0-9])|(^C[WZ]\\.)|(^D[KMNPRTU]\\.)|(^E[ACDEFHNRSTVWYZ]\\.)|(^F[ABCFMN]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BQ.1 <- setdiff(B529.BQ.1, c(B529.BQ.1.1, B529.BQ.1.1.1, B529.BQ.1.1.3, B529.BQ.1.1.4, B529.BQ.1.1.5, B529.BQ.1.1.7, B529.BQ.1.1.10, B529.BQ.1.1.13, B529.BQ.1.1.18, B529.BQ.1.1.32, B529.BQ.1.1.41,
-                       B529.BQ.1.2, B529.BQ.1.3, B529.BQ.1.5, B529.BQ.1.10, B529.BQ.1.11, B529.BQ.1.12, B529.BQ.1.13, B529.BQ.1.14, B529.BQ.1.19, B529.BQ.1.22, B529.BQ.1.23, B529.BQ.1.25, B529.BQ.1.25.1, B529.BQ.1.28))
-}else B529.BQ.1 <- NULL
-if('BE.1.1' %in% voc) {
-  B529.BE.1.1 <- sort(grep("(^BE\\.1\\.1)(?![0-9])|(^BQ\\.)|(^C[CWZ]\\.)|(^D[KMNPRTU]\\.)|(^E[ACDEFHNRSTVWYZ]\\.)|(^F[ABCFMN]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BE.1.1 <- setdiff(B529.BE.1.1, c(B529.BQ.1, B529.BQ.1.1, B529.BQ.1.1.1, B529.BQ.1.1.3, B529.BQ.1.1.4, B529.BQ.1.1.5, B529.BQ.1.1.7, B529.BQ.1.1.10, B529.BQ.1.1.13, B529.BQ.1.1.18, B529.BQ.1.1.32, B529.BQ.1.1.41,
-                         B529.BQ.1.2, B529.BQ.1.3, B529.BQ.1.5, B529.BQ.1.10, B529.BQ.1.11, B529.BQ.1.12, B529.BQ.1.13, B529.BQ.1.14, B529.BQ.1.19, B529.BQ.1.22, B529.BQ.1.23, B529.BQ.1.25, B529.BQ.1.25.1, B529.BQ.1.28))
-}else B529.BE.1.1 <- NULL
-if('BE.1' %in% voc) {
-  B529.BE.1 <- sort(grep("(^BE\\.1)(?![0-9])|(^BQ\\.)|(^C[CWZ]\\.)|(^D[KMNPRTUW]\\.)|(^E[ACDEFHNRSTVWYZ]\\.)|(^F[ABCFMN]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BE.1 <- setdiff(B529.BE.1, c(B529.BE.1.1, B529.BQ.1, B529.BQ.1.1, B529.BQ.1.1.1, B529.BQ.1.1.3, B529.BQ.1.1.4, B529.BQ.1.1.5, B529.BQ.1.1.7, B529.BQ.1.1.10, B529.BQ.1.1.13, B529.BQ.1.1.18, B529.BQ.1.1.32, B529.BQ.1.1.41,
-                       B529.BQ.1.2, B529.BQ.1.3, B529.BQ.1.5, B529.BQ.1.10, B529.BQ.1.11, B529.BQ.1.12, B529.BQ.1.13, B529.BQ.1.14, B529.BQ.1.19, B529.BQ.1.22, B529.BQ.1.23, B529.BQ.1.25, B529.BQ.1.25.1, B529.BQ.1.28))
-} else B529.BE.1 <- NULL
-if('BE.3' %in% voc) B529.BE.3 <- sort(grep("(^BE\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BE.3 <- NULL
-if('CQ.2' %in% voc) B529.CQ.2 <- sort(grep("(^CQ\\.2)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.CQ.2 <- NULL
-if('BA.5.3.1' %in% voc) {
-  B529.BA5.3.1 <- sort(grep("(^BA\\.5\\.3\\.1)(?![0-9])|(^B[EQ]\\.)|(^C[CWZQ]\\.)|(^D[KMNPRTUW]\\.)|(^E[ACDEFHNRSTVWYZ]\\.)|(^F[ABCFMN]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA5.3.1 <- setdiff(B529.BA5.3.1, c(B529.BE.1, B529.BE.1.1, B529.BE.3, B529.BQ.1, B529.BQ.1.1, B529.BQ.1.1.1, B529.BQ.1.1.3, B529.BQ.1.1.4, B529.BQ.1.1.5, B529.BQ.1.1.7, B529.BQ.1.1.10, B529.BQ.1.1.13, B529.BQ.1.1.18, B529.BQ.1.1.32, B529.BQ.1.1.41,
-                          B529.BQ.1.2, B529.BQ.1.3, B529.BQ.1.5, B529.BQ.1.10, B529.BQ.1.11, B529.BQ.1.12, B529.BQ.1.13, B529.BQ.1.14, B529.BQ.1.19, B529.BQ.1.22, B529.BQ.1.23, B529.BQ.1.25, B529.BQ.1.25.1, B529.BQ.1.28, B529.CQ.2))
-} else B529.BA5.3.1 <- NULL
-if('BF.5' %in% voc) B529.BF.5 <- sort(grep("(^BF\\.5)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.5 <- NULL
-if('BF.7.4.1' %in% voc) B529.BF.7.4.1 <- sort(grep("(^BF\\.7\\.4\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.7.4.1 <- NULL
-if('BF.7.4' %in% voc) {
-  B529.BF.7.4 <- sort(grep("(^BF\\.7\\.4)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BF.7.4 <- setdiff(B529.BF.7.4, B529.BF.7.4.1)
-} else B529.BF.7.4 <- NULL
-if('BF.7' %in% voc) {
-  B529.BF.7 <- sort(grep("(^BF\\.7)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BF.7 <- setdiff(B529.BF.7, c(B529.BF.7.4.1, B529.BF.7.4))
-} else B529.BF.7 <- NULL
-if('BF.8' %in% voc) B529.BF.8<- sort(grep("(^BF\\.8)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.8 <- NULL
-if('BF.10' %in% voc) B529.BF.10 <- sort(grep("(^BF\\.10)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.10 <- NULL
-if('BF.11' %in% voc) B529.BF.11 <- sort(grep("(^BF\\.11)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.11 <- NULL
-if('BF.13' %in% voc) B529.BF.13 <- sort(grep("(^BF\\.13)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.13 <- NULL
-if('BF.21' %in% voc) B529.BF.21 <- sort(grep("(^BF\\.21)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.21 <- NULL
-if('BF.26' %in% voc) B529.BF.26 <- sort(grep("(^BF\\.26)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.26 <- NULL
-if('BF.27' %in% voc) B529.BF.27 <- sort(grep("(^BF\\.27)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.27 <- NULL
-if('BA.5.2.1' %in% voc) {
-  B529.BA5.2.1 <- sort(grep("^BF\\.|(^BA\\.5\\.2\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA5.2.1 <- setdiff(B529.BA5.2.1, c(B529.BF.5, B529.BF.7, B529.BF.7.4.1, B529.BF.7.4, B529.BF.8, B529.BF.10, B529.BF.11, B529.BF.13, B529.BF.21, B529.BF.26, B529.BF.27))
-} else B529.BA5.2.1 <- NULL
-if('BA.5.2.6' %in% voc) B529.BA5.2.6 <- sort(grep("(^BA\\.5\\.2\\.6)(?![0-9])|(^CP\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.6 <- NULL
-if('BA.5.2.9' %in% voc) B529.BA5.2.9 <- sort(grep("(^BA\\.5\\.2\\.9)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.9 <- NULL
-if('BA.5.2.20' %in% voc) B529.BA5.2.20 <- sort(grep("(^BA\\.5\\.2\\.20)(?![0-9])|(^BV\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.20 <- NULL
-if('BA.5.2.21' %in% voc) B529.BA5.2.21 <- sort(grep("(^BA\\.5\\.2\\.21)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.21 <- NULL
-if('BA.5.2.23' %in% voc) B529.BA5.2.23 <- sort(grep("(^BA\\.5\\.2\\.23)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.23 <- NULL
-if('BA.5.2.31' %in% voc) B529.BA5.2.31 <- sort(grep("(^BA\\.5\\.2\\.31)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.31 <- NULL
-if('BA.5.2.34' %in% voc) B529.BA5.2.34 <- sort(grep("(^BA\\.5\\.2\\.34)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.34 <- NULL
-if('CK.1' %in% voc) B529.CK.1 <- sort(grep("(^CK\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.CK.1<- NULL
-if('CR.1.1' %in% voc) B529.CR.1.1 <- sort(grep("(^CR\\.1\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.CR.1.1<- NULL
-if('BA.5.2' %in% voc) {
-  B529.BA5.2 <- sort(grep("(^BA\\.5\\.2)(?![0-9])|^B[FUVZ]\\.|^C[DEFGKNPRTY]\\.|^D[ABGQYZ]\\.",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA5.2 <- setdiff(B529.BA5.2, c(B529.BA5.2.1, B529.BA5.2.6, B529.BA5.2.9, B529.BA5.2.20, B529.BA5.2.21, B529.BA5.2.23, B529.CK.1, B529.CR.1.1, B529.BA5.2.31, B529.BA5.2.34,
-                        B529.BF.5, B529.BF.7, B529.BF.7.4.1, B529.BF.7.4, B529.BF.8, B529.BF.10, B529.BF.11, B529.BF.13, B529.BF.21, B529.BF.26, B529.BF.27))
-} else B529.BA5.2 <- NULL
-if('BA.5.6' %in% voc) B529.BA5.6 <- sort(grep("(^BA\\.5\\.6)(?![0-9])|^BW\\.",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.6 <- NULL
-if('BA.5.5.1' %in% voc) B529.BA5.5.1 <- sort(grep("(^BA\\.5\\.5\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.5.1 <- NULL
-if('BA.5.5' %in% voc) {
-  B529.BA5.5 <- sort(grep("(^BA\\.5\\.5)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA5.5 <- setdiff(B529.BA5.5, B529.BA5.5.1)
-}else B529.BA5.5 <- NULL
-if('BA.5.1.1' %in% voc) B529.BA5.1.1 <- sort(grep("(^BA\\.5\\.1\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.1.1 <- NULL
-if('BA.5.1.10' %in% voc) B529.BA5.1.10 <- sort(grep("(^BA\\.5\\.1\\.10)(?![0-9])|^BK\\.",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.1.10 <- NULL
-if('BA.5.1.18' %in% voc) B529.BA5.1.18 <- sort(grep("(^BA\\.5\\.1\\.18)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.1.18 <- NULL
-if('BA.5.1.22' %in% voc) B529.BA5.1.22 <- sort(grep("(^BA\\.5\\.1\\.22)(?![0-9])|^DH\\.",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.1.22 <- NULL
-if('BA.5.1.23' %in% voc) B529.BA5.1.23 <- sort(grep("(^BA\\.5\\.1\\.23)(?![0-9])|^DE\\.",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.1.23 <- NULL
-if('BA.5.1.27' %in% voc) B529.BA5.1.27 <- sort(grep("(^BA\\.5\\.1\\.27)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.1.27 <- NULL
-if('BA.5.1.2' %in% voc) B529.BA5.1.2 <- sort(grep("(^BA\\.5\\.1\\.2)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.1.2 <- NULL
-if('BA.5.1.5' %in% voc) B529.BA5.1.5 <- sort(grep("(^BA\\.5\\.1\\.5)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.1.5 <- NULL
-if('BA.5.1' %in% voc) {
-  B529.BA5.1 <- sort(grep("(^BA\\.5\\.1)(?![0-9])|^BA\\.5\\.1\\.|^B[KT]\\.|^C[LU]\\.|^D[HEJL]\\.|^E[BQ]\\.",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA5.1 <- setdiff(B529.BA5.1, c(B529.BA5.1.1, B529.BA5.1.10, B529.BA5.1.2, B529.BA5.1.5, B529.BA5.1.18, B529.BA5.1.22, B529.BA5.1.23, B529.BA5.1.27))
-} else B529.BA5.1 <- NULL
-if('DF.1' %in% voc) B529.DF.1 <- sort(grep("(^DF\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.DF.1 <- NULL
-if('BA.5' %in% voc){
-  B529.BA5 <- sort(grep("(^B[KFEQTUVWZ]\\.)|(^C[CDEFGLKNPQRTUWYZ]\\.)|(^D[ABEFGHJKLMNPQRTUWYZ])\\.|((^BA\\.5)(?![0-9]))|(^E[ABCDEFHNQRSTVWYZ]\\.)|(^F[ABCFMN]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
-  B529.BA5 <- setdiff(B529.BA5, c(B529.BA5.1, B529.BA5.1.1, B529.BA5.1.10, B529.BA5.1.2, B529.BA5.1.5, B529.BA5.1.18, B529.BA5.1.22, B529.BA5.1.23, B529.BA5.1.27,
-                      B529.BA5.2, B529.BA5.2.1, B529.BA5.2.6, B529.BA5.2.9, B529.BA5.2.20, B529.BA5.2.21, B529.BA5.2.23, B529.CK.1, B529.CR.1.1, B529.BA5.2.31, B529.BA5.2.34, B529.BA5.3.1, B529.BA5.5, B529.BA5.5.1, B529.BA5.6,
-                      B529.BE.1, B529.BE.1.1, B529.BE.3, B529.BF.5, B529.BF.7, B529.BF.7.4.1, B529.BF.7.4, B529.BF.8, B529.BF.10, B529.BF.11, B529.BF.13, B529.BF.21, B529.BF.26, B529.BF.27,
-                      B529.BQ.1, B529.BQ.1.1, B529.BQ.1.1.1, B529.BQ.1.1.3, B529.BQ.1.1.4, B529.BQ.1.1.5, B529.BQ.1.1.7, B529.BQ.1.1.10, B529.BQ.1.1.13, B529.BQ.1.1.18, B529.BQ.1.1.32, B529.BQ.1.1.41,
-                      B529.BQ.1.2, B529.BQ.1.3, B529.BQ.1.5, B529.BQ.1.10, B529.BQ.1.11, B529.BQ.1.12, B529.BQ.1.13, B529.BQ.1.14, B529.BQ.1.19, B529.BQ.1.22, B529.BQ.1.23, B529.BQ.1.25, B529.BQ.1.25.1, B529.BQ.1.28,
-                      B529.CQ.2, B529.DF.1))
-} else B529.BA5 <- NULL
+  if('BQ.1.28' %in% voc) B529.BQ.1.28 <- sort(grep("(^BQ\\.1\\.28)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BQ.1.28 <- NULL
+  if('BQ.1' %in% voc) {
+    B529.BQ.1 <- sort(grep("(^BQ\\.1)(?![0-9])|(^C[WZ]\\.)|(^D[KMNPRTU]\\.)|(^E[ACDEFHNRSTVWYZ]\\.)|(^F[ABCFMN]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
+    B529.BQ.1 <- setdiff(B529.BQ.1, c(B529.BQ.1.1, B529.BQ.1.1.1, B529.BQ.1.1.3, B529.BQ.1.1.4, B529.BQ.1.1.5, B529.BQ.1.1.7, B529.BQ.1.1.10, B529.BQ.1.1.13, B529.BQ.1.1.18, B529.BQ.1.1.32, B529.BQ.1.1.41,
+                                      B529.BQ.1.2, B529.BQ.1.3, B529.BQ.1.5, B529.BQ.1.10, B529.BQ.1.11, B529.BQ.1.12, B529.BQ.1.13, B529.BQ.1.14, B529.BQ.1.19, B529.BQ.1.22, B529.BQ.1.23, B529.BQ.1.25, B529.BQ.1.25.1, B529.BQ.1.28))
+  }else B529.BQ.1 <- NULL
+  if('BE.1.1' %in% voc) {
+    B529.BE.1.1 <- sort(grep("(^BE\\.1\\.1)(?![0-9])|(^BQ\\.)|(^C[CWZ]\\.)|(^D[KMNPRTU]\\.)|(^E[ACDEFHNRSTVWYZ]\\.)|(^F[ABCFMN]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
+    B529.BE.1.1 <- setdiff(B529.BE.1.1, c(B529.BQ.1, B529.BQ.1.1, B529.BQ.1.1.1, B529.BQ.1.1.3, B529.BQ.1.1.4, B529.BQ.1.1.5, B529.BQ.1.1.7, B529.BQ.1.1.10, B529.BQ.1.1.13, B529.BQ.1.1.18, B529.BQ.1.1.32, B529.BQ.1.1.41,
+                                          B529.BQ.1.2, B529.BQ.1.3, B529.BQ.1.5, B529.BQ.1.10, B529.BQ.1.11, B529.BQ.1.12, B529.BQ.1.13, B529.BQ.1.14, B529.BQ.1.19, B529.BQ.1.22, B529.BQ.1.23, B529.BQ.1.25, B529.BQ.1.25.1, B529.BQ.1.28))
+  }else B529.BE.1.1 <- NULL
+  if('BE.1' %in% voc) {
+    B529.BE.1 <- sort(grep("(^BE\\.1)(?![0-9])|(^BQ\\.)|(^C[CWZ]\\.)|(^D[KMNPRTUW]\\.)|(^E[ACDEFHNRSTVWYZ]\\.)|(^F[ABCFMN]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
+    B529.BE.1 <- setdiff(B529.BE.1, c(B529.BE.1.1, B529.BQ.1, B529.BQ.1.1, B529.BQ.1.1.1, B529.BQ.1.1.3, B529.BQ.1.1.4, B529.BQ.1.1.5, B529.BQ.1.1.7, B529.BQ.1.1.10, B529.BQ.1.1.13, B529.BQ.1.1.18, B529.BQ.1.1.32, B529.BQ.1.1.41,
+                                      B529.BQ.1.2, B529.BQ.1.3, B529.BQ.1.5, B529.BQ.1.10, B529.BQ.1.11, B529.BQ.1.12, B529.BQ.1.13, B529.BQ.1.14, B529.BQ.1.19, B529.BQ.1.22, B529.BQ.1.23, B529.BQ.1.25, B529.BQ.1.25.1, B529.BQ.1.28))
+  } else B529.BE.1 <- NULL
+  if('BE.3' %in% voc) B529.BE.3 <- sort(grep("(^BE\\.3)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BE.3 <- NULL
+  if('CQ.2' %in% voc) B529.CQ.2 <- sort(grep("(^CQ\\.2)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.CQ.2 <- NULL
+  if('BA.5.3.1' %in% voc) {
+    B529.BA5.3.1 <- sort(grep("(^BA\\.5\\.3\\.1)(?![0-9])|(^B[EQ]\\.)|(^C[CWZQ]\\.)|(^D[KMNPRTUW]\\.)|(^E[ACDEFHNRSTVWYZ]\\.)|(^F[ABCFMN]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
+    B529.BA5.3.1 <- setdiff(B529.BA5.3.1, c(B529.BE.1, B529.BE.1.1, B529.BE.3, B529.BQ.1, B529.BQ.1.1, B529.BQ.1.1.1, B529.BQ.1.1.3, B529.BQ.1.1.4, B529.BQ.1.1.5, B529.BQ.1.1.7, B529.BQ.1.1.10, B529.BQ.1.1.13, B529.BQ.1.1.18, B529.BQ.1.1.32, B529.BQ.1.1.41,
+                                            B529.BQ.1.2, B529.BQ.1.3, B529.BQ.1.5, B529.BQ.1.10, B529.BQ.1.11, B529.BQ.1.12, B529.BQ.1.13, B529.BQ.1.14, B529.BQ.1.19, B529.BQ.1.22, B529.BQ.1.23, B529.BQ.1.25, B529.BQ.1.25.1, B529.BQ.1.28, B529.CQ.2))
+  } else B529.BA5.3.1 <- NULL
+  if('BF.5' %in% voc) B529.BF.5 <- sort(grep("(^BF\\.5)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.5 <- NULL
+  if('BF.7.4.1' %in% voc) B529.BF.7.4.1 <- sort(grep("(^BF\\.7\\.4\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.7.4.1 <- NULL
+  if('BF.7.4' %in% voc) {
+    B529.BF.7.4 <- sort(grep("(^BF\\.7\\.4)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
+    B529.BF.7.4 <- setdiff(B529.BF.7.4, B529.BF.7.4.1)
+  } else B529.BF.7.4 <- NULL
+  if('BF.7' %in% voc) {
+    B529.BF.7 <- sort(grep("(^BF\\.7)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
+    B529.BF.7 <- setdiff(B529.BF.7, c(B529.BF.7.4.1, B529.BF.7.4))
+  } else B529.BF.7 <- NULL
+  if('BF.8' %in% voc) B529.BF.8<- sort(grep("(^BF\\.8)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.8 <- NULL
+  if('BF.10' %in% voc) B529.BF.10 <- sort(grep("(^BF\\.10)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.10 <- NULL
+  if('BF.11' %in% voc) B529.BF.11 <- sort(grep("(^BF\\.11)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.11 <- NULL
+  if('BF.13' %in% voc) B529.BF.13 <- sort(grep("(^BF\\.13)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.13 <- NULL
+  if('BF.21' %in% voc) B529.BF.21 <- sort(grep("(^BF\\.21)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.21 <- NULL
+  if('BF.26' %in% voc) B529.BF.26 <- sort(grep("(^BF\\.26)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.26 <- NULL
+  if('BF.27' %in% voc) B529.BF.27 <- sort(grep("(^BF\\.27)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BF.27 <- NULL
+  if('BA.5.2.1' %in% voc) {
+    B529.BA5.2.1 <- sort(grep("^BF\\.|(^BA\\.5\\.2\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
+    B529.BA5.2.1 <- setdiff(B529.BA5.2.1, c(B529.BF.5, B529.BF.7, B529.BF.7.4.1, B529.BF.7.4, B529.BF.8, B529.BF.10, B529.BF.11, B529.BF.13, B529.BF.21, B529.BF.26, B529.BF.27))
+  } else B529.BA5.2.1 <- NULL
+  if('BA.5.2.6' %in% voc) B529.BA5.2.6 <- sort(grep("(^BA\\.5\\.2\\.6)(?![0-9])|(^CP\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.6 <- NULL
+  if('BA.5.2.9' %in% voc) B529.BA5.2.9 <- sort(grep("(^BA\\.5\\.2\\.9)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.9 <- NULL
+  if('BA.5.2.20' %in% voc) B529.BA5.2.20 <- sort(grep("(^BA\\.5\\.2\\.20)(?![0-9])|(^BV\\.)",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.20 <- NULL
+  if('BA.5.2.21' %in% voc) B529.BA5.2.21 <- sort(grep("(^BA\\.5\\.2\\.21)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.21 <- NULL
+  if('BA.5.2.23' %in% voc) B529.BA5.2.23 <- sort(grep("(^BA\\.5\\.2\\.23)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.23 <- NULL
+  if('BA.5.2.31' %in% voc) B529.BA5.2.31 <- sort(grep("(^BA\\.5\\.2\\.31)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.31 <- NULL
+  if('BA.5.2.34' %in% voc) B529.BA5.2.34 <- sort(grep("(^BA\\.5\\.2\\.34)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.2.34 <- NULL
+  if('CK.1' %in% voc) B529.CK.1 <- sort(grep("(^CK\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.CK.1<- NULL
+  if('CR.1.1' %in% voc) B529.CR.1.1 <- sort(grep("(^CR\\.1\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.CR.1.1<- NULL
+  if('BA.5.2' %in% voc) {
+    B529.BA5.2 <- sort(grep("(^BA\\.5\\.2)(?![0-9])|^B[FUVZ]\\.|^C[DEFGKNPRTY]\\.|^D[ABGQYZ]\\.",unique(src.dat$VARIANT), perl = T, value = T))
+    B529.BA5.2 <- setdiff(B529.BA5.2, c(B529.BA5.2.1, B529.BA5.2.6, B529.BA5.2.9, B529.BA5.2.20, B529.BA5.2.21, B529.BA5.2.23, B529.CK.1, B529.CR.1.1, B529.BA5.2.31, B529.BA5.2.34,
+                                        B529.BF.5, B529.BF.7, B529.BF.7.4.1, B529.BF.7.4, B529.BF.8, B529.BF.10, B529.BF.11, B529.BF.13, B529.BF.21, B529.BF.26, B529.BF.27))
+  } else B529.BA5.2 <- NULL
+  if('BA.5.6' %in% voc) B529.BA5.6 <- sort(grep("(^BA\\.5\\.6)(?![0-9])|^BW\\.",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.6 <- NULL
+  if('BA.5.5.1' %in% voc) B529.BA5.5.1 <- sort(grep("(^BA\\.5\\.5\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.5.1 <- NULL
+  if('BA.5.5' %in% voc) {
+    B529.BA5.5 <- sort(grep("(^BA\\.5\\.5)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T))
+    B529.BA5.5 <- setdiff(B529.BA5.5, B529.BA5.5.1)
+  }else B529.BA5.5 <- NULL
+  if('BA.5.1.1' %in% voc) B529.BA5.1.1 <- sort(grep("(^BA\\.5\\.1\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.1.1 <- NULL
+  if('BA.5.1.10' %in% voc) B529.BA5.1.10 <- sort(grep("(^BA\\.5\\.1\\.10)(?![0-9])|^BK\\.",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.1.10 <- NULL
+  if('BA.5.1.18' %in% voc) B529.BA5.1.18 <- sort(grep("(^BA\\.5\\.1\\.18)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.1.18 <- NULL
+  if('BA.5.1.22' %in% voc) B529.BA5.1.22 <- sort(grep("(^BA\\.5\\.1\\.22)(?![0-9])|^DH\\.",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.1.22 <- NULL
+  if('BA.5.1.23' %in% voc) B529.BA5.1.23 <- sort(grep("(^BA\\.5\\.1\\.23)(?![0-9])|^DE\\.",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.1.23 <- NULL
+  if('BA.5.1.27' %in% voc) B529.BA5.1.27 <- sort(grep("(^BA\\.5\\.1\\.27)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.1.27 <- NULL
+  if('BA.5.1.2' %in% voc) B529.BA5.1.2 <- sort(grep("(^BA\\.5\\.1\\.2)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.1.2 <- NULL
+  if('BA.5.1.5' %in% voc) B529.BA5.1.5 <- sort(grep("(^BA\\.5\\.1\\.5)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.BA5.1.5 <- NULL
+  if('BA.5.1' %in% voc) {
+    B529.BA5.1 <- sort(grep("(^BA\\.5\\.1)(?![0-9])|^BA\\.5\\.1\\.|^B[KT]\\.|^C[LU]\\.|^D[HEJL]\\.|^E[BQ]\\.",unique(src.dat$VARIANT), perl = T, value = T))
+    B529.BA5.1 <- setdiff(B529.BA5.1, c(B529.BA5.1.1, B529.BA5.1.10, B529.BA5.1.2, B529.BA5.1.5, B529.BA5.1.18, B529.BA5.1.22, B529.BA5.1.23, B529.BA5.1.27))
+  } else B529.BA5.1 <- NULL
+  if('DF.1' %in% voc) B529.DF.1 <- sort(grep("(^DF\\.1)(?![0-9])",unique(src.dat$VARIANT), perl = T, value = T)) else B529.DF.1 <- NULL
+  if('BA.5' %in% voc){
+    B529.BA5 <- sort(grep("(^B[KFEQTUVWZ]\\.)|(^C[CDEFGLKNPQRTUWYZ]\\.)|(^D[ABEFGHJKLMNPQRTUWYZ])\\.|((^BA\\.5)(?![0-9]))|(^E[ABCDEFHNQRSTVWYZ]\\.)|(^F[ABCFMN]\\.)",unique(src.dat$VARIANT), perl = T, value = T))
+    B529.BA5 <- setdiff(B529.BA5, c(B529.BA5.1, B529.BA5.1.1, B529.BA5.1.10, B529.BA5.1.2, B529.BA5.1.5, B529.BA5.1.18, B529.BA5.1.22, B529.BA5.1.23, B529.BA5.1.27,
+                                    B529.BA5.2, B529.BA5.2.1, B529.BA5.2.6, B529.BA5.2.9, B529.BA5.2.20, B529.BA5.2.21, B529.BA5.2.23, B529.CK.1, B529.CR.1.1, B529.BA5.2.31, B529.BA5.2.34, B529.BA5.3.1, B529.BA5.5, B529.BA5.5.1, B529.BA5.6,
+                                    B529.BE.1, B529.BE.1.1, B529.BE.3, B529.BF.5, B529.BF.7, B529.BF.7.4.1, B529.BF.7.4, B529.BF.8, B529.BF.10, B529.BF.11, B529.BF.13, B529.BF.21, B529.BF.26, B529.BF.27,
+                                    B529.BQ.1, B529.BQ.1.1, B529.BQ.1.1.1, B529.BQ.1.1.3, B529.BQ.1.1.4, B529.BQ.1.1.5, B529.BQ.1.1.7, B529.BQ.1.1.10, B529.BQ.1.1.13, B529.BQ.1.1.18, B529.BQ.1.1.32, B529.BQ.1.1.41,
+                                    B529.BQ.1.2, B529.BQ.1.3, B529.BQ.1.5, B529.BQ.1.10, B529.BQ.1.11, B529.BQ.1.12, B529.BQ.1.13, B529.BQ.1.14, B529.BQ.1.19, B529.BQ.1.22, B529.BQ.1.23, B529.BQ.1.25, B529.BQ.1.25.1, B529.BQ.1.28,
+                                    B529.CQ.2, B529.DF.1))
+  } else B529.BA5 <- NULL
 
-# safety check: make sure that no variants are in the multiple sublineage groups
-B.529.all <- c(B529.BA1, B529.BA1.1, B529.BA1.15, B529.BA2, B529.BA2.3, B529.BA2.3.20, B529.BA2.9,
-                B529.BA2.10, B529.BA2.10.1, B529.BA2.12, B529.BA2.12.1, B529.BA2.18, B529.BA2.75.2, B529.BA2.75,B529.BN.1, B529.BN.1.3, B529.BN.1.5, B529.CH.1.1.1, B529.CH.1.1, B529.BA3, B529.BA4,
-                B529.BA4.1, B529.BA4.4, B529.BA4.6, B529.BA5, B529.BA5.1, B529.BA5.1.1, B529.BA5.1.10, B529.BA5.1.18, B529.BA5.1.22, B529.BA5.1.23, B529.BA5.1.27,
-                B529.BA5.1.2, B529.BA5.1.5, B529.BA5.2, B529.BA5.2.1, B529.BA5.2.6, B529.BA5.2.9, B529.BA5.2.20, B529.BA5.2.21, B529.BA5.2.23, B529.CK.1, B529.CR.1.1, B529.BA5.2.31, B529.BA5.2.34,
-                B529.BA5.3.1, B529.BA5.5, B529.BA5.5.1, B529.BA5.6,
-                B529.BE.1, B529.BE.1.1, B529.BE.3, B529.BF.5, B529.BF.7, B529.BF.7.4.1, B529.BF.7.4, B529.BF.8, B529.BF.10, B529.BF.11, B529.BF.13, B529.BF.21, B529.BF.26, B529.BF.27,
-                B529.BQ.1, B529.BQ.1.1, B529.BQ.1.1.1, B529.BQ.1.1.3, B529.BQ.1.1.4, B529.BQ.1.1.5, B529.BQ.1.1.7, B529.BQ.1.1.10, B529.BQ.1.1.13, B529.BQ.1.1.18, B529.BQ.1.1.32, B529.BQ.1.1.41,
-                B529.BQ.1.2, B529.BQ.1.3, B529.BQ.1.5, B529.BQ.1.10, B529.BQ.1.11, B529.BQ.1.12, B529.BQ.1.13, B529.BQ.1.14, B529.BQ.1.19, B529.BQ.1.22, B529.BQ.1.23, B529.BQ.1.25, B529.BQ.1.25.1, B529.BQ.1.28,
-                B529.CQ.2, B529.DF.1)
+  # safety check: make sure that no variants are in the multiple sublineage groups
+  B.529.all <- c(B529.BA1, B529.BA1.1, B529.BA1.15, B529.BA2, B529.BA2.3, B529.BA2.3.20, B529.BA2.9,
+                 B529.BA2.10, B529.BA2.10.1, B529.BA2.12, B529.BA2.12.1, B529.BA2.18, B529.BA2.75.2, B529.BA2.75,B529.BN.1, B529.BN.1.3, B529.BN.1.5, B529.CH.1.1.1, B529.CH.1.1, B529.BA3, B529.BA4,
+                 B529.BA4.1, B529.BA4.4, B529.BA4.6, B529.BA5, B529.BA5.1, B529.BA5.1.1, B529.BA5.1.10, B529.BA5.1.18, B529.BA5.1.22, B529.BA5.1.23, B529.BA5.1.27,
+                 B529.BA5.1.2, B529.BA5.1.5, B529.BA5.2, B529.BA5.2.1, B529.BA5.2.6, B529.BA5.2.9, B529.BA5.2.20, B529.BA5.2.21, B529.BA5.2.23, B529.CK.1, B529.CR.1.1, B529.BA5.2.31, B529.BA5.2.34,
+                 B529.BA5.3.1, B529.BA5.5, B529.BA5.5.1, B529.BA5.6,
+                 B529.BE.1, B529.BE.1.1, B529.BE.3, B529.BF.5, B529.BF.7, B529.BF.7.4.1, B529.BF.7.4, B529.BF.8, B529.BF.10, B529.BF.11, B529.BF.13, B529.BF.21, B529.BF.26, B529.BF.27,
+                 B529.BQ.1, B529.BQ.1.1, B529.BQ.1.1.1, B529.BQ.1.1.3, B529.BQ.1.1.4, B529.BQ.1.1.5, B529.BQ.1.1.7, B529.BQ.1.1.10, B529.BQ.1.1.13, B529.BQ.1.1.18, B529.BQ.1.1.32, B529.BQ.1.1.41,
+                 B529.BQ.1.2, B529.BQ.1.3, B529.BQ.1.5, B529.BQ.1.10, B529.BQ.1.11, B529.BQ.1.12, B529.BQ.1.13, B529.BQ.1.14, B529.BQ.1.19, B529.BQ.1.22, B529.BQ.1.23, B529.BQ.1.25, B529.BQ.1.25.1, B529.BQ.1.28,
+                 B529.CQ.2, B529.DF.1)
 
-if(any(duplicated(B.529.all))) stop(message = paste0(B.529.all[duplicated(B.529.all)], ' appear in multiple BA sublineage groups. Check B529.BA1, B529.BA1.1, B529.BA.1.15, B529.BA2, B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA3, B529.BA4, B529.BA5.'))
-B529=sort(grep("(^B\\.1\\.1\\.529)|(^B[AC-HJ-NP-VYZ]\\.)|(^C[A-HJ-NP-WYZ]\\.)|(^D[A-HJ-NP-WYZ]\\.)|(^E[A-FHJNPQRSTVWYZ]\\.)|(^F[ABCFJKMN]\\.)",unique(src.dat$VARIANT), value = T))
-B529=B529[ B529 %notin% c(voc, B.529.all) ] #vector of the B529s to aggregate
+  if(any(duplicated(B.529.all))) stop(message = paste0(B.529.all[duplicated(B.529.all)], ' appear in multiple BA sublineage groups. Check B529.BA1, B529.BA1.1, B529.BA.1.15, B529.BA2, B529.BA2.3, B529.BA2.9, B529.BA2.10, B529.BA3, B529.BA4, B529.BA5.'))
+  B529=sort(grep("(^B\\.1\\.1\\.529)|(^B[AC-HJ-NP-VYZ]\\.)|(^C[A-HJ-NP-WYZ]\\.)|(^D[A-HJ-NP-WYZ]\\.)|(^E[A-FHJNPQRSTVWYZ]\\.)|(^F[ABCFJKMN]\\.)",unique(src.dat$VARIANT), value = T))
+  B529=B529[ B529 %notin% c(voc, B.529.all) ] #vector of the B529s to aggregate
 
 
-# Aggregate sublineages to the parent lineage
-if(P.1_agg==TRUE)     {src.dat[src.dat$VARIANT %in% P1,  "VARIANT"]    <- "P.1"}
-if(B.1.351_agg==TRUE) {src.dat[src.dat$VARIANT %in% B351,"VARIANT"]    <- "B.1.351"}
-if(B.1.621_agg==TRUE) {src.dat[src.dat$VARIANT %in% B621,"VARIANT"]    <- 'B.1.621' }
-if(Q.1_3_agg==TRUE)   {src.dat[src.dat$VARIANT %in% Q,   "VARIANT"]    <- "B.1.1.7"}
-if(AY_agg==TRUE)      {src.dat[src.dat$VARIANT %in% AY,  "VARIANT"]    <- "B.1.617.2"}
-if(B429_7_agg==TRUE)  {src.dat[src.dat$VARIANT %in% B429,"VARIANT"]    <- "B.1.427"}
-if(B.1.1.529_agg==TRUE)  {
-  src.dat[src.dat$VARIANT %in% B529[B529 %notin% voc],            "VARIANT"] <- "B.1.1.529"
-  src.dat[src.dat$VARIANT %in% B529.BA1[   B529.BA1    %notin% voc],"VARIANT"] <- "BA.1"
-  src.dat[src.dat$VARIANT %in% B529.BA1.1[ B529.BA1.1  %notin% voc],"VARIANT"] <- "BA.1.1"
-  src.dat[src.dat$VARIANT %in% B529.BA1.15[B529.BA1.15 %notin% voc],"VARIANT"] <- "BA.1.15"
-  src.dat[src.dat$VARIANT %in% B529.BA2[   B529.BA2    %notin% voc],"VARIANT"] <- "BA.2"
-  src.dat[src.dat$VARIANT %in% B529.BA2.3[ B529.BA2.3  %notin% voc],"VARIANT"] <- "BA.2.3"
-  src.dat[src.dat$VARIANT %in% B529.BA2.3.20[ B529.BA2.3.20  %notin% voc],"VARIANT"] <- "BA.2.3.20"
-  src.dat[src.dat$VARIANT %in% B529.BA2.9[ B529.BA2.9  %notin% voc],"VARIANT"] <- "BA.2.9"
-  src.dat[src.dat$VARIANT %in% B529.BA2.10.1[B529.BA2.10.1 %notin% voc],"VARIANT"] <- "BA.2.10.1"
-  src.dat[src.dat$VARIANT %in% B529.BA2.10[B529.BA2.10 %notin% voc],"VARIANT"] <- "BA.2.10"
-  src.dat[src.dat$VARIANT %in% B529.BA2.12[B529.BA2.12 %notin% voc],"VARIANT"] <- "BA.2.12"
-  src.dat[src.dat$VARIANT %in% B529.BA2.75[B529.BA2.75 %notin% voc],"VARIANT"] <- "BA.2.75"
-  src.dat[src.dat$VARIANT %in% B529.CH.1.1.1[B529.CH.1.1.1 %notin% voc],"VARIANT"] <- "CH.1.1.1"
-  src.dat[src.dat$VARIANT %in% B529.CH.1.1[B529.CH.1.1 %notin% voc],"VARIANT"] <- "CH.1.1"
-  src.dat[src.dat$VARIANT %in% B529.BA2.75.2[B529.BA2.75.2 %notin% voc],"VARIANT"] <- "BA.2.75.2"
-  src.dat[src.dat$VARIANT %in% B529.BA2.12.1[B529.BA2.12.1 %notin% voc],"VARIANT"] <- "BA.2.12.1"
-  src.dat[src.dat$VARIANT %in% B529.BA2.18[B529.BA2.18 %notin% voc],"VARIANT"] <- "BA.2.18"
-  src.dat[src.dat$VARIANT %in% B529.BN.1[B529.BN.1 %notin% voc],"VARIANT"] <- "BN.1"
-  src.dat[src.dat$VARIANT %in% B529.BN.1.3[B529.BN.1.3 %notin% voc],"VARIANT"] <- "BN.1.3"
-  src.dat[src.dat$VARIANT %in% B529.BN.1.5[B529.BN.1.5 %notin% voc],"VARIANT"] <- "BN.1.5"
-  src.dat[src.dat$VARIANT %in% B529.BA3[B529.BA3 %notin% voc],"VARIANT"] <- "BA.3"
-  src.dat[src.dat$VARIANT %in% B529.BA4[B529.BA4 %notin% voc],"VARIANT"] <- "BA.4"
-  src.dat[src.dat$VARIANT %in% B529.BA4.1[B529.BA4.1 %notin% voc],"VARIANT"] <- "BA.4.1"
-  src.dat[src.dat$VARIANT %in% B529.BA4.4[B529.BA4.4 %notin% voc],"VARIANT"] <- "BA.4.4"
-  src.dat[src.dat$VARIANT %in% B529.BA4.6[B529.BA4.6 %notin% voc],"VARIANT"] <- "BA.4.6"
-  src.dat[src.dat$VARIANT %in% B529.BA5[B529.BA5 %notin% voc],"VARIANT"] <- "BA.5"
-  src.dat[src.dat$VARIANT %in% B529.BA5.1[B529.BA5.1 %notin% voc],"VARIANT"] <- "BA.5.1"
-  src.dat[src.dat$VARIANT %in% B529.BA5.1.1[B529.BA5.1.1 %notin% voc],"VARIANT"] <- "BA.5.1.1"
-  src.dat[src.dat$VARIANT %in% B529.BA5.1.2[B529.BA5.1.2 %notin% voc],"VARIANT"] <- "BA.5.1.2"
-  src.dat[src.dat$VARIANT %in% B529.BA5.1.5[B529.BA5.1.5 %notin% voc],"VARIANT"] <- "BA.5.1.5"
-  src.dat[src.dat$VARIANT %in% B529.BA5.1.10[B529.BA5.1.10 %notin% voc],"VARIANT"] <- "BA.5.1.10"
-  src.dat[src.dat$VARIANT %in% B529.BA5.1.18[B529.BA5.1.18 %notin% voc],"VARIANT"] <- "BA.5.1.18"
-  src.dat[src.dat$VARIANT %in% B529.BA5.1.22[B529.BA5.1.22 %notin% voc],"VARIANT"] <- "BA.5.1.22"
-  src.dat[src.dat$VARIANT %in% B529.BA5.1.23[B529.BA5.1.23 %notin% voc],"VARIANT"] <- "BA.5.1.23"
-  src.dat[src.dat$VARIANT %in% B529.BA5.1.27[B529.BA5.1.27 %notin% voc],"VARIANT"] <- "BA.5.1.27"
-  src.dat[src.dat$VARIANT %in% B529.BA5.2[B529.BA5.2 %notin% voc],"VARIANT"] <- "BA.5.2"
-  src.dat[src.dat$VARIANT %in% B529.BA5.2.1[B529.BA5.2.1 %notin% voc],"VARIANT"] <- "BA.5.2.1"
-  src.dat[src.dat$VARIANT %in% B529.BA5.2.6[B529.BA5.2.6 %notin% voc],"VARIANT"] <- "BA.5.2.6"
-  src.dat[src.dat$VARIANT %in% B529.BA5.2.9[B529.BA5.2.9 %notin% voc],"VARIANT"] <- "BA.5.2.9"
-  src.dat[src.dat$VARIANT %in% B529.BA5.2.20[B529.BA5.2.20 %notin% voc],"VARIANT"] <- "BA.5.2.20"
-  src.dat[src.dat$VARIANT %in% B529.CR.1.1[B529.CR.1.1 %notin% voc],"VARIANT"] <- "CR.1.1"
-  src.dat[src.dat$VARIANT %in% B529.BA5.2.21[B529.BA5.2.21 %notin% voc],"VARIANT"] <- "BA.5.2.21"
-  src.dat[src.dat$VARIANT %in% B529.BA5.2.23[B529.BA5.2.23 %notin% voc],"VARIANT"] <- "BA.5.2.23"
-  src.dat[src.dat$VARIANT %in% B529.CK.1[B529.CK.1 %notin% voc],"VARIANT"] <- "CK.1"
-  src.dat[src.dat$VARIANT %in% B529.BA5.2.31[B529.BA5.2.31 %notin% voc],"VARIANT"] <- "BA.5.2.31"
-  src.dat[src.dat$VARIANT %in% B529.BA5.2.34[B529.BA5.2.34 %notin% voc],"VARIANT"] <- "BA.5.2.34"
-  src.dat[src.dat$VARIANT %in% B529.BA5.3.1[B529.BA5.3.1 %notin% voc],"VARIANT"] <- "BA.5.3.1"
-  src.dat[src.dat$VARIANT %in% B529.BA5.5[B529.BA5.5 %notin% voc],"VARIANT"] <- "BA.5.5"
-  src.dat[src.dat$VARIANT %in% B529.BA5.5.1[B529.BA5.5.1 %notin% voc],"VARIANT"] <- "BA.5.5.1"
-  src.dat[src.dat$VARIANT %in% B529.BA5.6[B529.BA5.6 %notin% voc],"VARIANT"] <- "BA.5.6"
-  src.dat[src.dat$VARIANT %in% B529.BE.1[B529.BE.1 %notin% voc],"VARIANT"] <- "BE.1"
-  src.dat[src.dat$VARIANT %in% B529.BE.1.1[B529.BE.1.1 %notin% voc],"VARIANT"] <- "BE.1.1"
-  src.dat[src.dat$VARIANT %in% B529.BE.3[B529.BE.3 %notin% voc],"VARIANT"] <- "BE.3"
-  src.dat[src.dat$VARIANT %in% B529.BF.5[B529.BF.5 %notin% voc],"VARIANT"] <- "BF.5"
-  src.dat[src.dat$VARIANT %in% B529.BF.7[B529.BF.7 %notin% voc],"VARIANT"] <- "BF.7"
-  src.dat[src.dat$VARIANT %in% B529.BF.7.4.1[B529.BF.7.4.1 %notin% voc],"VARIANT"] <- "BF.7.4.1"
-  src.dat[src.dat$VARIANT %in% B529.BF.7.4[B529.BF.7.4 %notin% voc],"VARIANT"] <- "BF.7.4"
-  src.dat[src.dat$VARIANT %in% B529.BF.8[B529.BF.8 %notin% voc],"VARIANT"] <- "BF.8"
-  src.dat[src.dat$VARIANT %in% B529.BF.10[B529.BF.10 %notin% voc],"VARIANT"] <- "BF.10"
-  src.dat[src.dat$VARIANT %in% B529.BF.11[B529.BF.11 %notin% voc],"VARIANT"] <- "BF.11"
-  src.dat[src.dat$VARIANT %in% B529.BF.13[B529.BF.13 %notin% voc],"VARIANT"] <- "BF.13"
-  src.dat[src.dat$VARIANT %in% B529.BF.21[B529.BF.21 %notin% voc],"VARIANT"] <- "BF.21"
-  src.dat[src.dat$VARIANT %in% B529.BF.26[B529.BF.26 %notin% voc],"VARIANT"] <- "BF.26"
-  src.dat[src.dat$VARIANT %in% B529.BF.27[B529.BF.27 %notin% voc],"VARIANT"] <- "BF.27"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1[B529.BQ.1 %notin% voc],"VARIANT"] <- "BQ.1"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.1[B529.BQ.1.1 %notin% voc],"VARIANT"] <- "BQ.1.1"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.1.1[B529.BQ.1.1.1 %notin% voc],"VARIANT"] <- "BQ.1.1.1"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.1.3[B529.BQ.1.1.3 %notin% voc],"VARIANT"] <- "BQ.1.1.3"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.1.4[B529.BQ.1.1.4 %notin% voc],"VARIANT"] <- "BQ.1.1.4"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.1.5[B529.BQ.1.1.5 %notin% voc],"VARIANT"] <- "BQ.1.1.5"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.1.7[B529.BQ.1.1.7 %notin% voc],"VARIANT"] <- "BQ.1.1.7"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.1.10[B529.BQ.1.1.10 %notin% voc],"VARIANT"] <- "BQ.1.1.10"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.1.13[B529.BQ.1.1.13 %notin% voc],"VARIANT"] <- "BQ.1.1.13"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.1.18[B529.BQ.1.1.18 %notin% voc],"VARIANT"] <- "BQ.1.1.18"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.1.32[B529.BQ.1.1.32 %notin% voc],"VARIANT"] <- "BQ.1.1.32"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.1.41[B529.BQ.1.1.41 %notin% voc],"VARIANT"] <- "BQ.1.1.41"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.10[B529.BQ.1.10 %notin% voc],"VARIANT"] <- "BQ.1.10"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.11[B529.BQ.1.11 %notin% voc],"VARIANT"] <- "BQ.1.11"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.12[B529.BQ.1.12 %notin% voc],"VARIANT"] <- "BQ.1.12"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.13[B529.BQ.1.13 %notin% voc],"VARIANT"] <- "BQ.1.13"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.14[B529.BQ.1.14 %notin% voc],"VARIANT"] <- "BQ.1.14"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.19[B529.BQ.1.19 %notin% voc],"VARIANT"] <- "BQ.1.19"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.2[B529.BQ.1.2 %notin% voc],"VARIANT"] <- "BQ.1.2"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.3[B529.BQ.1.3 %notin% voc],"VARIANT"] <- "BQ.1.3"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.5[B529.BQ.1.5 %notin% voc],"VARIANT"] <- "BQ.1.5"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.22[B529.BQ.1.22 %notin% voc],"VARIANT"] <- "BQ.1.22"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.23[B529.BQ.1.23 %notin% voc],"VARIANT"] <- "BQ.1.23"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.25[B529.BQ.1.25 %notin% voc],"VARIANT"] <- "BQ.1.25"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.25.1[B529.BQ.1.25.1 %notin% voc],"VARIANT"] <- "BQ.1.25.1"
-  src.dat[src.dat$VARIANT %in% B529.BQ.1.28[B529.BQ.1.28 %notin% voc],"VARIANT"] <- "BQ.1.28"
-  src.dat[src.dat$VARIANT %in% B529.CQ.2[B529.CQ.2 %notin% voc],"VARIANT"] <- "CQ.2"
-  src.dat[src.dat$VARIANT %in% B529.DF.1[B529.DF.1 %notin% voc],"VARIANT"] <- "DF.1"
-}
-if(XBB_agg) {
-  src.dat[src.dat$VARIANT %in% XBB.1.5.1[XBB.1.5.1 %notin% voc],"VARIANT"] <- "XBB.1.5.1"
-  src.dat[src.dat$VARIANT %in% XBB.1.5.2[XBB.1.5.2 %notin% voc],"VARIANT"] <- "XBB.1.5.2"
-  src.dat[src.dat$VARIANT %in% XBB.1.5.4[XBB.1.5.4 %notin% voc],"VARIANT"] <- "XBB.1.5.4"
-  src.dat[src.dat$VARIANT %in% XBB.1.5.5[XBB.1.5.5 %notin% voc],"VARIANT"] <- "XBB.1.5.5"
-  src.dat[src.dat$VARIANT %in% XBB.1.5.10[XBB.1.5.10 %notin% voc],"VARIANT"] <- "XBB.1.5.10"
-  src.dat[src.dat$VARIANT %in% XBB.1.5.11[XBB.1.5.11 %notin% voc],"VARIANT"] <- "XBB.1.5.11"
-  src.dat[src.dat$VARIANT %in% XBB.1.5.13[XBB.1.5.13 %notin% voc],"VARIANT"] <- "XBB.1.5.13"
-  src.dat[src.dat$VARIANT %in% XBB.1.5.15[XBB.1.5.15 %notin% voc],"VARIANT"] <- "XBB.1.5.15"
-  src.dat[src.dat$VARIANT %in% XBB.1.5.16[XBB.1.5.16 %notin% voc],"VARIANT"] <- "XBB.1.5.16"
-  src.dat[src.dat$VARIANT %in% XBB.1.5.17[XBB.1.5.17 %notin% voc],"VARIANT"] <- "XBB.1.5.17"
-  src.dat[src.dat$VARIANT %in% XBB.1.5.19[XBB.1.5.19 %notin% voc],"VARIANT"] <- "XBB.1.5.19"
-  src.dat[src.dat$VARIANT %in% XBB.1.5.20[XBB.1.5.20 %notin% voc],"VARIANT"] <- "XBB.1.5.20"
-  src.dat[src.dat$VARIANT %in% XBB.1.5.21[XBB.1.5.21 %notin% voc],"VARIANT"] <- "XBB.1.5.21"
-  src.dat[src.dat$VARIANT %in% XBB.1.5.30[XBB.1.5.30 %notin% voc],"VARIANT"] <- "XBB.1.5.30"
-  src.dat[src.dat$VARIANT %in% XBB.1.5.31[XBB.1.5.31 %notin% voc],"VARIANT"] <- "XBB.1.5.31"
-  src.dat[src.dat$VARIANT %in% XBB.1.5.32[XBB.1.5.32 %notin% voc],"VARIANT"] <- "XBB.1.5.32"
-  src.dat[src.dat$VARIANT %in% XBB.1.5.33[XBB.1.5.33 %notin% voc],"VARIANT"] <- "XBB.1.5.33"
-  src.dat[src.dat$VARIANT %in% XBB.1.5.35[XBB.1.5.35 %notin% voc],"VARIANT"] <- "XBB.1.5.35"
-  src.dat[src.dat$VARIANT %in% XBB.1.5[XBB.1.5 %notin% voc],"VARIANT"] <- "XBB.1.5"
-  src.dat[src.dat$VARIANT %in% XBB.1.9.1[XBB.1.9.1 %notin% voc],"VARIANT"] <- "XBB.1.9.1"
-  src.dat[src.dat$VARIANT %in% XBB.1.9.2[XBB.1.9.2 %notin% voc],"VARIANT"] <- "XBB.1.9.2"
-  src.dat[src.dat$VARIANT %in% EG.1[EG.1 %notin% voc],"VARIANT"] <- "EG.1"
-  src.dat[src.dat$VARIANT %in% XBB.1.15[XBB.1.15 %notin% voc],"VARIANT"] <- "XBB.1.15"
-  src.dat[src.dat$VARIANT %in% XBB.1.16[XBB.1.16 %notin% voc],"VARIANT"] <- "XBB.1.16"
-  src.dat[src.dat$VARIANT %in% XBB.1.16.1[XBB.1.16.1 %notin% voc],"VARIANT"] <- "XBB.1.16.1"
-  src.dat[src.dat$VARIANT %in% XBB.1[XBB.1 %notin% voc],"VARIANT"] <- "XBB.1"
-  src.dat[src.dat$VARIANT %in% XBB.2[XBB.2 %notin% voc],"VARIANT"] <- "XBB.2"
-  src.dat[src.dat$VARIANT %in% XBB.2.3[XBB.2.3 %notin% voc],"VARIANT"] <- "XBB.2.3"
-  src.dat[src.dat$VARIANT %in% XBB[XBB %notin% voc],"VARIANT"] <- "XBB"
-}
+  # Aggregate sublineages to the parent lineage
+  if(P.1_agg==TRUE)     {src.dat[src.dat$VARIANT %in% P1,  "VARIANT"]    <- "P.1"}
+  if(B.1.351_agg==TRUE) {src.dat[src.dat$VARIANT %in% B351,"VARIANT"]    <- "B.1.351"}
+  if(B.1.621_agg==TRUE) {src.dat[src.dat$VARIANT %in% B621,"VARIANT"]    <- 'B.1.621' }
+  if(Q.1_3_agg==TRUE)   {src.dat[src.dat$VARIANT %in% Q,   "VARIANT"]    <- "B.1.1.7"}
+  if(AY_agg==TRUE)      {src.dat[src.dat$VARIANT %in% AY,  "VARIANT"]    <- "B.1.617.2"}
+  if(B429_7_agg==TRUE)  {src.dat[src.dat$VARIANT %in% B429,"VARIANT"]    <- "B.1.427"}
+  if(B.1.1.529_agg==TRUE)  {
+    src.dat[src.dat$VARIANT %in% B529[B529 %notin% voc],            "VARIANT"] <- "B.1.1.529"
+    src.dat[src.dat$VARIANT %in% B529.BA1[   B529.BA1    %notin% voc],"VARIANT"] <- "BA.1"
+    src.dat[src.dat$VARIANT %in% B529.BA1.1[ B529.BA1.1  %notin% voc],"VARIANT"] <- "BA.1.1"
+    src.dat[src.dat$VARIANT %in% B529.BA1.15[B529.BA1.15 %notin% voc],"VARIANT"] <- "BA.1.15"
+    src.dat[src.dat$VARIANT %in% B529.BA2[   B529.BA2    %notin% voc],"VARIANT"] <- "BA.2"
+    src.dat[src.dat$VARIANT %in% B529.BA2.3[ B529.BA2.3  %notin% voc],"VARIANT"] <- "BA.2.3"
+    src.dat[src.dat$VARIANT %in% B529.BA2.3.20[ B529.BA2.3.20  %notin% voc],"VARIANT"] <- "BA.2.3.20"
+    src.dat[src.dat$VARIANT %in% B529.BA2.9[ B529.BA2.9  %notin% voc],"VARIANT"] <- "BA.2.9"
+    src.dat[src.dat$VARIANT %in% B529.BA2.10.1[B529.BA2.10.1 %notin% voc],"VARIANT"] <- "BA.2.10.1"
+    src.dat[src.dat$VARIANT %in% B529.BA2.10[B529.BA2.10 %notin% voc],"VARIANT"] <- "BA.2.10"
+    src.dat[src.dat$VARIANT %in% B529.BA2.12[B529.BA2.12 %notin% voc],"VARIANT"] <- "BA.2.12"
+    src.dat[src.dat$VARIANT %in% B529.BA2.75[B529.BA2.75 %notin% voc],"VARIANT"] <- "BA.2.75"
+    src.dat[src.dat$VARIANT %in% B529.CH.1.1.1[B529.CH.1.1.1 %notin% voc],"VARIANT"] <- "CH.1.1.1"
+    src.dat[src.dat$VARIANT %in% B529.CH.1.1[B529.CH.1.1 %notin% voc],"VARIANT"] <- "CH.1.1"
+    src.dat[src.dat$VARIANT %in% B529.BA2.75.2[B529.BA2.75.2 %notin% voc],"VARIANT"] <- "BA.2.75.2"
+    src.dat[src.dat$VARIANT %in% B529.BA2.12.1[B529.BA2.12.1 %notin% voc],"VARIANT"] <- "BA.2.12.1"
+    src.dat[src.dat$VARIANT %in% B529.BA2.18[B529.BA2.18 %notin% voc],"VARIANT"] <- "BA.2.18"
+    src.dat[src.dat$VARIANT %in% B529.BN.1[B529.BN.1 %notin% voc],"VARIANT"] <- "BN.1"
+    src.dat[src.dat$VARIANT %in% B529.BN.1.3[B529.BN.1.3 %notin% voc],"VARIANT"] <- "BN.1.3"
+    src.dat[src.dat$VARIANT %in% B529.BN.1.5[B529.BN.1.5 %notin% voc],"VARIANT"] <- "BN.1.5"
+    src.dat[src.dat$VARIANT %in% B529.BA3[B529.BA3 %notin% voc],"VARIANT"] <- "BA.3"
+    src.dat[src.dat$VARIANT %in% B529.BA4[B529.BA4 %notin% voc],"VARIANT"] <- "BA.4"
+    src.dat[src.dat$VARIANT %in% B529.BA4.1[B529.BA4.1 %notin% voc],"VARIANT"] <- "BA.4.1"
+    src.dat[src.dat$VARIANT %in% B529.BA4.4[B529.BA4.4 %notin% voc],"VARIANT"] <- "BA.4.4"
+    src.dat[src.dat$VARIANT %in% B529.BA4.6[B529.BA4.6 %notin% voc],"VARIANT"] <- "BA.4.6"
+    src.dat[src.dat$VARIANT %in% B529.BA5[B529.BA5 %notin% voc],"VARIANT"] <- "BA.5"
+    src.dat[src.dat$VARIANT %in% B529.BA5.1[B529.BA5.1 %notin% voc],"VARIANT"] <- "BA.5.1"
+    src.dat[src.dat$VARIANT %in% B529.BA5.1.1[B529.BA5.1.1 %notin% voc],"VARIANT"] <- "BA.5.1.1"
+    src.dat[src.dat$VARIANT %in% B529.BA5.1.2[B529.BA5.1.2 %notin% voc],"VARIANT"] <- "BA.5.1.2"
+    src.dat[src.dat$VARIANT %in% B529.BA5.1.5[B529.BA5.1.5 %notin% voc],"VARIANT"] <- "BA.5.1.5"
+    src.dat[src.dat$VARIANT %in% B529.BA5.1.10[B529.BA5.1.10 %notin% voc],"VARIANT"] <- "BA.5.1.10"
+    src.dat[src.dat$VARIANT %in% B529.BA5.1.18[B529.BA5.1.18 %notin% voc],"VARIANT"] <- "BA.5.1.18"
+    src.dat[src.dat$VARIANT %in% B529.BA5.1.22[B529.BA5.1.22 %notin% voc],"VARIANT"] <- "BA.5.1.22"
+    src.dat[src.dat$VARIANT %in% B529.BA5.1.23[B529.BA5.1.23 %notin% voc],"VARIANT"] <- "BA.5.1.23"
+    src.dat[src.dat$VARIANT %in% B529.BA5.1.27[B529.BA5.1.27 %notin% voc],"VARIANT"] <- "BA.5.1.27"
+    src.dat[src.dat$VARIANT %in% B529.BA5.2[B529.BA5.2 %notin% voc],"VARIANT"] <- "BA.5.2"
+    src.dat[src.dat$VARIANT %in% B529.BA5.2.1[B529.BA5.2.1 %notin% voc],"VARIANT"] <- "BA.5.2.1"
+    src.dat[src.dat$VARIANT %in% B529.BA5.2.6[B529.BA5.2.6 %notin% voc],"VARIANT"] <- "BA.5.2.6"
+    src.dat[src.dat$VARIANT %in% B529.BA5.2.9[B529.BA5.2.9 %notin% voc],"VARIANT"] <- "BA.5.2.9"
+    src.dat[src.dat$VARIANT %in% B529.BA5.2.20[B529.BA5.2.20 %notin% voc],"VARIANT"] <- "BA.5.2.20"
+    src.dat[src.dat$VARIANT %in% B529.CR.1.1[B529.CR.1.1 %notin% voc],"VARIANT"] <- "CR.1.1"
+    src.dat[src.dat$VARIANT %in% B529.BA5.2.21[B529.BA5.2.21 %notin% voc],"VARIANT"] <- "BA.5.2.21"
+    src.dat[src.dat$VARIANT %in% B529.BA5.2.23[B529.BA5.2.23 %notin% voc],"VARIANT"] <- "BA.5.2.23"
+    src.dat[src.dat$VARIANT %in% B529.CK.1[B529.CK.1 %notin% voc],"VARIANT"] <- "CK.1"
+    src.dat[src.dat$VARIANT %in% B529.BA5.2.31[B529.BA5.2.31 %notin% voc],"VARIANT"] <- "BA.5.2.31"
+    src.dat[src.dat$VARIANT %in% B529.BA5.2.34[B529.BA5.2.34 %notin% voc],"VARIANT"] <- "BA.5.2.34"
+    src.dat[src.dat$VARIANT %in% B529.BA5.3.1[B529.BA5.3.1 %notin% voc],"VARIANT"] <- "BA.5.3.1"
+    src.dat[src.dat$VARIANT %in% B529.BA5.5[B529.BA5.5 %notin% voc],"VARIANT"] <- "BA.5.5"
+    src.dat[src.dat$VARIANT %in% B529.BA5.5.1[B529.BA5.5.1 %notin% voc],"VARIANT"] <- "BA.5.5.1"
+    src.dat[src.dat$VARIANT %in% B529.BA5.6[B529.BA5.6 %notin% voc],"VARIANT"] <- "BA.5.6"
+    src.dat[src.dat$VARIANT %in% B529.BE.1[B529.BE.1 %notin% voc],"VARIANT"] <- "BE.1"
+    src.dat[src.dat$VARIANT %in% B529.BE.1.1[B529.BE.1.1 %notin% voc],"VARIANT"] <- "BE.1.1"
+    src.dat[src.dat$VARIANT %in% B529.BE.3[B529.BE.3 %notin% voc],"VARIANT"] <- "BE.3"
+    src.dat[src.dat$VARIANT %in% B529.BF.5[B529.BF.5 %notin% voc],"VARIANT"] <- "BF.5"
+    src.dat[src.dat$VARIANT %in% B529.BF.7[B529.BF.7 %notin% voc],"VARIANT"] <- "BF.7"
+    src.dat[src.dat$VARIANT %in% B529.BF.7.4.1[B529.BF.7.4.1 %notin% voc],"VARIANT"] <- "BF.7.4.1"
+    src.dat[src.dat$VARIANT %in% B529.BF.7.4[B529.BF.7.4 %notin% voc],"VARIANT"] <- "BF.7.4"
+    src.dat[src.dat$VARIANT %in% B529.BF.8[B529.BF.8 %notin% voc],"VARIANT"] <- "BF.8"
+    src.dat[src.dat$VARIANT %in% B529.BF.10[B529.BF.10 %notin% voc],"VARIANT"] <- "BF.10"
+    src.dat[src.dat$VARIANT %in% B529.BF.11[B529.BF.11 %notin% voc],"VARIANT"] <- "BF.11"
+    src.dat[src.dat$VARIANT %in% B529.BF.13[B529.BF.13 %notin% voc],"VARIANT"] <- "BF.13"
+    src.dat[src.dat$VARIANT %in% B529.BF.21[B529.BF.21 %notin% voc],"VARIANT"] <- "BF.21"
+    src.dat[src.dat$VARIANT %in% B529.BF.26[B529.BF.26 %notin% voc],"VARIANT"] <- "BF.26"
+    src.dat[src.dat$VARIANT %in% B529.BF.27[B529.BF.27 %notin% voc],"VARIANT"] <- "BF.27"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1[B529.BQ.1 %notin% voc],"VARIANT"] <- "BQ.1"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.1[B529.BQ.1.1 %notin% voc],"VARIANT"] <- "BQ.1.1"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.1.1[B529.BQ.1.1.1 %notin% voc],"VARIANT"] <- "BQ.1.1.1"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.1.3[B529.BQ.1.1.3 %notin% voc],"VARIANT"] <- "BQ.1.1.3"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.1.4[B529.BQ.1.1.4 %notin% voc],"VARIANT"] <- "BQ.1.1.4"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.1.5[B529.BQ.1.1.5 %notin% voc],"VARIANT"] <- "BQ.1.1.5"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.1.7[B529.BQ.1.1.7 %notin% voc],"VARIANT"] <- "BQ.1.1.7"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.1.10[B529.BQ.1.1.10 %notin% voc],"VARIANT"] <- "BQ.1.1.10"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.1.13[B529.BQ.1.1.13 %notin% voc],"VARIANT"] <- "BQ.1.1.13"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.1.18[B529.BQ.1.1.18 %notin% voc],"VARIANT"] <- "BQ.1.1.18"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.1.32[B529.BQ.1.1.32 %notin% voc],"VARIANT"] <- "BQ.1.1.32"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.1.41[B529.BQ.1.1.41 %notin% voc],"VARIANT"] <- "BQ.1.1.41"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.10[B529.BQ.1.10 %notin% voc],"VARIANT"] <- "BQ.1.10"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.11[B529.BQ.1.11 %notin% voc],"VARIANT"] <- "BQ.1.11"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.12[B529.BQ.1.12 %notin% voc],"VARIANT"] <- "BQ.1.12"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.13[B529.BQ.1.13 %notin% voc],"VARIANT"] <- "BQ.1.13"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.14[B529.BQ.1.14 %notin% voc],"VARIANT"] <- "BQ.1.14"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.19[B529.BQ.1.19 %notin% voc],"VARIANT"] <- "BQ.1.19"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.2[B529.BQ.1.2 %notin% voc],"VARIANT"] <- "BQ.1.2"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.3[B529.BQ.1.3 %notin% voc],"VARIANT"] <- "BQ.1.3"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.5[B529.BQ.1.5 %notin% voc],"VARIANT"] <- "BQ.1.5"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.22[B529.BQ.1.22 %notin% voc],"VARIANT"] <- "BQ.1.22"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.23[B529.BQ.1.23 %notin% voc],"VARIANT"] <- "BQ.1.23"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.25[B529.BQ.1.25 %notin% voc],"VARIANT"] <- "BQ.1.25"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.25.1[B529.BQ.1.25.1 %notin% voc],"VARIANT"] <- "BQ.1.25.1"
+    src.dat[src.dat$VARIANT %in% B529.BQ.1.28[B529.BQ.1.28 %notin% voc],"VARIANT"] <- "BQ.1.28"
+    src.dat[src.dat$VARIANT %in% B529.CQ.2[B529.CQ.2 %notin% voc],"VARIANT"] <- "CQ.2"
+    src.dat[src.dat$VARIANT %in% B529.DF.1[B529.DF.1 %notin% voc],"VARIANT"] <- "DF.1"
+  }
+  if(XBB_agg) {
+    src.dat[src.dat$VARIANT %in% XBB.1.5.1[XBB.1.5.1 %notin% voc],"VARIANT"] <- "XBB.1.5.1"
+    src.dat[src.dat$VARIANT %in% XBB.1.5.2[XBB.1.5.2 %notin% voc],"VARIANT"] <- "XBB.1.5.2"
+    src.dat[src.dat$VARIANT %in% XBB.1.5.4[XBB.1.5.4 %notin% voc],"VARIANT"] <- "XBB.1.5.4"
+    src.dat[src.dat$VARIANT %in% XBB.1.5.5[XBB.1.5.5 %notin% voc],"VARIANT"] <- "XBB.1.5.5"
+    src.dat[src.dat$VARIANT %in% XBB.1.5.10[XBB.1.5.10 %notin% voc],"VARIANT"] <- "XBB.1.5.10"
+    src.dat[src.dat$VARIANT %in% XBB.1.5.11[XBB.1.5.11 %notin% voc],"VARIANT"] <- "XBB.1.5.11"
+    src.dat[src.dat$VARIANT %in% XBB.1.5.13[XBB.1.5.13 %notin% voc],"VARIANT"] <- "XBB.1.5.13"
+    src.dat[src.dat$VARIANT %in% XBB.1.5.15[XBB.1.5.15 %notin% voc],"VARIANT"] <- "XBB.1.5.15"
+    src.dat[src.dat$VARIANT %in% XBB.1.5.16[XBB.1.5.16 %notin% voc],"VARIANT"] <- "XBB.1.5.16"
+    src.dat[src.dat$VARIANT %in% XBB.1.5.17[XBB.1.5.17 %notin% voc],"VARIANT"] <- "XBB.1.5.17"
+    src.dat[src.dat$VARIANT %in% XBB.1.5.19[XBB.1.5.19 %notin% voc],"VARIANT"] <- "XBB.1.5.19"
+    src.dat[src.dat$VARIANT %in% XBB.1.5.20[XBB.1.5.20 %notin% voc],"VARIANT"] <- "XBB.1.5.20"
+    src.dat[src.dat$VARIANT %in% XBB.1.5.21[XBB.1.5.21 %notin% voc],"VARIANT"] <- "XBB.1.5.21"
+    src.dat[src.dat$VARIANT %in% XBB.1.5.30[XBB.1.5.30 %notin% voc],"VARIANT"] <- "XBB.1.5.30"
+    src.dat[src.dat$VARIANT %in% XBB.1.5.31[XBB.1.5.31 %notin% voc],"VARIANT"] <- "XBB.1.5.31"
+    src.dat[src.dat$VARIANT %in% XBB.1.5.32[XBB.1.5.32 %notin% voc],"VARIANT"] <- "XBB.1.5.32"
+    src.dat[src.dat$VARIANT %in% XBB.1.5.33[XBB.1.5.33 %notin% voc],"VARIANT"] <- "XBB.1.5.33"
+    src.dat[src.dat$VARIANT %in% XBB.1.5.35[XBB.1.5.35 %notin% voc],"VARIANT"] <- "XBB.1.5.35"
+    src.dat[src.dat$VARIANT %in% XBB.1.5[XBB.1.5 %notin% voc],"VARIANT"] <- "XBB.1.5"
+    src.dat[src.dat$VARIANT %in% XBB.1.9.1[XBB.1.9.1 %notin% voc],"VARIANT"] <- "XBB.1.9.1"
+    src.dat[src.dat$VARIANT %in% XBB.1.9.2[XBB.1.9.2 %notin% voc],"VARIANT"] <- "XBB.1.9.2"
+    src.dat[src.dat$VARIANT %in% EG.1[EG.1 %notin% voc],"VARIANT"] <- "EG.1"
+    src.dat[src.dat$VARIANT %in% XBB.1.15[XBB.1.15 %notin% voc],"VARIANT"] <- "XBB.1.15"
+    src.dat[src.dat$VARIANT %in% XBB.1.16[XBB.1.16 %notin% voc],"VARIANT"] <- "XBB.1.16"
+    src.dat[src.dat$VARIANT %in% XBB.1.16.1[XBB.1.16.1 %notin% voc],"VARIANT"] <- "XBB.1.16.1"
+    src.dat[src.dat$VARIANT %in% XBB.1[XBB.1 %notin% voc],"VARIANT"] <- "XBB.1"
+    src.dat[src.dat$VARIANT %in% XBB.2[XBB.2 %notin% voc],"VARIANT"] <- "XBB.2"
+    src.dat[src.dat$VARIANT %in% XBB.2.3[XBB.2.3 %notin% voc],"VARIANT"] <- "XBB.2.3"
+    src.dat[src.dat$VARIANT %in% FD.2[FD.2 %notin% voc],"VARIANT"] <- "FD.2"    
+    src.dat[src.dat$VARIANT %in% FE.1[FE.1 %notin% voc],"VARIANT"] <- "FE.1"
+    src.dat[src.dat$VARIANT %in% XBB[XBB %notin% voc],"VARIANT"] <- "XBB"
+  }
+} # end old aggregation methods
+# src.dat[ , table( VARIANT0 == VARIANT ) ]
 
+# define an "R346T" variant.
+# Note: "R346T" is not reflected in "voc_lut", but will be in "lineage_aggregations" table saved below
 if(force_aggregate_R346T==TRUE & length(grep("^R346T", unique(src.dat$VARIANT), perl=T))> 0){
   src.dat[src.dat$VARIANT %in% R346T_sublineages, "VARIANT"] <- "R346T"
 }
@@ -1067,17 +1481,18 @@ src.dat$VARIANT2 = as.character(src.dat$VARIANT)
 src.dat[src.dat$VARIANT %notin% voc, "VARIANT2"] <- "Other"
 
 # create a table of all the old and new (after aggregating) variant names
+# (using "VARIANT", which does NOT have the "OTHER" aggregation)
 write.csv(
   x = src.dat[
     , # no filtering
     .(old = lineage, new = VARIANT), # create new columns with clearer names
     by = c('lineage', 'VARIANT') # group by lineage and Variant
-    ][
-      ,
-      .(old, new) # select only these columns
-      ][
-        order(old), # reorder by the original lineage name
-        ],
+  ][
+    ,
+    .(old, new) # select only these columns
+  ][
+    order(old), # reorder by the original lineage name
+  ],
   file = paste0(script.basename,
                 output_folder, "/lineage_aggregations_",
                 ci.type,
@@ -1091,17 +1506,18 @@ write.csv(
 )
 
 # create a table of all the old and final (after aggregating) variant names
+# (using "VARIANT2", which includes the "OTHER" aggregation)
 write.csv(
   x = src.dat[
     , # no filtering
     .(original = lineage, aggregated = VARIANT2), # create new columns with clearer names
     by = c('lineage', 'VARIANT2') # group by lineage and Variant
-    ][
-      ,
-      .(original, aggregated) # select only these columns
-      ][
-        order(original), # reorder by the original lineage name
-        ],
+  ][
+    ,
+    .(original, aggregated) # select only these columns
+  ][
+    order(original), # reorder by the original lineage name
+  ],
   file = paste0(script.basename,
                 output_folder, "/lineage_aggregations_summary_",
                 ci.type,
@@ -1329,11 +1745,11 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
 
       # national estimates
       unwt.ftnt_us <- dat2[,
-                            .(count = .N,
-                              denom_count = sum(dat2$FORTNIGHT_END == FORTNIGHT_END),
-                              Unwt_share = .N / sum(dat2$FORTNIGHT_END == FORTNIGHT_END),
-                              USA_or_HHSRegion = 'USA'),
-                            by = c('FORTNIGHT_END', 'VARIANT2')]
+                           .(count = .N,
+                             denom_count = sum(dat2$FORTNIGHT_END == FORTNIGHT_END),
+                             Unwt_share = .N / sum(dat2$FORTNIGHT_END == FORTNIGHT_END),
+                             USA_or_HHSRegion = 'USA'),
+                           by = c('FORTNIGHT_END', 'VARIANT2')]
 
       # regional estimates
       unwt.ftnt_hhs <- dat2[,
@@ -1345,32 +1761,32 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
 
       # join the national and regional estimates
       unwt.ftnt <- rbind(unwt.ftnt_us,
-                          unwt.ftnt_hhs[,.SD, .SD = names(unwt.ftnt_us)] )
+                         unwt.ftnt_hhs[,.SD, .SD = names(unwt.ftnt_us)] )
 
       # calculate binomial confidence intervals
       unwt.ftnt[,Unwt_share_lo:= NA_real_]
       unwt.ftnt[,Unwt_share_hi:= NA_real_]
       for(i in 1:nrow(unwt.ftnt)) {
-          nsuccess <- unwt.ftnt[i][['count']]
-          ntry     <- unwt.ftnt[i][['denom_count']]
+        nsuccess <- unwt.ftnt[i][['count']]
+        ntry     <- unwt.ftnt[i][['denom_count']]
 
-          if(ntry > 0){
-            # perform a proportion test to get the binomial confidence interval
-            pt <- prop.test(x = nsuccess,
-                            n = ntry,
-                            conf.level = 0.95)
+        if(ntry > 0){
+          # perform a proportion test to get the binomial confidence interval
+          pt <- prop.test(x = nsuccess,
+                          n = ntry,
+                          conf.level = 0.95)
 
-            # add the confidence limits back into the data
-            unwt.ftnt[i,Unwt_share_lo:= pt$conf.int[1]]
-            unwt.ftnt[i,Unwt_share_hi:= pt$conf.int[2]]
-          }
+          # add the confidence limits back into the data
+          unwt.ftnt[i,Unwt_share_lo:= pt$conf.int[1]]
+          unwt.ftnt[i,Unwt_share_hi:= pt$conf.int[2]]
+        }
       }# end for loop
 
       # calculate growth rates
       # make sure sort columns are not factors
       unwt.ftnt[, ':='('USA_or_HHSRegion' = factor(as.character(USA_or_HHSRegion), levels = c('USA', 1:10)),
-                        'Fortnight_ending' = as.Date(as.character(FORTNIGHT_END)),
-                        'Variant' = as.character(VARIANT2))]
+                       'Fortnight_ending' = as.Date(as.character(FORTNIGHT_END)),
+                       'Variant' = as.character(VARIANT2))]
 
       # calculate some estimate of growth rate in a more efficient manner
       # set the key to order the dataframe & speed up some calculations
@@ -1385,19 +1801,19 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
       unwt.ftnt[,start_share := data.table::shift(Unwt_share, 1, type = "lag"),by = c("USA_or_HHSRegion", "Variant")]
 
       unwt.ftnt[
-          ,':='(
-            # calculate multinomial growth rate (weekly)
-            unwt_growth_rate = (exp((log(Unwt_share) - log(start_share))/(time_diff_days/7))-1)*100,
-            # calculate log-odds growth rate
-            unwt_growth_rate_logodds = log( (Unwt_share / (1 - Unwt_share)) / (start_share / (1 - start_share))) / (time_diff_days/7))
+        ,':='(
+          # calculate multinomial growth rate (weekly)
+          unwt_growth_rate = (exp((log(Unwt_share) - log(start_share))/(time_diff_days/7))-1)*100,
+          # calculate log-odds growth rate
+          unwt_growth_rate_logodds = log( (Unwt_share / (1 - Unwt_share)) / (start_share / (1 - start_share))) / (time_diff_days/7))
       ]
       unwt.ftnt[
-          ,':='(
-            # calculate multinomial doubling time (in days)
-            unwt_doubling_time = (log(2) / log((100 + unwt_growth_rate) / 100)) * 7,
-            # calculate time for log odds to double (this is equivalent to doubling time calculated from the time coefficient in a logistic model)
-            unwt_doubling_time_logodds = log(2) / unwt_growth_rate_logodds * 7
-          )
+        ,':='(
+          # calculate multinomial doubling time (in days)
+          unwt_doubling_time = (log(2) / log((100 + unwt_growth_rate) / 100)) * 7,
+          # calculate time for log odds to double (this is equivalent to doubling time calculated from the time coefficient in a logistic model)
+          unwt_doubling_time_logodds = log(2) / unwt_growth_rate_logodds * 7
+        )
       ]
 
       # convert to character (for merging)
@@ -1410,16 +1826,16 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
       # specify the weights in the survey design
       survey_Design_temp <- svyDES
       if (meth == 'unweighted'){
-          # set all the weights to be equal
-          survey_Design_temp$prob <- rep(1, length(weights(svyDES)))
-          # weights(survey_Design_temp, type = 'sampling')
-          # weights(survey_Design_temp, type = 'analysis')
+        # set all the weights to be equal
+        survey_Design_temp$prob <- rep(1, length(weights(svyDES)))
+        # weights(survey_Design_temp, type = 'sampling')
+        # weights(survey_Design_temp, type = 'analysis')
       }
       # create a dataframe with all unique combinations of variants, fortnights, and regions
       # (and then reverse column order for convenience)
       all.ftnt = expand.grid(Variant = voc,
-                            Fortnight_ending = ftnts,
-                            USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
+                             Fortnight_ending = ftnts,
+                             USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
 
       # get the proportion estimates & CI
       all_ftnt_ests_function <- function(all.ftnt, svyDES, calc_99_CI = calc_99_CI_weighted){
@@ -1429,25 +1845,25 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
                       FUN = function(rr) myciprop(voc   = rr[3],
                                                   geoid = rr[1],
                                                   svy = subset(x = svyDES,
-                                                                FORTNIGHT_END == rr[2]),
+                                                               FORTNIGHT_END == rr[2]),
                                                   str = FALSE))
         # optionally calculate estimates with 99% CI
         if(calc_99_CI){
-            ests_99 <- apply(X = all.ftnt,
-                            MARGIN = 1,
-          FUN = function(rr) myciprop(voc = rr[3],
-                                      geoid = rr[1],
-                                      svy = subset(x = svyDES,
-                                                    FORTNIGHT_END == rr[2]),
-                                                        str = FALSE,
-                                                        level = 0.99))
+          ests_99 <- apply(X = all.ftnt,
+                           MARGIN = 1,
+                           FUN = function(rr) myciprop(voc = rr[3],
+                                                       geoid = rr[1],
+                                                       svy = subset(x = svyDES,
+                                                                    FORTNIGHT_END == rr[2]),
+                                                       str = FALSE,
+                                                       level = 0.99))
 
-            # add the 99% CI onto the ests object
-            rownames(ests_99) <- sub(pattern = 'ucl', replacement = 'ucl_99', x = sub(pattern = 'lcl', replacement = 'lcl_99', x = rownames(ests_99)))
+          # add the 99% CI onto the ests object
+          rownames(ests_99) <- sub(pattern = 'ucl', replacement = 'ucl_99', x = sub(pattern = 'lcl', replacement = 'lcl_99', x = rownames(ests_99)))
 
-            # add the 99% CI to the output
-            ests <- rbind(ests,
-                          ests_99[c('lcl_99', 'ucl_99'),])
+          # add the 99% CI to the output
+          ests <- rbind(ests,
+                        ests_99[c('lcl_99', 'ucl_99'),])
         }
 
         return(ests)
@@ -1505,13 +1921,13 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
 
       # add in the estimates to the dataframe
       all.ftnt = cbind(all.ftnt,
-                      Share    = ests[1,],
-                      Share_lo = ests[2,],
-                      Share_hi = ests[3,],
-                      DF       = ests[4,],
-                      eff.size = ests[5,],
-                      cv.mean  = ests[6,],
-                      deff     = ests[7,])
+                       Share    = ests[1,],
+                       Share_lo = ests[2,],
+                       Share_hi = ests[3,],
+                       DF       = ests[4,],
+                       eff.size = ests[5,],
+                       cv.mean  = ests[6,],
+                       deff     = ests[7,])
 
       # add on 99% CI
       if('lcl_99' %in% row.names(ests)){
@@ -1522,8 +1938,8 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
 
       ## make predictions for the "other" variants (following the same steps)
       others = expand.grid(Variant          = "Other",
-                          Fortnight_ending = ftnts,
-                          USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
+                           Fortnight_ending = ftnts,
+                           USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
 
       # function to get the proportion estimates & CI (for "other" variants)
       others_ftnt_ests_function <- function(others, svyDES, calc_99_CI = calc_99_CI_weighted){
@@ -1533,29 +1949,29 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
                             FUN = function(rr) myciprop(voc = voc, # "Other" isn't in the Nowcast model; if voc is a vector, myciprop will return the aggregated proportion. So feed in all the vocs, then subtract from 1 to get "Other" estimates.
                                                         geoid = rr[1],
                                                         svy = subset(svyDES,
-                                                                    FORTNIGHT_END == rr[2]),
+                                                                     FORTNIGHT_END == rr[2]),
                                                         str = FALSE))
 
         # optionally calculate estimates with 99% CI
         if(calc_99_CI){
-            ests.others_99 <- apply(X = others,
-                                    MARGIN = 1,
-                                    FUN = function(rr) myciprop(voc = voc, # "Other" isn't in the Nowcast model; if voc is a vector, myciprop will return the aggregated proportion. So feed in all the vocs, then subtract from 1 to get "Other" estimates.
-                                                                geoid = rr[1],
-                                                                svy = subset(svyDES,
-                                                                            FORTNIGHT_END == rr[2]),
-                                                                str = FALSE,
-                                                                level = 0.99))
+          ests.others_99 <- apply(X = others,
+                                  MARGIN = 1,
+                                  FUN = function(rr) myciprop(voc = voc, # "Other" isn't in the Nowcast model; if voc is a vector, myciprop will return the aggregated proportion. So feed in all the vocs, then subtract from 1 to get "Other" estimates.
+                                                              geoid = rr[1],
+                                                              svy = subset(svyDES,
+                                                                           FORTNIGHT_END == rr[2]),
+                                                              str = FALSE,
+                                                              level = 0.99))
 
-            # add the 99% CI onto the ests object
-            rownames(ests.others_99) <- sub(pattern = 'ucl',
-                                            replacement = 'ucl_99',
-                                            x = sub(pattern = 'lcl',
-                                                    replacement = 'lcl_99',
-                                                    x = row.names(ests.others_99)))
+          # add the 99% CI onto the ests object
+          rownames(ests.others_99) <- sub(pattern = 'ucl',
+                                          replacement = 'ucl_99',
+                                          x = sub(pattern = 'lcl',
+                                                  replacement = 'lcl_99',
+                                                  x = row.names(ests.others_99)))
 
-            ests.others <- rbind(ests.others,
-                                ests.others_99[c('lcl_99', 'ucl_99'),])
+          ests.others <- rbind(ests.others,
+                               ests.others_99[c('lcl_99', 'ucl_99'),])
         }
 
 
@@ -1573,9 +1989,9 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
 
           # perform the calculations on the cluster
           others_list <- parallel::parLapply(cl = cl,
-                                            X = cut_list,
-                                            fun = others_ftnt_ests_function,
-                                            svyDES = survey_Design_temp)
+                                             X = cut_list,
+                                             fun = others_ftnt_ests_function,
+                                             svyDES = survey_Design_temp)
 
           # combine the results into a single dataframe
           do.call(what = 'cbind', args = others_list)
@@ -1591,13 +2007,13 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
 
       # add in the estimates to the dataframe (for "other" variants)
       others = cbind(others,
-                    Share    = 1-ests.others[1,],
-                    Share_lo = 1-ests.others[3,],
-                    Share_hi = 1-ests.others[2,],
-                    DF       = ests.others[4,],
-                    eff.size = ests.others[5,],
-                    cv.mean  = ests.others[6,],
-                    deff     = ests.others[7,])
+                     Share    = 1-ests.others[1,],
+                     Share_lo = 1-ests.others[3,],
+                     Share_hi = 1-ests.others[2,],
+                     DF       = ests.others[4,],
+                     eff.size = ests.others[5,],
+                     cv.mean  = ests.others[6,],
+                     deff     = ests.others[7,])
 
       # add on 99% CI
       if('lcl_99' %in% row.names(ests.others)){
@@ -1609,7 +2025,7 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
 
       # combine the estimates for the vocs with the estimates for "other" variants
       all.ftnt = rbind(all.ftnt,
-                      others)
+                       others)
 
       # create a table of counts by variant, time period, and HHS region
       raw_counts_REG <- aggregate(count ~ VARIANT2 + FORTNIGHT_END + HHS,
@@ -1622,49 +2038,49 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
 
       # create a table of counts by variant and time period for the whole US
       raw_counts_US <- aggregate(count ~ VARIANT2 + FORTNIGHT_END,
-                                data = dat2,
-                                FUN  = sum,
-                                drop = FALSE)
+                                 data = dat2,
+                                 FUN  = sum,
+                                 drop = FALSE)
 
       # add a column for HHS region
       raw_counts_US <- cbind(raw_counts_US[,1:2],
-                            HHS = "USA",
-                            count = raw_counts_US[,3])
+                             HHS = "USA",
+                             count = raw_counts_US[,3])
 
       # combine dataframe of counts by region with dataframe of counts for US
       raw_counts <- rbind.data.frame(raw_counts_US,
-                                    raw_counts_REG)
+                                     raw_counts_REG)
 
       # merge weighted proportions estimates with sequence counts
       all.ftnt2 <- merge(x = all.ftnt,
-                        y = raw_counts,
-                        by.x = c("USA_or_HHSRegion",
+                         y = raw_counts,
+                         by.x = c("USA_or_HHSRegion",
                                   "Fortnight_ending",
                                   "Variant"),
-                        by.y = c("HHS",
+                         by.y = c("HHS",
                                   "FORTNIGHT_END",
                                   "VARIANT2"),
-                        all = T)
+                         all = T)
 
       # replace NA counts with 0
       all.ftnt2[is.na(all.ftnt2$count)==T, "count"] <- 0
 
       #calculate denominator counts by region & time period
       dss <- aggregate(count ~ USA_or_HHSRegion + Fortnight_ending,
-                      data = all.ftnt2,
-                      FUN  = sum)
+                       data = all.ftnt2,
+                       FUN  = sum)
 
       # change the names of the "count" column
       names(dss)[grep("count",names(dss))] <- "denom_count"
 
       # add the denominator counts into the dataframe of results
       all.ftnt2 <- merge(x = all.ftnt2,
-                        y = dss)
+                         y = dss)
 
       #set the Share 0 and CI limits to NA when the count for a lineage is 0
       all.ftnt2$Share = ifelse(test = all.ftnt2$Share != 0 & all.ftnt2$count == 0,
-                              yes = 0,
-                              no = all.ftnt2$Share)
+                               yes = 0,
+                               no = all.ftnt2$Share)
       all.ftnt2$Share_lo = ifelse(test = is.na(all.ftnt2$Share_lo) == F & all.ftnt2$count == 0,
                                   yes = NA,
                                   no = all.ftnt2$Share_lo)
@@ -1680,9 +2096,9 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
       all.ftnt2$flag_df = as.numeric(all.ftnt2$DF < 8)
       # flag estimates with effective size of < 30 (or NA)
       all.ftnt2$flag_eff.size = ifelse(test = all.ftnt2$eff.size < 30 |
-                                        is.na(all.ftnt2$eff.size) == T,
-                                      yes = 1,
-                                      no = 0)
+                                         is.na(all.ftnt2$eff.size) == T,
+                                       yes = 1,
+                                       no = 0)
       # flag estimates with "denominator count" of < 30 (or NA) (denominator = count of sequences of all variants in a given region and time period)
       all.ftnt2$flag_dss = ifelse(test = all.ftnt2$denom_count < 30 |
                                     is.na(all.ftnt2$denom_count) == T,
@@ -1701,12 +2117,12 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
 
       # Single identifier for observations that have *any* NCHS flag
       all.ftnt2$nchs_flag = ifelse(test = all.ftnt2$flag_df == 1 |
-                                    all.ftnt2$flag_eff.size == 1 |
-                                    all.ftnt2$denom_count == 1 |
-                                    all.ftnt2$flag_abs.ciw == 1 |
-                                    all.ftnt2$flag_rel.ciw == 1,
-                                  yes = 1,
-                                  no = 0)
+                                     all.ftnt2$flag_eff.size == 1 |
+                                     all.ftnt2$denom_count == 1 |
+                                     all.ftnt2$flag_abs.ciw == 1 |
+                                     all.ftnt2$flag_rel.ciw == 1,
+                                   yes = 1,
+                                   no = 0)
       # Single identifier for observations that have any NCHS flag *other* than the
       # degrees of freedom flag.
       all.ftnt2$nchs_flag_wodf = ifelse(test = all.ftnt2$flag_eff.size == 1 |
@@ -1756,8 +2172,8 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
 
         # make sure sort columns are not factors
         all.ftnt2[, ':='('USA_or_HHSRegion' = factor(as.character(USA_or_HHSRegion), levels = c('USA', 1:10)),
-                          'Fortnight_ending' = as.Date(as.character(Fortnight_ending)),
-                          'Variant' = as.character(Variant))]
+                         'Fortnight_ending' = as.Date(as.character(Fortnight_ending)),
+                         'Variant' = as.character(Variant))]
 
         # calculate some estimate of growth rate in a more efficient manner
         # set the key to order the dataframe & speed up some calculations
@@ -1765,16 +2181,16 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
 
         # calculate the time period between 2 estimates
         all.ftnt2[
-            ,
-            time_diff_days := as.numeric(as.Date(Fortnight_ending)) -
-              as.numeric(as.Date(data.table::shift(Fortnight_ending, 1, type = "lag"))),
-            by = c("USA_or_HHSRegion", "Variant")
+          ,
+          time_diff_days := as.numeric(as.Date(Fortnight_ending)) -
+            as.numeric(as.Date(data.table::shift(Fortnight_ending, 1, type = "lag"))),
+          by = c("USA_or_HHSRegion", "Variant")
         ]
         # add a column for the starting Variant share
         all.ftnt2[
-            ,
-            start_share := data.table::shift(Share, 1, type = "lag"),
-            by = c("USA_or_HHSRegion", "Variant")
+          ,
+          start_share := data.table::shift(Share, 1, type = "lag"),
+          by = c("USA_or_HHSRegion", "Variant")
         ]
         # calculate multinomial growth rate (weekly)
         # This is an exponential growth rate.
@@ -1806,51 +2222,51 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
         # Note! This is the average growth rate over the previous week/fortnight
         #       and will therefore be > the Nowcast growth rate estimate for the same week
         all.ftnt2[
-            ,
-            growth_rate := (exp((log(Share) - log(start_share))/(time_diff_days/7))-1)*100
-            # could calculate using the discrete time formula
-            # growth_rate = ((Share/start_share)^(1/(time_diff_days/7))-1)*100
-            # continuous time: (then exponentiate, subtract 1, *100)
-            # growth_rate = (exp( log(Share / start_share)/(time_diff_days/7))-1) *100 )
+          ,
+          growth_rate := (exp((log(Share) - log(start_share))/(time_diff_days/7))-1)*100
+          # could calculate using the discrete time formula
+          # growth_rate = ((Share/start_share)^(1/(time_diff_days/7))-1)*100
+          # continuous time: (then exponentiate, subtract 1, *100)
+          # growth_rate = (exp( log(Share / start_share)/(time_diff_days/7))-1) *100 )
         ]
         # all.ftnt2[!is.na(growth_rate),.(Share,start_share,time_diff_days, growth_rate, growth_rate2, growth_rate3)]
 
         # calculate logistic growth rate (log-odds) (weekly)
         all.ftnt2[
-            ,
-            growth_rate_logodds := log( (Share / (1 - Share)) / (start_share / (1 - start_share))) / (time_diff_days/7)
+          ,
+          growth_rate_logodds := log( (Share / (1 - Share)) / (start_share / (1 - start_share))) / (time_diff_days/7)
         ]
         # all.ftnt2[!is.na(logistic_growth_rate),.(Share,start_share,time_diff_days, growth_rate_logodds)]
 
         # calculate multinomial doubling time (in days)
         all.ftnt2[
-            ,
-            # https://en.wikipedia.org/wiki/Doubling_time
-            # Countinuous time (https://en.wikipedia.org/wiki/Doubling_time#Cell_culture_doubling_time)
-            # doubling time = log(2)/r where r = multiplicative (exponential) growth rate
-            # A  = P*e^(r*t)
-            # 2P = P*e^(r*t)
-            # 2  = e^(r*t)
-            # log(2) = r*t
-            # log(2)/r = t (r=0 is no growth)
-            #
-            # or....
-            # Discrete time
-            # Doubling time = log(2) / log(r+1) where r = (exponential) growth rate
-            # y   = y0*(1+r)^t
-            # 2y0 = y0*(1+r)^t
-            # 2   = (1+r)^t
-            # log(2) = log((1+r)^t)
-            # log(2) = t*log(1+r)
-            # log(2)/log(r+1) = t (r=0 is no growth)
-            #
-            # log((100+growth_rate)/100) = exponential (multiplicative) growth rate
-            # log(2) / log((100+growth_rate)/100) = number of weeks per doubling
-            # multiply by days / week to get the number of days per doubling
-            doubling_time := (log(2) / log((100 + growth_rate) / 100)) * 7
-            # equivalent to
-            # doubling_time := log(2)/ (continuous gr)      = log(2) / (log(Share/start_share) / (time_diff_days/7)) * 7
-            # doubling_time := log(2)/ log(discrete gr + 1) = log(2) / log((Share/start_share)^(1/time_diff_days) - 1 + 1) [divide by 7 to convert to weeks then multiply by 7 to convert back to days]
+          ,
+          # https://en.wikipedia.org/wiki/Doubling_time
+          # Countinuous time (https://en.wikipedia.org/wiki/Doubling_time#Cell_culture_doubling_time)
+          # doubling time = log(2)/r where r = multiplicative (exponential) growth rate
+          # A  = P*e^(r*t)
+          # 2P = P*e^(r*t)
+          # 2  = e^(r*t)
+          # log(2) = r*t
+          # log(2)/r = t (r=0 is no growth)
+          #
+          # or....
+          # Discrete time
+          # Doubling time = log(2) / log(r+1) where r = (exponential) growth rate
+          # y   = y0*(1+r)^t
+          # 2y0 = y0*(1+r)^t
+          # 2   = (1+r)^t
+          # log(2) = log((1+r)^t)
+          # log(2) = t*log(1+r)
+          # log(2)/log(r+1) = t (r=0 is no growth)
+          #
+          # log((100+growth_rate)/100) = exponential (multiplicative) growth rate
+          # log(2) / log((100+growth_rate)/100) = number of weeks per doubling
+          # multiply by days / week to get the number of days per doubling
+          doubling_time := (log(2) / log((100 + growth_rate) / 100)) * 7
+          # equivalent to
+          # doubling_time := log(2)/ (continuous gr)      = log(2) / (log(Share/start_share) / (time_diff_days/7)) * 7
+          # doubling_time := log(2)/ log(discrete gr + 1) = log(2) / log((Share/start_share)^(1/time_diff_days) - 1 + 1) [divide by 7 to convert to weeks then multiply by 7 to convert back to days]
         ]
         # all.ftnt2[!is.na(doubling_time1),.(Share,start_share,time_diff_days, doubling_time1, doubling_time3)]
 
@@ -1905,8 +2321,8 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
 
           # get the fortnightly test tallies & aggregate them by fn across USA
           tests_fn_us <- test_list$tests_fortnight[,
-                                                  .('total_test_positives' = sum(POSITIVE, na.rm = T)),
-                                                  by = 'fortnight_end'][,'HHS' := 'USA']
+                                                   .('total_test_positives' = sum(POSITIVE, na.rm = T)),
+                                                   by = 'fortnight_end'][,'HHS' := 'USA']
           # aggregate fortnightly tests by HHS region
           tests_fn_hhs <- test_list$tests_fortnight[,
                                                     .('total_test_positives' = sum(POSITIVE, na.rm = T)),
@@ -1924,9 +2340,9 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
             y = rbind(tests_fn_us,
                       tests_fn_hhs),
             by.x = c("USA_or_HHSRegion",
-                    "Fortnight_ending"),
+                     "Fortnight_ending"),
             by.y = c('HHS',
-                    'fortnight_end'),
+                     'fortnight_end'),
             all.x = TRUE)
 
           # calculate case totals for each variant
@@ -1935,8 +2351,8 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
           all.ftnt2$cases_hi <- all.ftnt2$total_test_positives * all.ftnt2$Share_hi
         } else {
           print(paste0('File ',
-                      test_filepath,
-                      ' not found. Not calculating number of infections attributable to each variant for fortnights.'))
+                       test_filepath,
+                       ' not found. Not calculating number of infections attributable to each variant for fortnights.'))
         }
 
       } # end calc_confirmed_infections
@@ -1952,9 +2368,9 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
       all.ftnt3 <- merge(
         x = all.ftnt2,
         y = unwt.ftnt[,.(USA_or_HHSRegion, Fortnight_ending, Variant,
-                          Unwt_share, Unwt_share_lo, Unwt_share_hi,
-                          unwt_growth_rate, unwt_growth_rate_logodds,
-                          unwt_doubling_time, unwt_doubling_time_logodds)],
+                         Unwt_share, Unwt_share_lo, Unwt_share_hi,
+                         unwt_growth_rate, unwt_growth_rate_logodds,
+                         unwt_doubling_time, unwt_doubling_time_logodds)],
         by = c('USA_or_HHSRegion', 'Fortnight_ending', 'Variant'),
         all.x = TRUE
       )
@@ -2006,47 +2422,50 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
         # all.ftnt3_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', all.ftnt3_hadoop[,3])
         # all.ftnt3_hadoop[,3] = gsub(' Aggregated', '', all.ftnt3_hadoop[,3])
         write.table(x = all.ftnt3_hadoop,
-                  file = paste0(script.basename,
-                                output_folder, "/variant_share_weighted_",
-                                ci.type,
-                                "CI_",
-                                svy.type,
-                                "_",
-                                data_date,
-                                tag,
-                                "_",
-                                results_tag,
-                                "_hadoop.csv"),
-                  quote = FALSE,
-                  row.names = FALSE,
-                  col.names = FALSE,
-                  sep =  ",")
+                    file = paste0(script.basename,
+                                  output_folder, "/variant_share_weighted_",
+                                  ci.type,
+                                  "CI_",
+                                  svy.type,
+                                  "_",
+                                  data_date,
+                                  tag,
+                                  "_",
+                                  results_tag,
+                                  "_hadoop.csv"),
+                    quote = FALSE,
+                    row.names = FALSE,
+                    col.names = FALSE,
+                    sep =  ",")
       }
 
       ### Weekly estimates
       # (repeat of above code, but with weeks instead of fortnights)
 
-      # subset data to only include data since 2 May, 2021
-      # and (end of week) older than "time_end"
-      dat2 <- subset(src.dat,
-                    as.Date(yr_wk) >= time_start_weights &
-                      (as.Date(yr_wk) + 6) <= time_end)
+      include_run1_weekly <- TRUE
+      if (include_run1_weekly){
 
-      # add a column for the date of the final day of each week
-      dat2[, WEEK_END := as.Date(yr_wk) + 6]
+        # subset data to only include data since 2 May, 2021
+        # and (end of week) older than "time_end"
+        dat2 <- subset(src.dat,
+                       as.Date(yr_wk) >= time_start_weights &
+                         (as.Date(yr_wk) + 6) <= time_end)
 
-      # get the unique weeks that are in the appropriate time frame
-      wks = sort(unique(dat2$yr_wk))
+        # add a column for the date of the final day of each week
+        dat2[, WEEK_END := as.Date(yr_wk) + 6]
 
-      # calculate raw/unweighted estimates (NO survey design; binomial CI)
-      {
+        # get the unique weeks that are in the appropriate time frame
+        wks = sort(unique(dat2$yr_wk))
+
+        # calculate raw/unweighted estimates (NO survey design; binomial CI)
+        {
           # national estimates
           unwt.wkly_us <- dat2[,
-                              .(count = .N,
-                                denom_count = sum(dat2$WEEK_END == WEEK_END),
-                                Unwt_share = .N / sum(dat2$WEEK_END == WEEK_END),
-                                USA_or_HHSRegion = 'USA'),
-                              by = c('WEEK_END', 'VARIANT2')]
+                               .(count = .N,
+                                 denom_count = sum(dat2$WEEK_END == WEEK_END),
+                                 Unwt_share = .N / sum(dat2$WEEK_END == WEEK_END),
+                                 USA_or_HHSRegion = 'USA'),
+                               by = c('WEEK_END', 'VARIANT2')]
 
           # regional estimates
           unwt.wkly_hhs <- dat2[,
@@ -2058,7 +2477,7 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
 
           # join the national and regional estimates
           unwt.wkly <- rbind(unwt.wkly_us,
-                            unwt.wkly_hhs[,.SD, .SD = names(unwt.wkly_us)] )
+                             unwt.wkly_hhs[,.SD, .SD = names(unwt.wkly_us)] )
 
           # calculate binomial confidence intervals
           unwt.wkly[,Unwt_share_lo:= NA_real_]
@@ -2068,22 +2487,22 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
             ntry     <- unwt.wkly[i][['denom_count']]
 
             if(ntry > 0){
-                # perform a proportion test to get the binomial confidence interval
-                pt <- prop.test(x = nsuccess,
-                                n = ntry,
-                                conf.level = 0.95)
+              # perform a proportion test to get the binomial confidence interval
+              pt <- prop.test(x = nsuccess,
+                              n = ntry,
+                              conf.level = 0.95)
 
-                # add the confidence limits back into the data
-                unwt.wkly[i,Unwt_share_lo:= pt$conf.int[1]]
-                unwt.wkly[i,Unwt_share_hi:= pt$conf.int[2]]
+              # add the confidence limits back into the data
+              unwt.wkly[i,Unwt_share_lo:= pt$conf.int[1]]
+              unwt.wkly[i,Unwt_share_hi:= pt$conf.int[2]]
             }
           }# end for loop
 
           # calculate growth rates
           # make sure sort columns are not factors
           unwt.wkly[, ':='('USA_or_HHSRegion' = factor(as.character(USA_or_HHSRegion), levels = c('USA', 1:10)),
-                          'WEEK_END' = as.Date(as.character(WEEK_END)),
-                          'Variant' = as.character(VARIANT2))]
+                           'WEEK_END' = as.Date(as.character(WEEK_END)),
+                           'Variant' = as.character(VARIANT2))]
 
           # calculate some estimate of growth rate in a more efficient manner
           # set the key to order the dataframe & speed up some calculations
@@ -2099,334 +2518,334 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
 
           unwt.wkly[
             ,':='(
-                # calculate multinomial growth rate (weekly)
-                unwt_growth_rate = (exp((log(Unwt_share) - log(start_share))/(time_diff_days/7))-1)*100,
-                # calculate log-odds growth rate
-                unwt_growth_rate_logodds = log( (Unwt_share / (1 - Unwt_share)) / (start_share / (1 - start_share))) / (time_diff_days/7))
+              # calculate multinomial growth rate (weekly)
+              unwt_growth_rate = (exp((log(Unwt_share) - log(start_share))/(time_diff_days/7))-1)*100,
+              # calculate log-odds growth rate
+              unwt_growth_rate_logodds = log( (Unwt_share / (1 - Unwt_share)) / (start_share / (1 - start_share))) / (time_diff_days/7))
           ]
           unwt.wkly[
             ,':='(
-                # calculate multinomial doubling time (in days)
-                unwt_doubling_time = (log(2) / log((100 + unwt_growth_rate) / 100)) * 7,
-                # calculate time for log odds to double (this is equivalent to doubling time calculated from the time coefficient in a logistic model)
-                unwt_doubling_time_logodds = log(2) / unwt_growth_rate_logodds * 7
+              # calculate multinomial doubling time (in days)
+              unwt_doubling_time = (log(2) / log((100 + unwt_growth_rate) / 100)) * 7,
+              # calculate time for log odds to double (this is equivalent to doubling time calculated from the time coefficient in a logistic model)
+              unwt_doubling_time_logodds = log(2) / unwt_growth_rate_logodds * 7
             )
           ]
 
-            # convert time to character for merging
-            unwt.wkly[, WEEK_END := as.character(WEEK_END)]
-      } # end calculated unweighted proportions
+          # convert time to character for merging
+          unwt.wkly[, WEEK_END := as.character(WEEK_END)]
+        } # end calculated unweighted proportions
 
 
 
 
 
 
-      # create a dataframe with variant, time period, and region
-      # (and reorder columns for convenience)
-      all.wkly = expand.grid(Variant = voc,
-                            Week_of = wks,
-                            USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
+        # create a dataframe with variant, time period, and region
+        # (and reorder columns for convenience)
+        all.wkly = expand.grid(Variant = voc,
+                               Week_of = wks,
+                               USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
 
-      # function to get predictions & CI for each variant in each week and region
-      # (using survey design but NOT multinomial nowcast model)
-      all_wkly_ests_function <- function(all.wkly, svyDES, calc_99_CI = calc_99_CI_weighted){
-        # calculate estimates with 95% CI
-        ests <- apply(X = all.wkly,
-                      MARGIN = 1,
-                      FUN = function(rr) myciprop(voc   = rr[3],
-                                                  geoid = rr[1],
-                                                  svy   = subset(svyDES,
-                                                                yr_wk == rr[2]),
-                                                  str   = FALSE))
+        # function to get predictions & CI for each variant in each week and region
+        # (using survey design but NOT multinomial nowcast model)
+        all_wkly_ests_function <- function(all.wkly, svyDES, calc_99_CI = calc_99_CI_weighted){
+          # calculate estimates with 95% CI
+          ests <- apply(X = all.wkly,
+                        MARGIN = 1,
+                        FUN = function(rr) myciprop(voc   = rr[3],
+                                                    geoid = rr[1],
+                                                    svy   = subset(svyDES,
+                                                                   yr_wk == rr[2]),
+                                                    str   = FALSE))
 
-        # optionally calculate estimates with 99% CI
-        if(calc_99_CI){
-          ests_99 <- apply(X = all.wkly,
-                            MARGIN = 1,
-                            FUN = function(rr) myciprop(voc   = rr[3],
-                                                        geoid = rr[1],
-                                                        svy   = subset(svyDES,
-                                                                      yr_wk == rr[2]),
-                                                        str   = FALSE,
-                                                        level = 0.99))
+          # optionally calculate estimates with 99% CI
+          if(calc_99_CI){
+            ests_99 <- apply(X = all.wkly,
+                             MARGIN = 1,
+                             FUN = function(rr) myciprop(voc   = rr[3],
+                                                         geoid = rr[1],
+                                                         svy   = subset(svyDES,
+                                                                        yr_wk == rr[2]),
+                                                         str   = FALSE,
+                                                         level = 0.99))
 
-          # change some of the names to make them distinct from the 95% CI
-          rownames(ests_99) <- sub(pattern = 'ucl',
-                                    replacement = 'ucl_99',
-                                    x = sub(pattern = 'lcl',
-                                            replacement = 'lcl_99',
-                                            x = rownames(ests_99)))
+            # change some of the names to make them distinct from the 95% CI
+            rownames(ests_99) <- sub(pattern = 'ucl',
+                                     replacement = 'ucl_99',
+                                     x = sub(pattern = 'lcl',
+                                             replacement = 'lcl_99',
+                                             x = rownames(ests_99)))
 
-          # add the 99% CI onto the ests object
-          ests <- rbind(ests,
-                        ests_99[c('lcl_99', 'ucl_99'),])
-        }
+            # add the 99% CI onto the ests object
+            ests <- rbind(ests,
+                          ests_99[c('lcl_99', 'ucl_99'),])
+          }
 
-        return(ests)
-      } # end all_wkly_ests_function definition
+          return(ests)
+        } # end all_wkly_ests_function definition
 
-      # do the estimates in parallel
-      if(use_parallel){
-        # use a tryCatch just in case the parallel operation fails
-        ests <- tryCatch(expr = { # "expr" is what we want to run (not in a function form, unlike "error" and "warning")
-          # split the rows of data into "ncores" sets
-          cut_list <- split(x = all.wkly,
-                            f = rep(1:ncores,
-                                    each = ceiling(nrow(all.wkly)/ncores),
-                                    length.out = nrow(all.wkly)))
+        # do the estimates in parallel
+        if(use_parallel){
+          # use a tryCatch just in case the parallel operation fails
+          ests <- tryCatch(expr = { # "expr" is what we want to run (not in a function form, unlike "error" and "warning")
+            # split the rows of data into "ncores" sets
+            cut_list <- split(x = all.wkly,
+                              f = rep(1:ncores,
+                                      each = ceiling(nrow(all.wkly)/ncores),
+                                      length.out = nrow(all.wkly)))
 
-          # perform the calculations on the cluster
-          ests_list <- parallel::parLapply(cl = cl,
-                                          X = cut_list,
-                                          fun = all_wkly_ests_function,
-                                          svyDES = survey_Design_temp)
+            # perform the calculations on the cluster
+            ests_list <- parallel::parLapply(cl = cl,
+                                             X = cut_list,
+                                             fun = all_wkly_ests_function,
+                                             svyDES = survey_Design_temp)
 
-          # combine the results into a single dataframe
-          do.call(what = 'cbind', args = ests_list)
-        },
-        error = function(cond) { # if "expr" throws an error, do this instead of actually stopping
-          message('Parallel execution of weekly weighted proportions failed. Running in series instead.')
-          message("Here's the original error message:")
-          message(cond)
-          # Choose a return value in case of error
-          return(all_wkly_ests_function(all.wkly = all.wkly, svyDES = survey_Design_temp))
-        })
-      } else ests <- all_wkly_ests_function(all.wkly = all.wkly, svyDES = survey_Design_temp)
+            # combine the results into a single dataframe
+            do.call(what = 'cbind', args = ests_list)
+          },
+          error = function(cond) { # if "expr" throws an error, do this instead of actually stopping
+            message('Parallel execution of weekly weighted proportions failed. Running in series instead.')
+            message("Here's the original error message:")
+            message(cond)
+            # Choose a return value in case of error
+            return(all_wkly_ests_function(all.wkly = all.wkly, svyDES = survey_Design_temp))
+          })
+        } else ests <- all_wkly_ests_function(all.wkly = all.wkly, svyDES = survey_Design_temp)
 
-      # add the predictions into the dataframe
-      all.wkly = cbind(all.wkly,
-                      Share    = ests[1,],
-                      Share_lo = ests[2,],
-                      Share_hi = ests[3,],
-                      DF       = ests[4,],
-                      eff.size = ests[5,],
-                      cv.mean  = ests[6,])
+        # add the predictions into the dataframe
+        all.wkly = cbind(all.wkly,
+                         Share    = ests[1,],
+                         Share_lo = ests[2,],
+                         Share_hi = ests[3,],
+                         DF       = ests[4,],
+                         eff.size = ests[5,],
+                         cv.mean  = ests[6,])
 
-      # add on 99% CI
-      if('lcl_99' %in% row.names(ests)){
+        # add on 99% CI
+        if('lcl_99' %in% row.names(ests)){
           all.wkly <- cbind(all.wkly,
                             Share_lo_99 = ests['lcl_99',],
                             Share_hi_99 = ests['ucl_99',])
-      }
-
-      # get predictions for the non-focal ("other") variants grouped together
-      # (and reorder columns for convenience)
-      others = expand.grid(Variant = "Other",
-                          Week_of = wks,
-                          USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
-
-      # function to get the proportion estimates & CI (for "other" variants)
-      # get predictions & CI for "other" (grouped) variant in each week and region
-      # (using survey design but NOT multinomial nowcast model)
-      others_wkly_ests_function <- function(others, svyDES, calc_99_CI = calc_99_CI_weighted){
-        # calculate estimates with 95% CI
-        ests.others <- apply(X = others,
-                            MARGIN = 1,
-                            FUN = function(rr) myciprop(voc = voc,
-                                                        geoid = rr[1],
-                                                        svy = subset(svyDES, yr_wk == rr[2]),
-                                                        str =  FALSE))
-
-        # optionally calculate estimates with 99% CI
-        if(calc_99_CI){
-          ests.others_99 <- apply(X = others,
-                                  MARGIN = 1,
-                                  FUN = function(rr) myciprop(voc = voc,
-                                                              geoid = rr[1],
-                                                              svy = subset(svyDES, yr_wk == rr[2]),
-                                                              level = .99,
-                                                              str =  FALSE))
-
-          # add the 99% CI onto the ests object
-          rownames(ests.others_99) <- sub(pattern = 'ucl',
-                                          replacement = 'ucl_99',
-                                          x = sub(pattern = 'lcl',
-                                                  replacement = 'lcl_99',
-                                                  x = rownames(ests.others_99)))
-
-          # add the 99% CI onto the results
-          ests.others <- rbind(ests.others,
-                                ests.others_99[c('lcl_99', 'ucl_99'),])
         }
 
-        return(ests.others)
-      } # end others_wkly_ests_function definition
+        # get predictions for the non-focal ("other") variants grouped together
+        # (and reorder columns for convenience)
+        others = expand.grid(Variant = "Other",
+                             Week_of = wks,
+                             USA_or_HHSRegion = c("USA", 1:10))[, 3:1]
 
-      if(use_parallel){
-        # use a tryCatch just in case the parallel operation fails
-        ests.others <- tryCatch(expr = { # "expr" is what we want to run (not in a function form, unlike "error" and "warning")
-          # split the rows of data into "ncores" sets
-          cut_list <- split(x = others,
-                            f = rep(1:ncores,
-                                    each = ceiling(nrow(others)/ncores),
-                                    length.out = nrow(others)))
+        # function to get the proportion estimates & CI (for "other" variants)
+        # get predictions & CI for "other" (grouped) variant in each week and region
+        # (using survey design but NOT multinomial nowcast model)
+        others_wkly_ests_function <- function(others, svyDES, calc_99_CI = calc_99_CI_weighted){
+          # calculate estimates with 95% CI
+          ests.others <- apply(X = others,
+                               MARGIN = 1,
+                               FUN = function(rr) myciprop(voc = voc,
+                                                           geoid = rr[1],
+                                                           svy = subset(svyDES, yr_wk == rr[2]),
+                                                           str =  FALSE))
 
-          # perform the calculations on the cluster
-          others_list <- parallel::parLapply(cl = cl,
-                                            X = cut_list,
-                                            fun = others_wkly_ests_function,
-                                            svyDES = survey_Design_temp)
+          # optionally calculate estimates with 99% CI
+          if(calc_99_CI){
+            ests.others_99 <- apply(X = others,
+                                    MARGIN = 1,
+                                    FUN = function(rr) myciprop(voc = voc,
+                                                                geoid = rr[1],
+                                                                svy = subset(svyDES, yr_wk == rr[2]),
+                                                                level = .99,
+                                                                str =  FALSE))
 
-          # close the cluster
-          parallel::stopCluster(cl)
+            # add the 99% CI onto the ests object
+            rownames(ests.others_99) <- sub(pattern = 'ucl',
+                                            replacement = 'ucl_99',
+                                            x = sub(pattern = 'lcl',
+                                                    replacement = 'lcl_99',
+                                                    x = rownames(ests.others_99)))
 
-          # combine the results into a single dataframe
-          do.call(what = 'cbind', args = others_list)
-        },
-        error = function(cond) { # if "expr" throws an error, do this instead of actually stopping
-          message('Parallel execution of weekly "other" weighted proportions failed. Running in series instead.')
-          message("Here's the original error message:")
-          message(cond)
-          # Choose a return value in case of error
-          return(others_wkly_ests_function(others = others, svyDES = survey_Design_temp))
-        })
-      } else ests.others <- others_wkly_ests_function(others = others, svyDES = survey_Design_temp)
+            # add the 99% CI onto the results
+            ests.others <- rbind(ests.others,
+                                 ests.others_99[c('lcl_99', 'ucl_99'),])
+          }
 
-      # add the predictions into the dataframe
-      others = cbind(others,
-                    Share    = 1-ests.others[1,],
-                    Share_lo = 1-ests.others[3,],
-                    Share_hi = 1-ests.others[2,],
-                    DF       = ests.others[4,],
-                    eff.size = ests.others[5,],
-                    cv.mean  = ests.others[6,])
+          return(ests.others)
+        } # end others_wkly_ests_function definition
 
-      # add on 99% CI
-      if('lcl_99' %in% row.names(ests.others)){
+        if(use_parallel){
+          # use a tryCatch just in case the parallel operation fails
+          ests.others <- tryCatch(expr = { # "expr" is what we want to run (not in a function form, unlike "error" and "warning")
+            # split the rows of data into "ncores" sets
+            cut_list <- split(x = others,
+                              f = rep(1:ncores,
+                                      each = ceiling(nrow(others)/ncores),
+                                      length.out = nrow(others)))
+
+            # perform the calculations on the cluster
+            others_list <- parallel::parLapply(cl = cl,
+                                               X = cut_list,
+                                               fun = others_wkly_ests_function,
+                                               svyDES = survey_Design_temp)
+
+            # close the cluster
+            parallel::stopCluster(cl)
+
+            # combine the results into a single dataframe
+            do.call(what = 'cbind', args = others_list)
+          },
+          error = function(cond) { # if "expr" throws an error, do this instead of actually stopping
+            message('Parallel execution of weekly "other" weighted proportions failed. Running in series instead.')
+            message("Here's the original error message:")
+            message(cond)
+            # Choose a return value in case of error
+            return(others_wkly_ests_function(others = others, svyDES = survey_Design_temp))
+          })
+        } else ests.others <- others_wkly_ests_function(others = others, svyDES = survey_Design_temp)
+
+        # add the predictions into the dataframe
+        others = cbind(others,
+                       Share    = 1-ests.others[1,],
+                       Share_lo = 1-ests.others[3,],
+                       Share_hi = 1-ests.others[2,],
+                       DF       = ests.others[4,],
+                       eff.size = ests.others[5,],
+                       cv.mean  = ests.others[6,])
+
+        # add on 99% CI
+        if('lcl_99' %in% row.names(ests.others)){
           others <- cbind(others,
                           Share_lo_99 = 1-ests.others['ucl_99',],
                           Share_hi_99 = 1-ests.others['lcl_99',])
-      }
+        }
 
-      # combine estimates for individual variants with the estimates for the "other"
-      # (grouped) variants
-      all.wkly = rbind(all.wkly,
-                      others)
+        # combine estimates for individual variants with the estimates for the "other"
+        # (grouped) variants
+        all.wkly = rbind(all.wkly,
+                         others)
 
-      # Add a column for the last day of each week
-      all.wkly$WEEK_END = as.Date(all.wkly$Week_of) + 6
+        # Add a column for the last day of each week
+        all.wkly$WEEK_END = as.Date(all.wkly$Week_of) + 6
 
 
-      ## generate sequence counts by lineage, location and date
-      # raw counts of each variant in each week and each region
-      raw_counts_REG <- aggregate(count ~ VARIANT2 + WEEK_END + HHS,
-                                  data = dat2,
-                                  FUN  = sum,
-                                  drop = FALSE)
+        ## generate sequence counts by lineage, location and date
+        # raw counts of each variant in each week and each region
+        raw_counts_REG <- aggregate(count ~ VARIANT2 + WEEK_END + HHS,
+                                    data = dat2,
+                                    FUN  = sum,
+                                    drop = FALSE)
 
-      # convert region names to character
-      raw_counts_REG$HHS <- as.character(raw_counts_REG$HHS)
+        # convert region names to character
+        raw_counts_REG$HHS <- as.character(raw_counts_REG$HHS)
 
-      # raw counts for each variant in each week nationally
-      raw_counts_US <- aggregate(count ~ VARIANT2 + WEEK_END,
-                                data = dat2,
-                                FUN  = sum,
-                                drop = FALSE)
+        # raw counts for each variant in each week nationally
+        raw_counts_US <- aggregate(count ~ VARIANT2 + WEEK_END,
+                                   data = dat2,
+                                   FUN  = sum,
+                                   drop = FALSE)
 
-      # add in a column for HHS region = "USA"
-      raw_counts_US <- cbind(raw_counts_US[,1:2],
-                            HHS   = "USA",
-                            count = raw_counts_US$count)
+        # add in a column for HHS region = "USA"
+        raw_counts_US <- cbind(raw_counts_US[,1:2],
+                               HHS   = "USA",
+                               count = raw_counts_US$count)
 
-      # combine the regional counts with the national counts
-      raw_counts <- rbind.data.frame(raw_counts_US,
-                                    raw_counts_REG)
+        # combine the regional counts with the national counts
+        raw_counts <- rbind.data.frame(raw_counts_US,
+                                       raw_counts_REG)
 
-      # merge sequence counts with weighted proportions estimates
-      all.wkly2 <- merge(x = all.wkly,
-                        y = raw_counts,
-                        by.x = c("USA_or_HHSRegion",
-                                  "WEEK_END",
-                                  "Variant"),
-                        by.y = c("HHS",
-                                  "WEEK_END",
-                                  "VARIANT2"),
-                        all = T)
+        # merge sequence counts with weighted proportions estimates
+        all.wkly2 <- merge(x = all.wkly,
+                           y = raw_counts,
+                           by.x = c("USA_or_HHSRegion",
+                                    "WEEK_END",
+                                    "Variant"),
+                           by.y = c("HHS",
+                                    "WEEK_END",
+                                    "VARIANT2"),
+                           all = T)
 
-      # Set counts to 0 if current count is NA and variant != "Other"
-      all.wkly2[is.na(all.wkly2$count)==T ,"count"] <- 0
+        # Set counts to 0 if current count is NA and variant != "Other"
+        all.wkly2[is.na(all.wkly2$count)==T ,"count"] <- 0
 
-      # calculate denominator counts
-      # (i.e. raw counts per region & week)
-      dss <- aggregate(count ~ USA_or_HHSRegion + WEEK_END,
-                      data = all.wkly2,
-                      FUN  = sum)
+        # calculate denominator counts
+        # (i.e. raw counts per region & week)
+        dss <- aggregate(count ~ USA_or_HHSRegion + WEEK_END,
+                         data = all.wkly2,
+                         FUN  = sum)
 
-      # change name of denominator counts
-      names(dss)[grep("count",names(dss))] <- "denom_count"
+        # change name of denominator counts
+        names(dss)[grep("count",names(dss))] <- "denom_count"
 
-      # add denominator counts into the dataframe of raw counts
-      all.wkly2 <- merge(x = all.wkly2,
-                        y = dss)
+        # add denominator counts into the dataframe of raw counts
+        all.wkly2 <- merge(x = all.wkly2,
+                           y = dss)
 
-      #calculate absolute CI width
-      all.wkly2$CI_width = all.wkly2$Share_hi - all.wkly2$Share_lo
+        #calculate absolute CI width
+        all.wkly2$CI_width = all.wkly2$Share_hi - all.wkly2$Share_lo
 
-      #set the Share 0 and CI limits to NA when the count for a lineage is 0
-      all.wkly2$Share=ifelse(all.wkly2$Share!=0 & all.wkly2$count==0,0,all.wkly2$Share)
-      all.wkly2$Share_lo=ifelse(is.na(all.wkly2$Share_lo)==F & all.wkly2$count==0,NA,all.wkly2$Share_lo)
-      all.wkly2$Share_hi=ifelse(is.na(all.wkly2$Share_hi)==F & all.wkly2$count==0,NA,all.wkly2$Share_hi)
+        #set the Share 0 and CI limits to NA when the count for a lineage is 0
+        all.wkly2$Share=ifelse(all.wkly2$Share!=0 & all.wkly2$count==0,0,all.wkly2$Share)
+        all.wkly2$Share_lo=ifelse(is.na(all.wkly2$Share_lo)==F & all.wkly2$count==0,NA,all.wkly2$Share_lo)
+        all.wkly2$Share_hi=ifelse(is.na(all.wkly2$Share_hi)==F & all.wkly2$count==0,NA,all.wkly2$Share_hi)
 
-      ## generate NCHS flags
-      # flag estimates with Degrees of Freedom < 8
-      all.wkly2$flag_df = ifelse(test = all.wkly2$DF < 8,
-                                yes = 1,
-                                no = 0)
-      # flag estimates with effective size of < 30 (or NA)
-      all.wkly2$flag_eff.size = ifelse(test = all.wkly2$eff.size < 30 |
-                                        is.na(all.wkly2$eff.size) == T,
-                                      yes = 1,
-                                      no = 0)
-      # flag estimates with "denominator count" of < 30 (or NA)
-      # (denominator = count of sequences of all variants in a given region and time period)
-      all.wkly2$flag_dss = ifelse(test = all.wkly2$denom_count < 30|
-                                    is.na(all.wkly2$denom_count) == T,
-                                  yes = 1,
-                                  no = 0)
-      # flag estimates with wide (absolute) confidence intervals
-      all.wkly2$flag_abs.ciw = ifelse(test = all.wkly2$CI_width > 0.30 |
-                                        is.na(all.wkly2$CI_width) == T,
-                                      yes = 1,
-                                      no = 0)
-      # flag estimates with wide (relative) confidence intervals
-      all.wkly2$flag_rel.ciw = ifelse(test = ((all.wkly2$CI_width/all.wkly2$Share)*100) > 130 |
-                                        is.na((all.wkly2$CI_width/all.wkly2$Share)*100) == T,
-                                      yes = 1,
-                                      no = 0)
-
-      # Single identifier for observations that have *any* NCHS flag
-      all.wkly2$nchs_flag = ifelse(test = all.wkly2$flag_df == 1 |
-                                    all.wkly2$flag_eff.size == 1 |
-                                    all.wkly2$denom_count == 1 |
-                                    all.wkly2$flag_abs.ciw == 1 |
-                                    all.wkly2$flag_rel.ciw == 1,
-                                  yes = 1,
-                                  no = 0)
-      # Single identifier for observations that have any NCHS flag *other* than the
-      # degrees of freedom flag.
-      all.wkly2$nchs_flag_wodf = ifelse(all.wkly2$flag_eff.size == 1 |
-                                          all.wkly2$denom_count == 1 |
-                                          all.wkly2$flag_abs.ciw == 1 |
-                                          all.wkly2$flag_rel.ciw == 1,
+        ## generate NCHS flags
+        # flag estimates with Degrees of Freedom < 8
+        all.wkly2$flag_df = ifelse(test = all.wkly2$DF < 8,
+                                   yes = 1,
+                                   no = 0)
+        # flag estimates with effective size of < 30 (or NA)
+        all.wkly2$flag_eff.size = ifelse(test = all.wkly2$eff.size < 30 |
+                                           is.na(all.wkly2$eff.size) == T,
+                                         yes = 1,
+                                         no = 0)
+        # flag estimates with "denominator count" of < 30 (or NA)
+        # (denominator = count of sequences of all variants in a given region and time period)
+        all.wkly2$flag_dss = ifelse(test = all.wkly2$denom_count < 30|
+                                      is.na(all.wkly2$denom_count) == T,
+                                    yes = 1,
+                                    no = 0)
+        # flag estimates with wide (absolute) confidence intervals
+        all.wkly2$flag_abs.ciw = ifelse(test = all.wkly2$CI_width > 0.30 |
+                                          is.na(all.wkly2$CI_width) == T,
+                                        yes = 1,
+                                        no = 0)
+        # flag estimates with wide (relative) confidence intervals
+        all.wkly2$flag_rel.ciw = ifelse(test = ((all.wkly2$CI_width/all.wkly2$Share)*100) > 130 |
+                                          is.na((all.wkly2$CI_width/all.wkly2$Share)*100) == T,
                                         yes = 1,
                                         no = 0)
 
-      # flag estimates with raw count of < 20
-      all.wkly2$count_LT20 = ifelse(test = all.wkly2$count < 20,
-                                    yes = 1,
-                                    no = 0)
-      # flag estimates with raw count of < 10
-      all.wkly2$count_LT10 = ifelse(test = all.wkly2$count < 10,
-                                    yes = 1,
-                                    no = 0)
+        # Single identifier for observations that have *any* NCHS flag
+        all.wkly2$nchs_flag = ifelse(test = all.wkly2$flag_df == 1 |
+                                       all.wkly2$flag_eff.size == 1 |
+                                       all.wkly2$denom_count == 1 |
+                                       all.wkly2$flag_abs.ciw == 1 |
+                                       all.wkly2$flag_rel.ciw == 1,
+                                     yes = 1,
+                                     no = 0)
+        # Single identifier for observations that have any NCHS flag *other* than the
+        # degrees of freedom flag.
+        all.wkly2$nchs_flag_wodf = ifelse(all.wkly2$flag_eff.size == 1 |
+                                            all.wkly2$denom_count == 1 |
+                                            all.wkly2$flag_abs.ciw == 1 |
+                                            all.wkly2$flag_rel.ciw == 1,
+                                          yes = 1,
+                                          no = 0)
 
-      # estimate week-over-week growth rate
-      # NOTE! This is NOT equivalent to the Nowcast WoW growth rates.
-      #       Nowcast weekly growth rates are instantaneous rates at the weekly midpoint (Wednesday)
-      #       These estimates are averaged over the prior week/fortnight and will therefore always be
-      #       slightly higher than the Nowcast growth rates.
-      {
+        # flag estimates with raw count of < 20
+        all.wkly2$count_LT20 = ifelse(test = all.wkly2$count < 20,
+                                      yes = 1,
+                                      no = 0)
+        # flag estimates with raw count of < 10
+        all.wkly2$count_LT10 = ifelse(test = all.wkly2$count < 10,
+                                      yes = 1,
+                                      no = 0)
+
+        # estimate week-over-week growth rate
+        # NOTE! This is NOT equivalent to the Nowcast WoW growth rates.
+        #       Nowcast weekly growth rates are instantaneous rates at the weekly midpoint (Wednesday)
+        #       These estimates are averaged over the prior week/fortnight and will therefore always be
+        #       slightly higher than the Nowcast growth rates.
+        {
           # # tidyverse syntax
           # all.wkly2 %>%
           #   tibble::as_tibble() %>%
@@ -2461,8 +2880,8 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
 
           # make sure sort columns are not factors
           all.wkly2[, ':='('USA_or_HHSRegion' = factor(as.character(USA_or_HHSRegion), levels = c('USA', 1:10)),
-                          'WEEK_END' = as.Date(as.character(WEEK_END)),
-                          'Variant' = as.character(Variant))]
+                           'WEEK_END' = as.Date(as.character(WEEK_END)),
+                           'Variant' = as.character(Variant))]
 
           # calculate some estimate of growth rate in a more efficient manner
           # set the key to order the dataframe & speed up some calculations
@@ -2472,7 +2891,7 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
           all.wkly2[
             ,
             time_diff_days := as.numeric(as.Date(WEEK_END)) -
-                as.numeric(as.Date(data.table::shift(WEEK_END, 1, type = "lag"))),
+              as.numeric(as.Date(data.table::shift(WEEK_END, 1, type = "lag"))),
             by = c("USA_or_HHSRegion", "Variant")
           ]
           # add a column for the starting Variant share
@@ -2566,139 +2985,112 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
           all.wkly2[, time_diff_days := NULL]
           all.wkly2[, start_share    := NULL]
 
-            # convert time to character for merging
-            all.wkly2[, WEEK_END := as.character(WEEK_END)]
-      } # end calculate WoW growth rate
+          # convert time to character for merging
+          all.wkly2[, WEEK_END := as.character(WEEK_END)]
+        } # end calculate WoW growth rate
 
-      # select the columns to save
-      all.wkly2_column_names <- c("USA_or_HHSRegion",
-                                  "WEEK_END",
-                                  "Variant",
-                                  "Share",
-                                  "Share_lo",
-                                  "Share_hi",
-                                  "count",
-                                  "denom_count",
-                                  "DF",
-                                  "eff.size",
-                                  "CI_width",
-                                  "nchs_flag",
-                                  "nchs_flag_wodf",
-                                  "count_LT20",
-                                  "count_LT10",
-                                  'growth_rate',
-                                  'growth_rate_logodds',
-                                  'doubling_time',
-                                  'doubling_time_logodds'
-      )
-      if('Share_lo_99' %in% colnames(all.wkly2)) all.wkly2_column_names <- c(all.wkly2_column_names, 'Share_lo_99', 'Share_hi_99')
+        # select the columns to save
+        all.wkly2_column_names <- c("USA_or_HHSRegion",
+                                    "WEEK_END",
+                                    "Variant",
+                                    "Share",
+                                    "Share_lo",
+                                    "Share_hi",
+                                    "count",
+                                    "denom_count",
+                                    "DF",
+                                    "eff.size",
+                                    "CI_width",
+                                    "nchs_flag",
+                                    "nchs_flag_wodf",
+                                    "count_LT20",
+                                    "count_LT10",
+                                    'growth_rate',
+                                    'growth_rate_logodds',
+                                    'doubling_time',
+                                    'doubling_time_logodds'
+        )
+        if('Share_lo_99' %in% colnames(all.wkly2)) all.wkly2_column_names <- c(all.wkly2_column_names, 'Share_lo_99', 'Share_hi_99')
 
-      # subset the columns to save ( the .. tells data.table that "all.wkly2_column_names" is an object in the global environment, not a column name in the data.table)
-      all.wkly2 = all.wkly2[,..all.wkly2_column_names]
+        # subset the columns to save ( the .. tells data.table that "all.wkly2_column_names" is an object in the global environment, not a column name in the data.table)
+        all.wkly2 = all.wkly2[,..all.wkly2_column_names]
 
-      # optionally calculate the number of infections attributable to each variant
-      if (calc_confirmed_infections){
-        test_filepath <- paste0(script.basename,
-                                "/data/backup_",
-                                data_date, custom_tag, "/",
-                                data_date, "_tests_aggregated",
-                                custom_tag, ".RDS")
+        # optionally calculate the number of infections attributable to each variant
+        if (calc_confirmed_infections){
+          test_filepath <- paste0(script.basename,
+                                  "/data/backup_",
+                                  data_date, custom_tag, "/",
+                                  data_date, "_tests_aggregated",
+                                  custom_tag, ".RDS")
 
-        if (file.exists(test_filepath)){
-          test_list <- readRDS(file = test_filepath)
+          if (file.exists(test_filepath)){
+            test_list <- readRDS(file = test_filepath)
 
-          # get the fortnightly test tallies & aggregate them by fn across USA
-          tests_wk_us <- test_list$tests_weekly[,
-                                                .('total_test_positives' = sum(POSITIVE, na.rm = T)),
-                                                by = 'yr_wk'][,'HHS' := 'USA']
-          # aggregate fortnightly tests by HHS region
-          tests_wk_hhs <- test_list$tests_weekly[,
-                                                .('total_test_positives' = sum(POSITIVE, na.rm = T)),
-                                                by = c('yr_wk', 'HHS')]
+            # get the fortnightly test tallies & aggregate them by fn across USA
+            tests_wk_us <- test_list$tests_weekly[,
+                                                  .('total_test_positives' = sum(POSITIVE, na.rm = T)),
+                                                  by = 'yr_wk'][,'HHS' := 'USA']
+            # aggregate fortnightly tests by HHS region
+            tests_wk_hhs <- test_list$tests_weekly[,
+                                                   .('total_test_positives' = sum(POSITIVE, na.rm = T)),
+                                                   by = c('yr_wk', 'HHS')]
 
-          tests_wk <- rbind(tests_wk_us,
-                            tests_wk_hhs)
-          tests_wk[,'WEEK_END' := as.character(as.Date(yr_wk) + 6)]
-          tests_wk[, 'yr_wk' := NULL]
+            tests_wk <- rbind(tests_wk_us,
+                              tests_wk_hhs)
+            tests_wk[,'WEEK_END' := as.character(as.Date(yr_wk) + 6)]
+            tests_wk[, 'yr_wk' := NULL]
 
-          # merge the positive test results in with the variant proportion estimates
-          all.wkly2 <- merge(
-            x = all.wkly2,
-            y = tests_wk,
-            by.x = c("USA_or_HHSRegion",
-                    "WEEK_END"),
-            by.y = c('HHS',
-                    'WEEK_END'),
-            all.x = TRUE)
+            # merge the positive test results in with the variant proportion estimates
+            all.wkly2 <- merge(
+              x = all.wkly2,
+              y = tests_wk,
+              by.x = c("USA_or_HHSRegion",
+                       "WEEK_END"),
+              by.y = c('HHS',
+                       'WEEK_END'),
+              all.x = TRUE)
 
-          # calculate case totals for each variant
-          all.wkly2$cases    <- all.wkly2$total_test_positives * all.wkly2$Share
-          all.wkly2$cases_lo <- all.wkly2$total_test_positives * all.wkly2$Share_lo
-          all.wkly2$cases_hi <- all.wkly2$total_test_positives * all.wkly2$Share_hi
-        } else {
-          print(paste0('File ',
-                      test_filepath,
-                      ' not found. Not calculating number of infections attributable to each variant for weeks.'))
-        }
+            # calculate case totals for each variant
+            all.wkly2$cases    <- all.wkly2$total_test_positives * all.wkly2$Share
+            all.wkly2$cases_lo <- all.wkly2$total_test_positives * all.wkly2$Share_lo
+            all.wkly2$cases_hi <- all.wkly2$total_test_positives * all.wkly2$Share_hi
+          } else {
+            print(paste0('File ',
+                         test_filepath,
+                         ' not found. Not calculating number of infections attributable to each variant for weeks.'))
+          }
 
-      } # end calc confirmed infections
+        } # end calc confirmed infections
 
-      # sort by HHS region
-      all.wkly2 <- all.wkly2[order(all.wkly2$USA_or_HHSRegion),]
+        # sort by HHS region
+        all.wkly2 <- all.wkly2[order(all.wkly2$USA_or_HHSRegion),]
 
-      # output data file depends on NO change in all.wkly2 column order!!!
-      # If new columns are to be added, they need to go to the end.
+        # output data file depends on NO change in all.wkly2 column order!!!
+        # If new columns are to be added, they need to go to the end.
 
-      # make sure both WEEK_END columns are the same type
-      all.wkly2[, 'WEEK_END' := as.character(WEEK_END)]
-      unwt.wkly[, 'WEEK_END' := as.character(WEEK_END)]
+        # make sure both WEEK_END columns are the same type
+        all.wkly2[, 'WEEK_END' := as.character(WEEK_END)]
+        unwt.wkly[, 'WEEK_END' := as.character(WEEK_END)]
 
-      # merge on the unweighted estimates
-      all.wkly3 <- merge(
+        # merge on the unweighted estimates
+        all.wkly3 <- merge(
           x = all.wkly2,
           y = unwt.wkly[,.(USA_or_HHSRegion, WEEK_END, Variant,
-                          Unwt_share, Unwt_share_lo, Unwt_share_hi,
-                          unwt_growth_rate, unwt_growth_rate_logodds,
-                          unwt_doubling_time, unwt_doubling_time_logodds)],
+                           Unwt_share, Unwt_share_lo, Unwt_share_hi,
+                           unwt_growth_rate, unwt_growth_rate_logodds,
+                           unwt_doubling_time, unwt_doubling_time_logodds)],
           by = c('USA_or_HHSRegion', 'WEEK_END', 'Variant'),
           all.x = TRUE
-      )
+        )
 
 
 
-      # save the results to file
-      write.csv(x = all.wkly3,
-                file = paste0(script.basename,
-                              output_folder, "/variant_share_weekly_",
-                              meth,
-                              "_",
-                              ci.type,
-                              "CI_",
-                              svy.type,
-                              "_",
-                              data_date,
-                              tag,
-                              "_",
-                              results_tag,
-                              ".csv"),
-                row.names=FALSE)
-
-      if(meth == 'weighted'){
-        # process dataframe and save to a format for direct hadoop upload
-        all.wkly3_hadoop = data.frame(all.wkly3[,c(1:15)])
-        all.wkly3_hadoop[is.na(all.wkly3_hadoop)] = '\\N'
-        all.wkly3_hadoop[,16] = 'weighted'
-        all.wkly3_hadoop[,17] = 'weekly'
-        all.wkly3_hadoop[,18] = data_date
-        all.wkly3_hadoop[,19] = paste0(results_tag, '_Run', opts$run_number)
-        all.wkly3_hadoop[,20] = 1
-        all.wkly3_hadoop[,21:24] = all.wkly3[,c("cases", "cases_hi", "cases_lo")]
-        all.wkly3_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', all.wkly3_hadoop[,3])
-        all.wkly3_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', all.wkly3_hadoop[,3])
-        all.wkly3_hadoop[,3] = gsub(' Aggregated', '', all.wkly3_hadoop[,3])
-        write.table(x = all.wkly3_hadoop,
+        # save the results to file
+        write.csv(x = all.wkly3,
                   file = paste0(script.basename,
-                                output_folder, "/variant_share_weekly_weighted_",
+                                output_folder, "/variant_share_weekly_",
+                                meth,
+                                "_",
                                 ci.type,
                                 "CI_",
                                 svy.type,
@@ -2707,14 +3099,41 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
                                 tag,
                                 "_",
                                 results_tag,
-                                "_hadoop.csv"),
-                  quote = FALSE,
-                  row.names = FALSE,
-                  col.names = FALSE,
-                  sep = ",")
-      } # end save hadoop data
-    } # end loop over weighted_method
+                                ".csv"),
+                  row.names=FALSE)
 
+        if(meth == 'weighted'){
+          # process dataframe and save to a format for direct hadoop upload
+          all.wkly3_hadoop = data.frame(all.wkly3[,c(1:15)])
+          all.wkly3_hadoop[is.na(all.wkly3_hadoop)] = '\\N'
+          all.wkly3_hadoop[,16] = 'weighted'
+          all.wkly3_hadoop[,17] = 'weekly'
+          all.wkly3_hadoop[,18] = data_date
+          all.wkly3_hadoop[,19] = paste0(results_tag, '_Run', opts$run_number)
+          all.wkly3_hadoop[,20] = 1
+          all.wkly3_hadoop[,21:24] = all.wkly3[,c("cases", "cases_hi", "cases_lo")]
+          all.wkly3_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', all.wkly3_hadoop[,3])
+          all.wkly3_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', all.wkly3_hadoop[,3])
+          all.wkly3_hadoop[,3] = gsub(' Aggregated', '', all.wkly3_hadoop[,3])
+          write.table(x = all.wkly3_hadoop,
+                      file = paste0(script.basename,
+                                    output_folder, "/variant_share_weekly_weighted_",
+                                    ci.type,
+                                    "CI_",
+                                    svy.type,
+                                    "_",
+                                    data_date,
+                                    tag,
+                                    "_",
+                                    results_tag,
+                                    "_hadoop.csv"),
+                      quote = FALSE,
+                      row.names = FALSE,
+                      col.names = FALSE,
+                      sep = ",")
+        } # end save hadoop data
+      } # end run 1 weekly estimates ("include_run1_weekly")
+    } # end loop over weighted_method
   } # end !nowcast_only
 } # end run (not 3)
 
@@ -2821,6 +3240,19 @@ if ( grepl("Run2",tag) ){
     src.moddat$wts <- src.moddat$weights
   }
 
+  # If a model_variant is only observed in the final model_week, then throw a warning
+  # because there's a good chance that the model will predict that the variant will
+  # just take over everything
+  # variants only observed in the final model week:
+  final_model_week_vars <- setdiff(unique(src.moddat$VARIANT), unique(src.moddat[model_week != max(src.moddat$model_week)][['VARIANT']]))
+  if( length(final_model_week_vars) > 0 ){
+    warning( paste0(
+      'Variant(s) ',
+      paste(final_model_week_vars, collapse = ', '),
+      ' are only observed in the final model week. Results will likely be misleading!'
+    ))
+  }
+
   # optionally save src.moddat that's been prepped for analysis
   if(save_datasets_to_file){
 
@@ -2832,8 +3264,6 @@ if ( grepl("Run2",tag) ){
                           tag,
                           '.RDS'))
   }
-
-
 
 
   # loop over weighting methods (weighted & unweighted only)
@@ -2865,23 +3295,23 @@ if ( grepl("Run2",tag) ){
 
     ### Regional model ----
     svymlm_hhs = svymultinom(mod.dat = src.moddat,
-                            mysvy = mysvy,
-                            fmla = formula("as.numeric(as.factor(K_US)) ~ model_week + as.factor(HHS)"),
-                            model_vars = model_vars)
+                             mysvy = mysvy,
+                             fmla = formula("as.numeric(as.factor(K_US)) ~ model_week + as.factor(HHS)"),
+                             model_vars = model_vars)
     #write svymlm_hhs to file
     saveRDS(object = svymlm_hhs,
             file = paste0(script.basename,
-                            output_folder, '/svymlm_hhs_', # save to results instead of 'data' folder
-                            data_date,
-                            tag,
-                            '.RDS'))
+                          output_folder, '/svymlm_hhs_', # save to results instead of 'data' folder
+                          data_date,
+                          tag,
+                          '.RDS'))
 
     saveRDS(object = svymlm_us,
             file = paste0(script.basename,
-                            output_folder, '/svymlm_us_', # save to results instead of 'data' folder
-                            data_date,
-                            tag,
-                            '.RDS'))
+                          output_folder, '/svymlm_us_', # save to results instead of 'data' folder
+                          data_date,
+                          tag,
+                          '.RDS'))
 
     ## Plot results ----
 
@@ -3104,7 +3534,7 @@ if ( grepl("Run2",tag) ){
     se.gr_link = with(data = us.summary,
                       expr = sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2)))
     gr_link = with(data = us.summary,
-                  expr = (b_i - sum(p_i * b_i)))
+                   expr = (b_i - sum(p_i * b_i)))
     gr_lo_link = gr_link - 1.96 * se.gr_link
     gr_hi_link = gr_link + 1.96 * se.gr_link
 
@@ -3147,11 +3577,11 @@ if ( grepl("Run2",tag) ){
 
 
     if (fig_gen_run) png(filename = paste0(stub, "growthrate_US_", meth, tag, ".png"),
-                        width = 8,
-                        height = 8,
-                        units = "in",
-                        pointsize = 16,
-                        res = 1000)
+                         width = 8,
+                         height = 8,
+                         units = "in",
+                         pointsize = 16,
+                         res = 1000)
 
     # make enough room on the right side of the plot for a secondary axis.
     orpar <- par()
@@ -3178,15 +3608,15 @@ if ( grepl("Run2",tag) ){
 
     # plot "nowcast" groth rates by variant
     plot(x = gtp$variant_share,
-        y = gtp$growth_rate,
-        log = "x",
-        type = "n",
-        ylim = range(gtp$growth_rate_lo, gtp$growth_rate_hi),
-        xaxt = "n",
-        xlim = c(wow_x_min,110),
-        xlab = "Nowcast Estimated Proportion (%)",
-        ylab = "Week over week growth rate (%)",
-        main = "Nationwide")
+         y = gtp$growth_rate,
+         log = "x",
+         type = "n",
+         ylim = range(gtp$growth_rate_lo, gtp$growth_rate_hi),
+         xaxt = "n",
+         xlim = c(wow_x_min,110),
+         xlab = "Nowcast Estimated Proportion (%)",
+         ylab = "Week over week growth rate (%)",
+         main = "Nationwide")
 
     # Add an explanation for the lack of confidence intervals in the event that
     # the Hessian was non-invertible
@@ -3226,11 +3656,11 @@ if ( grepl("Run2",tag) ){
 
     # add the name of each variant
     text(x = gtp$variant_share,
-        y = gtp$growth_rate,
-        labels = gtp$variant,
-        cex = 0.85,
-        col = "grey25",
-        adj = 1.15)
+         y = gtp$growth_rate,
+         labels = gtp$variant,
+         cex = 0.85,
+         col = "grey25",
+         adj = 1.15)
 
     # add text for doubling time
     plot_growth_rates <- axTicks(2)
@@ -3259,8 +3689,8 @@ if ( grepl("Run2",tag) ){
     # tabulate/count the normalized survey weights by region, week, and variant
     # (just used for barplots)
     bp_hhs = xtabs(formula = NORM_WTS ~ HHS + model_week + VARIANT,
-                  data = src.dat,
-                  subset = src.dat$model_week %in% ((data_week_df$model_week - 2 - display_lookback + 1):(data_week_df$model_week - 2))) # ((model_week_mid - display_lookback + 1):model_week_mid))
+                   data = src.dat,
+                   subset = src.dat$model_week %in% ((data_week_df$model_week - 2 - display_lookback + 1):(data_week_df$model_week - 2))) # ((model_week_mid - display_lookback + 1):model_week_mid))
     # DOUBLE-CHECK THIS USE OF MODEL_WEEK_MID
 
     # subset the weights to only include the variants to be displayed
@@ -3288,37 +3718,37 @@ if ( grepl("Run2",tag) ){
 
       # create a barplot of "observed values (weighted proportions)
       bp = barplot(height = 100 * t(bp_hhs[hhs,,]),
-                  xlab = "Week beginning",
-                  ylab = "Weighted variant share (%)",
-                  main = paste("HHS Region", hhs),
-                  border = NA,
-                  ylim = 110 * 0:1,
-                  col = col.dk,
-                  # names.arg = rownames(bp_hhs[hhs,,]) - current_week,
-                  # names.arg = format((as.numeric(as.Date(rownames(bp_hhs[hhs,,]))) + model_week_mid + model_week_min) * 7 + week0day1, format = '%m-%d'),
-                  names.arg = rownames(bp_hhs[hhs,,]),
-                  legend.text = display_vars,
-                  args.legend = list(x = "topleft",
+                   xlab = "Week beginning",
+                   ylab = "Weighted variant share (%)",
+                   main = paste("HHS Region", hhs),
+                   border = NA,
+                   ylim = 110 * 0:1,
+                   col = col.dk,
+                   # names.arg = rownames(bp_hhs[hhs,,]) - current_week,
+                   # names.arg = format((as.numeric(as.Date(rownames(bp_hhs[hhs,,]))) + model_week_mid + model_week_min) * 7 + week0day1, format = '%m-%d'),
+                   names.arg = rownames(bp_hhs[hhs,,]),
+                   legend.text = display_vars,
+                   args.legend = list(x = "topleft",
                                       bty = "n",
                                       border = NA))
 
       # add text to the barplot
       text(x = bp,
-          y = 3 + colSums(100 * t(tail(bp_hhs[hhs,,], 12))),
-          labels = with(subset(src.dat,
+           y = 3 + colSums(100 * t(tail(bp_hhs[hhs,,], 12))),
+           labels = with(subset(src.dat,
                                 HHS == hhs &
                                   week < current_week - 1 &
                                   week >= current_week - display_lookback),
-                        table(week)),
-          cex = 0.7)
+                         table(week)),
+           cex = 0.7)
       if (fig_gen_run) dev.off()
 
       ### regional barplot (Nowcast) ----
 
       # create a dataframe for predictions for each week & HHS region
       pred_hhs.df = expand.grid(model_week = seq(from = -display_lookback,
-                                                to = 2, # go 2 weeks into the future
-                                                by = (1/7)) + data_week_df$model_week, # (model_weeks - model_week_mid), #  + current_week,
+                                                 to = 2, # go 2 weeks into the future
+                                                 by = (1/7)) + data_week_df$model_week, # (model_weeks - model_week_mid), #  + current_week,
                                 HHS = sort(unique(src.moddat$HHS)))
 
       # predict a sequence's clade (ID'd by rank abundance) given only time & hhs region
@@ -3342,25 +3772,25 @@ if ( grepl("Run2",tag) ){
 
       # subset predicted data to only include the region of interest
       pred.df = subset(pred_hhs.df,
-                      HHS==hhs)[, -2]
+                       HHS==hhs)[, -2]
 
       # Barplot of Nowcast predicted values
       bp = barplot(height = 100 * t(pred.df[, 1 + display_indices]),
-                  xlab = "Week beginning",
-                  ylab = "Weighted variant share (%)",
-                  main = paste("HHS Region", hhs),
-                  space = 0,
-                  border = NA,
-                  ylim = 110 * 0:1,
-                  col = col.dk,
-                  # names.arg = ifelse(pred.df$week %% 1 == 0,
-                  #                    week_label(pred.df$week - current_week),
-                  #                    NA),
-                  names.arg = ifelse(pred.df$model_week %% 1 == 0,
+                   xlab = "Week beginning",
+                   ylab = "Weighted variant share (%)",
+                   main = paste("HHS Region", hhs),
+                   space = 0,
+                   border = NA,
+                   ylim = 110 * 0:1,
+                   col = col.dk,
+                   # names.arg = ifelse(pred.df$week %% 1 == 0,
+                   #                    week_label(pred.df$week - current_week),
+                   #                    NA),
+                   names.arg = ifelse(pred.df$model_week %% 1 == 0,
                                       format(((pred.df$model_week + (data_week_df$model_week - 2)) + model_week_min) * 7 + as.Date(week0day1), format = '%m-%d'),
                                       NA),
-                  legend.text = display_vars,
-                  args.legend = list(x = "topleft",
+                   legend.text = display_vars,
+                   args.legend = list(x = "topleft",
                                       bty = "n",
                                       border = NA))
 
@@ -3377,39 +3807,39 @@ if ( grepl("Run2",tag) ){
 
       # add text to the plot
       text(x = x[2], # 1.02 * tail(bp, 1),
-          y = y,
-          labels = round(pc, 1),
-          cex = 0.7,
-          xpd = TRUE,
-          adj = c(0.5, 0.5))
+           y = y,
+           labels = round(pc, 1),
+           cex = 0.7,
+           xpd = TRUE,
+           adj = c(0.5, 0.5))
 
       # add boxes/rectangles to the plot
       rect(xleft   = x[1] + (x[2]-x[1])*.25, # shift it over by 1/2 week so that it is centered on individual weeks
-          ybottom = 0,
-          xright  = x[2] + (x[3]-x[2])*.25,
-          ytop = 100,
-          border = NA,
-          col = "#00000020")
+           ybottom = 0,
+           xright  = x[2] + (x[3]-x[2])*.25,
+           ytop = 100,
+           border = NA,
+           col = "#00000020")
       # add text to the plot
       text(x = mean(c(x[1], x[2])) + (x[2]-x[1])*.25,
-          y = 101,
-          labels = 'Nowcast',
-          cex = 0.7,
-          xpd = TRUE,
-          adj = c(0.5, 0))
+           y = 101,
+           labels = 'Nowcast',
+           cex = 0.7,
+           xpd = TRUE,
+           adj = c(0.5, 0))
       rect(xleft   = x[2] + (x[3]-x[2])*.25,
-          ybottom = 0,
-          xright = x[3],
-          ytop = 100,
-          border = NA,
-          col = "#00000040")
+           ybottom = 0,
+           xright = x[3],
+           ytop = 100,
+           border = NA,
+           col = "#00000040")
       # add text to the plot
       text(x = mean(c(x[2], x[3]))+ (x[2]-x[1])*.125,
-          y = 101,
-          labels = 'Future',
-          cex = 0.7,
-          xpd = TRUE,
-          adj = c(0.5, 0))
+           y = 101,
+           labels = 'Future',
+           cex = 0.7,
+           xpd = TRUE,
+           adj = c(0.5, 0))
       if (fig_gen_run) dev.off()
 
 
@@ -3425,7 +3855,7 @@ if ( grepl("Run2",tag) ){
 
       # calculate the SE of the growth rate
       se.gr = with(data = hhs.summary,
-                  expr = 100 * exp(sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2))) - 100)
+                   expr = 100 * exp(sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2))) - 100)
 
       # calculate the growth rate
       gr = with(hhs.summary,
@@ -3435,7 +3865,7 @@ if ( grepl("Run2",tag) ){
       se.gr_link = with(data = hhs.summary,
                         expr = sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2)))
       gr_link = with(data = hhs.summary,
-                    expr = (b_i - sum(p_i * b_i)))
+                     expr = (b_i - sum(p_i * b_i)))
       gr_lo_link = gr_link - 1.96 * se.gr_link
       gr_hi_link = gr_link + 1.96 * se.gr_link
 
@@ -3485,11 +3915,11 @@ if ( grepl("Run2",tag) ){
 
       # filter out variants with proportions less than 0.01%
       if (force_aggregate_omicron && custom_lineages == FALSE) {
-      gtphhs <- subset(gr_tab_hhs,
-                    variant %in% c(voc1, "OTHER"))
+        gtphhs <- subset(gr_tab_hhs,
+                         variant %in% c(voc1, "OTHER"))
       } else {
-      gtphhs <- subset(gr_tab_hhs,
-                    variant_share >= 0.01) # this is already a percent, so this is filtering out variants with less than 1/1000 of a percent (not 1 percent)
+        gtphhs <- subset(gr_tab_hhs,
+                         variant_share >= 0.01) # this is already a percent, so this is filtering out variants with less than 1/1000 of a percent (not 1 percent)
       }
 
       if (custom_lineages == TRUE) {
@@ -3506,15 +3936,15 @@ if ( grepl("Run2",tag) ){
 
       # plot "nowcast" growth rates by variant
       plot(x = 100 * gtphhs$variant_share,
-          y = gtphhs$growth_rate,
-          log = "x",
-          type = "n",
-          ylim = range(gtphhs$growth_rate_lo, gtphhs$growth_rate_hi),
-          xaxt = "n",
-          xlim = c(wow_x_min,110),
-          xlab = "Weighted share (%)",
-          ylab = "Week over week growth rate (%)",
-          main = paste("HHS Region", hhs))
+           y = gtphhs$growth_rate,
+           log = "x",
+           type = "n",
+           ylim = range(gtphhs$growth_rate_lo, gtphhs$growth_rate_hi),
+           xaxt = "n",
+           xlim = c(wow_x_min,110),
+           xlab = "Weighted share (%)",
+           ylab = "Week over week growth rate (%)",
+           main = paste("HHS Region", hhs))
 
       # Add an explanation for the lack of confidence intervals in the event that
       # the Hessian was non-invertible
@@ -3529,12 +3959,12 @@ if ( grepl("Run2",tag) ){
 
       # add an x-axis
       axis(side = 1,
-          at     = 10 ^ seq(wow_x_scale,2,by=1),
-          labels = 10 ^ seq(wow_x_scale,2,by=1))
+           at     = 10 ^ seq(wow_x_scale,2,by=1),
+           labels = 10 ^ seq(wow_x_scale,2,by=1))
 
       # add a horizontal line at 0
       abline(h = 0,
-            col = "grey65")
+             col = "grey65")
 
       # add lines for each variant
       for (vv in 1:nrow(gtphhs)) {
@@ -3558,11 +3988,11 @@ if ( grepl("Run2",tag) ){
 
       # label variants
       text(x = gtphhs$variant_share,
-          y = gtphhs$growth_rate,
-          labels = gtphhs$variant,
-          cex = 0.85,
-          col = "grey25",
-          adj = 1.15)
+           y = gtphhs$growth_rate,
+           labels = gtphhs$variant,
+           cex = 0.85,
+           col = "grey25",
+           adj = 1.15)
 
       # add text for doubling time
       plot_growth_rates <- axTicks(2)
@@ -3570,8 +4000,8 @@ if ( grepl("Run2",tag) ){
 
       # Add second axis
       axis(side = 4,
-          at = plot_growth_rates,
-          labels = round(plot_doubling_times,1))
+           at = plot_growth_rates,
+           labels = round(plot_doubling_times,1))
       # Add second axis label
       mtext("Doubling time (days)",
             side = 4,
@@ -3603,153 +4033,121 @@ if ( grepl("Run2",tag) ){
 
     ### aggregation matrix ----
     # this is used to aggregate the results of run 2 to the vocs included in run 1.
-    # The aggregation matrix has a column for each of the vocs in run 2 and a row for each aggregated voc. 1's in the matrix specify which sub-variants to aggregate into the aggregate lineage.
-    if(FALSE){
-      # create a column for each voc in the model
+    # The aggregation matrix has a column for each of the vocs in run 2 and a row for each aggregated voc.
+    # 1's in the matrix specify which sub-variants to aggregate into an aggregate lineage.
+    if( tolower(opts$voc_aggregation_method) %in% c('updated', 'lineage_expanded') ){
+
+      # create a column for each voc in the model (plus "OTHER")
       agg_var_mat <- matrix(data = 0,
-                                            nrow = 0,
-                                            ncol = (length(model_vars)+1))
+                            nrow = 0,
+                            ncol = (length(model_vars)+1))
       colnames(agg_var_mat) <- c(model_vars,"Other")
 
-      # fill in agg_var_mat for run1 results
-      {
-        # cycle over each variant and find its sub-variants that should be aggregated
-        # (i.e. that aren't sub-variants of more specific vocs: for example, BA.1.1.18
-        # should be aggregated into BA.1.1, NOT BA.1 (if both BA.1 and BA.1.1 are listed in the vocs))
-        for (v in seq(voc1)){
-          # my grep below only looks for continuations of the same pattern, which won't
-          # work for Delta & Omicron where the sub-variants have a different naming system,
-          # so I'll manually change their names here. This will need to be updated for
-          # any future variants that get a new naming system for their sub-variants.
-          # v_search = the name of the variant that we're using to search for sub-variants
-          v_search <- sub(pattern = 'B.1.617.2',
-                          replacement = 'AY',
-                          x = sub(pattern = 'B.1.1.529',
-                                  replacement = 'BA', x = voc1[v]))
+      # get the lineage_expanded for the model_vars
+      model_vars_expanded <- setNames(voc_lut$lineage_expanded, voc_lut$variant)[ model_vars ]
 
-          # all sub-variants of "v_search" (regardless of whether or not they should be aggregated into "v_search")
-          asv <- grep(pattern = paste0(sub(pattern = '\\.', replacement = '\\\\\\.', x = v_search), '\\..+'), x = voc, value = T)
+      # potential parent variants are voc1_expanded
+      voc1_expanded <- setNames(voc_lut$lineage_expanded, voc_lut$variant)[ voc1 ]
 
-          # remove all sub-variants from "asv" that should *NOT* be aggregated into "v_search"
-          # NOTE! This only works for 2 levels. Ideally it would work for n levels
-          # (e.g. if BA.1 and BA.1.1 are both in VOC, this will avoid aggregating BA.1.1
-          #  into BA.1. It might not handle BA.1.1.x properly. It might try to
-          #  aggregate BA.1.1.x into both BA.1 and BA.1.1)
-          {
-            # identify sub-variants in "asv" that are also in voc1 or voc2 (and therefore should NOT be aggregated into "v_search")
-            ssv_1 <- asv[asv %in% voc1]
-            # find the sub-variants (in "asv") that should be aggregated into "ssv_1"
-            # instead of "v_search"
-            # as above, my grep below only looks for continuations of the same pattern,
-            # which won't work for Delta & Omicron where the subvariants have a different
-            # naming system, so I'll manually change their names here. This will need to
-            # be updated for any future variants that get a new naming system for their subvariants.
-            ssv_search <- sub(pattern = 'B.1.617.2',
-                              replacement = 'AY',
-                              x = sub(pattern = 'B.1.1.529',
-                                      replacement = 'BA',
-                                      x = ssv_1))
-            # for each sub-variant in ssv_search (i.e. that is a voc & also a sub-variant
-            # of "v_search"), find all of its subvariants, all of which will be excluded
-            # from aggregation into "v_search"
-            ssv_1_e <- unlist(lapply(X = ssv_search,
-                                    FUN = function(ssv) c(ssv, # want to exclude "ssv_search" from aggregation b/c it's listed in voc
-                                                          # grep identifies sub-variants of "ssv_search" that are also in "asv" (and therefore should be excluded from asv)
-                                                          grep(pattern = paste0(sub(pattern = '\\.',
-                                                                                    replacement = '\\\\\\.',
-                                                                                    x = ssv),
-                                                                                '\\..+'),
-                                                                x = asv,
-                                                                value = T))))
+      # get the parent varients for the model_vars_expanded from the voc1_expanded
+      model_var_parents_expanded <- nearest_parent( model_vars_expanded,  voc1_expanded )
+      # get the short names for the parent variants of model_vars
+      model_var_parents <- setNames( voc_lut$variant, voc_lut$lineage_expanded )[ model_var_parents_expanded ]
 
-            # identify the sub-variants that *should* be aggregated into "v_search"
-            # by removing ones that should be aggregated into other vocs
-            ssv_1_a <- asv[asv %notin% ssv_1_e]
-          }
+      # model_var look-up table
+      model_var_lut <- data.frame(
+        voc2_model_vars = model_vars,
+        voc1_model_vars = model_var_parents
+      )
 
-          # if the ssv_1_a has any sub-variants, then add an extra row to the matrix
-          if(length(ssv_1_a > 0)) {
-            # create a new row for the aggregation matrix
-            extra_row <- ifelse(colnames(agg_var_mat) %in% c(voc1[v], ssv_1_a),
-                                1,
-                                0)
+      # only need to convert rows where voc2_model_vars != voc1_model_vars
+      mvl_sub <- model_var_lut[ model_var_lut$voc2_model_vars != model_var_lut$voc1_model_vars, ]
 
-            # add the new row onto the aggregation matrix
-            # but only if the extra row contains
-            agg_var_mat <- rbind(
-              agg_var_mat,
-              extra_row
-            )
-            # update the row name
-            row.names(agg_var_mat)[nrow(agg_var_mat)] <- paste(voc1[v], 'Aggregated')
-            # replace "B.1.1.529 Aggregated" with "Omicon Aggregated" and same for Delta; for backward compatibility
-            row.names(agg_var_mat)[row.names(agg_var_mat) == 'B.1.1.529 Aggregated'] <- 'Omicron Aggregated'
-            row.names(agg_var_mat)[row.names(agg_var_mat) == 'B.1.617.2 Aggregated'] <- 'Delta Aggregated'
-          } # end add extra row to agg_var_mat matrix
-        } # end loop over vocs
+      # get the names of the parent variants that will have sub-lineages aggregated into them
+      unique_mvl_sub <- unique(mvl_sub$voc1_model_vars)
 
-        # all the variants that are not (in voc1) AND (not aggregated into something else)
-        # should be aggregated into "Other Aggregated"
-        other_agg <- base::setdiff(colnames(agg_var_mat)[colSums(agg_var_mat) == 0], voc1)
+      # for each unique mvl_sub$voc1_model_vars, fill in values in the matrix for the variants that will be aggregated into it.
+      for (i in unique_mvl_sub) {
+
+        # get the voc2 that are aggregated into the given voc1
+        # model_var_lut[ model_var_lut$voc1_model_vars == i, 'voc2_model_vars']
+
+        # define an extra row to add onto the agg_var_mat
+        extra_row <- ifelse( colnames(agg_var_mat) %in%
+                               # the variant itself & all the sub-lineages to be aggregated into it
+                               c(i, model_var_lut[ model_var_lut$voc1_model_vars == i, 'voc2_model_vars']) ,
+                             1,
+                             0)
+
         # add the new row onto the aggregation matrix
-        # but only if the extra row contains something??
         agg_var_mat <- rbind(
           agg_var_mat,
-          ifelse(colnames(agg_var_mat) %in% other_agg, 1, 0)
+          extra_row
         )
-        # update the row name
-        row.names(agg_var_mat)[nrow(agg_var_mat)] <- 'Other Aggregated'
+        row.names(agg_var_mat)[nrow(agg_var_mat)] <- paste(i, 'Aggregated')
+      } # end loop over unique_mvl_sub
 
-        # double-check that no variant is aggregated into multiple vocs
-        if(max(colSums(agg_var_mat)) > 1){
-          warning(message = paste(
-            'Aggregated results are invalid! These variants are being aggregated multiple times:',
-            names(agg_var_mat)[colSums(agg_var_mat) > 1],
-            '. Fix the aggregation matrix.'))
-        }
+      # all the variants (not in voc1) AND (not aggregated into something else)
+      # should be aggregated into "Other Aggregated"
+      other_agg <- base::setdiff(colnames(agg_var_mat)[colSums(agg_var_mat) == 0],
+                                 voc1)
+      # add the new row onto the aggregation matrix
+      agg_var_mat <- rbind(
+        agg_var_mat,
+        ifelse(colnames(agg_var_mat) %in% other_agg, 1, 0)
+      )
 
-        # NOTE! Setting up the agg_var_mat in this way assumes that variants included in
-        # voc2 but NOT in voc1 (i.e: setdiff(voc, voc1) ) will be aggregated into something
-        # that IS in voc1 (other than "Other Aggregated"). This also means that the
-        # "Other Aggregated" row is the SAME for run1 output and run2 output, which
-        # is important because they both use that row for output below.
-        # this is a check to make sure that the assumption stated above is being met.
-        sub_mat <- agg_var_mat[row.names(agg_var_mat) != 'Other Aggregated',setdiff(voc, voc1), drop = FALSE]
-        if(!all(colSums(sub_mat) > 0)){
-          problem_vocs <- colnames(sub_mat)[colSums(sub_mat) == 0]
-          warning(message = paste0('Not all variants in "voc" are aggregated into something in "voc1". ',
-                                            paste(problem_vocs, collapse = ', '),
-                                            ' is in voc2 but is not aggregated into anything in voc1. Therefore it will be aggregated into "Other Aggregated" for both run_1 and run_2 output. Either change voc1 and/or voc2 or change the way agg_var_mat works.'))
-        }
+      # create plot of growth rates by region
+      if (fig_gen_run) jpeg(filename = paste0(stub, "growthrate_HHS", hhs, "_", meth, tag,".jpg"),
+                            width = 1500,
+                            height = 1500,
+                            pointsize = 40)
 
-        # force BE.1 into BA.5 FOR NOW. Long term fix needs to be worked out!
-        if("BE.1" %in% colnames(agg_var_mat) & "BA.5 Aggregated" %in% row.names(agg_var_mat)) {
-          agg_var_mat["Other Aggregated","BE.1"] <- 0
-          agg_var_mat["BA.5 Aggregated","BE.1"] <- 1
-        }
+      # make enough room on the right side of the plot for a secondary axis.
+      orpar <- par()
+      par(mar = c(5.1, 4.1, 4.1, 4.1))
+
+      # filter out variants with proportions less than 0.01%
+      if (force_aggregate_omicron && custom_lineages == FALSE) {
+      gtphhs <- subset(gr_tab_hhs,
+                    variant %in% c(voc1, "OTHER"))
+      } else {
+      gtphhs <- subset(gr_tab_hhs,
+                    variant_share >= 0.01) # this is already a percent, so this is filtering out variants with less than 1/1000 of a percent (not 1 percent)
       }
-      # agg_var_mat
+
+      # NOTE! Setting up the agg_var_mat in this way assumes that variants included in
+      # voc2 but NOT in voc1 (i.e: setdiff(voc, voc1) ) will be aggregated into something
+      # that IS in voc1 (other than "Other Aggregated"). This is necessary to ensure that the
+      # "Other Aggregated" row is the SAME for run1 output and run2 output, which
+      # is important because they both use that row for output below.
+      # this is a check to make sure that the assumption stated above is being met.
+      sub_mat <- agg_var_mat[row.names(agg_var_mat) != 'Other Aggregated',setdiff(voc, voc1), drop = FALSE]
+      if(!all(colSums(sub_mat) > 0)){
+        problem_vocs <- colnames(sub_mat)[colSums(sub_mat) == 0]
+        warning(message = paste0('Not all variants in "voc" are aggregated into something in "voc1". ',
+                                 paste(problem_vocs, collapse = ', '),
+                                 ' is in voc2 but is not aggregated into anything in voc1. Therefore it will be aggregated into "Other Aggregated" for both run_1 and run_2 output. Either change voc1 and/or voc2 or change the way agg_var_mat works.'))
+      }
+
 
       # save the aggregation matrix to file for double-checking
-      # weighting_methods (meth) will produce identical agg_var_mat for weighted & unweighted, so no need to save both. This will overwrite one with the other if running weighting_methods = "both"
       write.csv(
         x = replace(agg_var_mat, agg_var_mat == 0, NA), # it's easier to view in Excel with only the 1's and no 0's
-        file = paste0(script.basename,
-                      output_folder, "/agg_var_mat_",
+        file = paste0(script.basename, output_folder, "/agg_var_mat_",
                       ci.type,
                       "CI_",
                       svy.type,
-                      "_",
+                      "_", # meth, '_', # weighted & unweighted agg_var_mat will be identical, so no need to save both
                       data_date,
                       tag,
                       ".csv"),
         row.names = T,
         na = ""
       )
-    } # end agg_var_mat method 1
+    } else {
+      # use the former aggregation
 
-    # former aggregation
-    if(TRUE) {
       # Check to see which lineages are in model_vars
       # this returns all variants with "AY" in the name
       AY_vars = model_vars[grep("^AY\\.", model_vars, perl=T)]
@@ -3952,7 +4350,7 @@ if ( grepl("Run2",tag) ){
             }
             ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
             ll_agg <- c(ll_agg, 'BQ.1')
-        }
+          }
           if(ll == 'BF.11') {
             ll_agg <- grep("(^BF\\.11)(?![0-9])",BA_vars, perl = T, value = T)
           }
@@ -3996,8 +4394,8 @@ if ( grepl("Run2",tag) ){
       # QA: make sure that any aggregated variant includes itself!
       agg_var_names <- gsub(' Aggregated', '',
                             sub('Delta', 'B.1.617.2',
-                                  sub('Omicron', 'B.1.1.529',
-                                      row.names(agg_var_mat))))
+                                sub('Omicron', 'B.1.1.529',
+                                    row.names(agg_var_mat))))
       if(!all(diag(agg_var_mat[, agg_var_names])==1)) {
         # which variant is not included in itself?
         stop(paste0(
@@ -4032,8 +4430,8 @@ if ( grepl("Run2",tag) ){
     proj_ftnts = as.Date(tail(ftnts, 2))
     # add in 2 fortnights into the future
     proj_ftnts = sort(unique(c(proj_ftnts,
-                              proj_ftnts + 14,
-                              proj_ftnts + 28)))
+                               proj_ftnts + 14,
+                               proj_ftnts + 28)))
 
     # create a dataframe with all regions for predictions
     dfs = expand.grid(USA_or_HHSRegion = c("USA", as.character(1:10)))
@@ -4064,15 +4462,15 @@ if ( grepl("Run2",tag) ){
 
         # get the estimates (and SE) for the given place & time
         ests = se.multinom(mlm = mlm,
-                          newdata_1row = data.frame(
-                            model_week = wk,
-                            HHS = geoid
-                          ),
-                          composite_variant = agg_var_mat)
+                           newdata_1row = data.frame(
+                             model_week = wk,
+                             HHS = geoid
+                           ),
+                           composite_variant = agg_var_mat)
 
         # calculate the SE of the growth rate
         se.gr = with(data = ests,
-                    expr = 100 * exp(sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2))) - 100)
+                     expr = 100 * exp(sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2))) - 100)
 
         # calculate the growth rate
         gr = with(ests,
@@ -4082,7 +4480,7 @@ if ( grepl("Run2",tag) ){
         se.gr_link = with(data = ests,
                           expr = sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2)))
         gr_link = with(data = ests,
-                      expr = (b_i - sum(p_i * b_i)))
+                       expr = (b_i - sum(p_i * b_i)))
         gr_lo_link = gr_link - 1.96 * se.gr_link
         gr_hi_link = gr_link + 1.96 * se.gr_link
 
@@ -4093,138 +4491,6 @@ if ( grepl("Run2",tag) ){
         doubling_time    = log(2)/gr_link * 7
         doubling_time_lo = log(2)/gr_lo_link * 7
         doubling_time_hi = log(2)/gr_hi_link * 7
-
-          # empty dataframe to store growth rates (and doubling times) for aggregated variants
-          gr_agg <- data.frame( variant = rownames(agg_var_mat),
-                                gr    = NA,
-                                se.gr = NA,
-                                gr_lo = NA,
-                                gr_hi = NA,
-                                dt    = NA,
-                                dt_lo = NA,
-                                dt_hi = NA)
-          # extract the growth rates for the aggregated variants
-          for(r in 1:nrow(agg_var_mat)){
-            # if nothing is actually being aggregated, just get the growth rate of the individual component
-            if(unname(rowSums(agg_var_mat)[r]) == 1){
-              col_ind <- which(agg_var_mat[r,]>0)
-              gr_agg[r,'gr']    <- gr[col_ind]
-              gr_agg[r,'se.gr'] <- se.gr[col_ind]
-              gr_agg[r,'gr_lo'] <- gr_lo[col_ind]
-              gr_agg[r,'gr_hi'] <- gr_hi[col_ind]
-              gr_agg[r,'dt']    <- doubling_time[col_ind]
-              gr_agg[r,'dt_lo'] <- doubling_time_lo[col_ind]
-              gr_agg[r,'dt_hi'] <- doubling_time_hi[col_ind]
-            } else {
-              # if there are component variants, then take the weighted mean to get the aggregated growth rate
-              col_ind <- unname(which(agg_var_mat[r,]>0))
-              gr_agg[r,'gr']    <- sum(   gr[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-              gr_agg[r,'gr_lo'] <- sum(gr_lo[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-              gr_agg[r,'gr_hi'] <- sum(gr_hi[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-              gr_agg[r,'dt']    <- sum(   doubling_time[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-              gr_agg[r,'dt_lo'] <- sum(doubling_time_lo[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-              gr_agg[r,'dt_hi'] <- sum(doubling_time_hi[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-            }
-          }
-
-        # format estimates into dataframe with relevant info
-        ests = data.table::data.table(
-          USA_or_HHSRegion = rgn,
-          Fortnight_ending = as.Date(ftn, origin="1970-01-01"),
-          Variant = c(model_vars,
-                      "Other",
-                      row.names(ests$composite_variant$matrix)),
-          Share = c(ests$p_i,
-                    ests$composite_variant$p_i),
-          se.Share = c(ests$se.p_i,
-                      ests$composite_variant$se.p_i),
-          growth_rate    = c(gr,    gr_agg$gr),
-          growth_rate_lo = c(gr_lo, gr_agg$gr_lo),
-          growth_rate_hi = c(gr_hi, gr_agg$gr_hi),
-          doubling_time    = c(doubling_time,    gr_agg$dt),
-          doubling_time_lo = c(doubling_time_lo, gr_agg$dt_lo),
-          doubling_time_hi = c(doubling_time_hi, gr_agg$dt_hi)
-        )
-
-        # Get binomial CI from p_i and se.p_i
-        binom.ci = apply(X = ests,
-                        MARGIN = 1,
-                        FUN = function(rr) svyCI(p = as.numeric(rr[4]),
-                                                  s = as.numeric(rr[5])))
-
-        # add the CI into the estimates dataframe
-        ests$Share_lo = binom.ci[1,]
-        ests$Share_hi = binom.ci[2,]
-
-        # optionally add 99% prediction interval
-        if(calc_99_CI_nowcast){
-          binom.ci.99 <- array(data = numeric(), dim = c(2, nrow(ests)))
-          for (rr in seq(nrow(ests))){
-              binom.ci.99[,rr] <- svyCI(p = as.numeric(ests[rr,4]),
-                                        s = as.numeric(ests[rr,5]),
-                                        conf.level = 0.99)
-          }
-
-          # add the CI into the estimates dataframe
-          ests$Share_lo_99 = binom.ci.99[1,]
-          ests$Share_hi_99 = binom.ci.99[2,]
-        }
-
-        # add the estimates for this specific place & time to the results
-        proj.res = rbind(proj.res,
-                        ests)
-      } # end loop over fortnights
-    } # end loop over regions
-
-    # select just the columns we want
-    proj.res_column_names <- c('USA_or_HHSRegion',
-                                'Fortnight_ending',
-                                'Variant',
-                                'Share',
-                                'Share_lo',
-                                'Share_hi',
-                                'se.Share',
-                                'growth_rate',
-                                'growth_rate_lo',
-                                'growth_rate_hi',
-                                'doubling_time',
-                                'doubling_time_lo',
-                                'doubling_time_hi')
-         if(calc_99_CI_nowcast) proj.res_column_names <- c(proj.res_column_names, 'Share_lo_99', 'Share_hi_99')
-         proj.res = proj.res[,..proj.res_column_names]
-
-    # optionally calculate the number of infections attributable to each variant
-    if (calc_confirmed_infections){
-      test_filepath <- paste0(script.basename,
-                              "/data/backup_",
-                              data_date, custom_tag, "/",
-                              data_date, "_tests_aggregated",
-                              custom_tag, ".RDS")
-
-      if (file.exists(test_filepath)){
-        test_list <- readRDS(file = test_filepath)
-
-        # get the fortnightly test tallies & aggregate them by fn across USA
-        tests_fn_us <- test_list$tests_fortnight[,
-                                                .('total_test_positives' = sum(POSITIVE, na.rm = T)),
-                                                by = 'fortnight_end'][,'HHS' := 'USA']
-        # aggregate fortnightly tests by HHS region
-        tests_fn_hhs <- test_list$tests_fortnight[,
-                                                  .('total_test_positives' = sum(POSITIVE, na.rm = T)),
-                                                  by = c('fortnight_end', 'HHS')]
-
-        # merge the positive test results in with the variant proportion estimates
-        proj.res <- merge(
-          x = proj.res,
-          y = rbind(tests_fn_us,
-                    tests_fn_hhs)[,.(fortnight_end = as.Date(fortnight_end),
-                                    total_test_positives = total_test_positives,
-                                    HHS = HHS)],
-          by.x = c("USA_or_HHSRegion",
-                  "Fortnight_ending"),
-          by.y = c('HHS',
-                  'fortnight_end'),
-          all.x = TRUE)
 
         # calculate case totals for each variant
         proj.res[, cases    := total_test_positives * Share]
@@ -4483,6 +4749,359 @@ if ( grepl("Run2",tag) ){
         # format estimates into dataframe with relevant info
         ests = data.table::data.table(
           USA_or_HHSRegion = rgn,
+          Fortnight_ending = as.Date(ftn, origin="1970-01-01"),
+          Variant = c(model_vars,
+                      "Other",
+                      row.names(ests$composite_variant$matrix)),
+          Share = c(ests$p_i,
+                    ests$composite_variant$p_i),
+          se.Share = c(ests$se.p_i,
+                       ests$composite_variant$se.p_i),
+          growth_rate    = c(gr,    gr_agg$gr),
+          growth_rate_lo = c(gr_lo, gr_agg$gr_lo),
+          growth_rate_hi = c(gr_hi, gr_agg$gr_hi),
+          doubling_time    = c(doubling_time,    gr_agg$dt),
+          doubling_time_lo = c(doubling_time_lo, gr_agg$dt_lo),
+          doubling_time_hi = c(doubling_time_hi, gr_agg$dt_hi)
+        )
+
+        # Get binomial CI from p_i and se.p_i
+        binom.ci = apply(X = ests,
+                         MARGIN = 1,
+                         FUN = function(rr) svyCI(p = as.numeric(rr[4]),
+                                                  s = as.numeric(rr[5])))
+
+        # add the CI into the estimates dataframe
+        ests$Share_lo = binom.ci[1,]
+        ests$Share_hi = binom.ci[2,]
+
+        # optionally add 99% prediction interval
+        if(calc_99_CI_nowcast){
+          binom.ci.99 <- array(data = numeric(), dim = c(2, nrow(ests)))
+          for (rr in seq(nrow(ests))){
+            binom.ci.99[,rr] <- svyCI(p = as.numeric(ests[rr,4]),
+                                      s = as.numeric(ests[rr,5]),
+                                      conf.level = 0.99)
+          }
+
+          # add the CI into the estimates dataframe
+          ests$Share_lo_99 = binom.ci.99[1,]
+          ests$Share_hi_99 = binom.ci.99[2,]
+        }
+
+        # add the estimates for this specific place & time to the results
+        proj.res = rbind(proj.res,
+                         ests)
+      } # end loop over fortnights
+    } # end loop over regions
+
+    # select just the columns we want
+    proj.res_column_names <- c('USA_or_HHSRegion',
+                               'Fortnight_ending',
+                               'Variant',
+                               'Share',
+                               'Share_lo',
+                               'Share_hi',
+                               'se.Share',
+                               'growth_rate',
+                               'growth_rate_lo',
+                               'growth_rate_hi',
+                               'doubling_time',
+                               'doubling_time_lo',
+                               'doubling_time_hi')
+    if(calc_99_CI_nowcast) proj.res_column_names <- c(proj.res_column_names, 'Share_lo_99', 'Share_hi_99')
+    proj.res = proj.res[,..proj.res_column_names]
+
+    # optionally calculate the number of infections attributable to each variant
+    if (calc_confirmed_infections){
+      test_filepath <- paste0(script.basename,
+                              "/data/backup_",
+                              data_date, custom_tag, "/",
+                              data_date, "_tests_aggregated",
+                              custom_tag, ".RDS")
+
+      if (file.exists(test_filepath)){
+        test_list <- readRDS(file = test_filepath)
+
+        # get the fortnightly test tallies & aggregate them by fn across USA
+        tests_fn_us <- test_list$tests_fortnight[,
+                                                 .('total_test_positives' = sum(POSITIVE, na.rm = T)),
+                                                 by = 'fortnight_end'][,'HHS' := 'USA']
+        # aggregate fortnightly tests by HHS region
+        tests_fn_hhs <- test_list$tests_fortnight[,
+                                                  .('total_test_positives' = sum(POSITIVE, na.rm = T)),
+                                                  by = c('fortnight_end', 'HHS')]
+
+        # merge the positive test results in with the variant proportion estimates
+        proj.res <- merge(
+          x = proj.res,
+          y = rbind(tests_fn_us,
+                    tests_fn_hhs)[,.(fortnight_end = as.Date(fortnight_end),
+                                     total_test_positives = total_test_positives,
+                                     HHS = HHS)],
+          by.x = c("USA_or_HHSRegion",
+                   "Fortnight_ending"),
+          by.y = c('HHS',
+                   'fortnight_end'),
+          all.x = TRUE)
+
+        # calculate case totals for each variant
+        proj.res[, cases    := total_test_positives * Share]
+        proj.res[, cases_lo := total_test_positives * Share_lo]
+        proj.res[, cases_hi := total_test_positives * Share_hi]
+      } else {
+        print(paste0('File ',
+                     test_filepath,
+                     ' not found. Not calculating number of infections attributable to each variant for fortnights.'))
+      }
+    }
+
+    if(pre_aggregation==FALSE){
+      # Format output for the run 1 lineage list
+      # exclude variants that have been aggregated into other groups (i.e. have value > 0 in the matrix)
+      # run_1 = proj.res[proj.res$Variant %notin% colnames(agg_var_mat)[colSums(agg_var_mat)>0],]
+      agg_lineages <- colnames(agg_var_mat)[colSums(agg_var_mat)>0] # need to make sure that run1 keeps either "Other" or Other aggregated! (not both or neither)
+      if("Other" %notin% agg_lineages) agg_lineages <- c(agg_lineages, "Other Aggregated")
+      run_1 = proj.res[Variant %notin% agg_lineages]
+
+      # change the name of "Other Aggregated" to "Other" to match other output files
+      run_1[run_1$Variant == "Other Aggregated","Variant"] <- "Other"
+
+      # output data file depends on NO change in run_1 column order!!!
+      # If new columns are to be added, they need to go to the end.
+
+      # QA: make sure that the shares add up to 1 each time period to make sure that the aggregation is doing what I want it to:
+      if (!all(run_1[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Fortnight_ending')][,unique(round(total_share, 5))] == 1)){
+        warning(paste(
+          paste0(script.basename,
+                 output_folder, "/updated_nowcast_fortnightly_",
+                 data_date,
+                 sub(pattern = '2', replacement = '1', x = tag),
+                 ".csv"),
+          'results are invalid! The total proportion does not add up to 100% in each time period!')
+        )
+      } else {
+        # only save the results to file if the proportions add up to 100% each week
+        # save the results to file
+        write.csv(x = run_1,
+                  file = paste0(script.basename,
+                                output_folder, "/updated_nowcast_fortnightly_",
+                                meth,
+                                '_',
+                                data_date,
+                                sub(pattern = '2', replacement = '1', x = tag),
+                                "_",
+                                results_tag,
+                                ".csv"),
+                  row.names = FALSE)
+        if(meth == 'weighted'){
+          # process dataframe and save to a format for direct hadoop upload
+          run_1_hadoop = data.frame(run_1[,1:6])
+          run_1_hadoop[is.na(run_1_hadoop)] = '\\N'
+          run_1_hadoop[,7:15] = '\\N'
+          run_1_hadoop[,16] = 'smoothed'
+          run_1_hadoop[,17] = 'biweekly'
+          run_1_hadoop[,18] = data_date
+          run_1_hadoop[,19] = paste0(results_tag, '_Run1')
+          run_1_hadoop[,20] = 1
+          run_1_hadoop[,21:24] = run_1[,14:17]
+          run_1_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_1_hadoop[,3])
+          run_1_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_1_hadoop[,3])
+          run_1_hadoop[,3] = gsub(' Aggregated', '', run_1_hadoop[,3])
+          write.table(x = run_1_hadoop,
+                      file = paste0(script.basename,
+                                    output_folder, "/updated_nowcast_fortnightly_",
+                                    data_date,
+                                    sub(pattern = '2', replacement = '1', x = tag),
+                                    "_",
+                                    results_tag,
+                                    "_hadoop.csv"),
+                      quote = FALSE,
+                      row.names = FALSE,
+                      col.names = FALSE,
+                      sep = ",")
+        } # end save hadoop data
+      } # end save data
+    } # end save data when pre-aggregation == FALSE
+
+    # Format output for the run2 lineage list
+    # exclude the lineages that were aggregated (other than "Other")
+    drop_lin <- row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"]
+    # alternatively, just include only the variants that are in c(voc, "Other Aggregated")
+
+    # Only include variants that are NOT in the list provided
+    # (also use "Other Aggregated" instead of "Other"; this requires dropping the variants that were aggregated into "Other Aggregated")
+    # output data file depends on NO change in run_2 column order!!!
+    # If new columns are to be added, they need to go to the end.
+    run_2 = proj.res[Variant %notin% c(drop_lin, "Other", colnames(agg_var_mat['Other Aggregated',,drop=F])[agg_var_mat['Other Aggregated',,drop=F] > 0])]
+
+    # change the name of "Other Aggregated" to "Other" to match other output files
+    run_2[run_2$Variant=="Other Aggregated","Variant"] <- "Other"
+
+    # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
+    if (!all(run_2[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Fortnight_ending')][,unique(round(total_share, 5))] == 1)){
+      warning(paste(
+        paste0(script.basename,
+               output_folder, "/updated_nowcast_fortnightly_",
+               data_date,
+               tag,
+               ".csv"),
+        'results are invalid! The total proportion does not add up to 100% in all weeks!')
+      )
+    } else {
+      # only save the results to file if the proportions add up to 100% each week
+      write.csv(x = run_2,
+                file = paste0(script.basename,
+                              output_folder, "/updated_nowcast_fortnightly_",
+                              meth,
+                              "_",
+                              data_date,
+                              tag,
+                              "_",
+                              results_tag,
+                              ".csv"),
+                row.names = FALSE)
+      if(meth == "weighted"){
+        # process dataframe and save to a format for direct hadoop upload
+        run_2_hadoop = data.frame(run_2[,1:6])
+        run_2_hadoop[is.na(run_2_hadoop)] = '\\N'
+        run_2_hadoop[,7:15] = '\\N'
+        run_2_hadoop[,16] = 'smoothed'
+        run_2_hadoop[,17] = 'biweekly'
+        run_2_hadoop[,18] = data_date
+        run_2_hadoop[,19] = paste0(results_tag, '_Run2')
+        run_2_hadoop[,20] = 1
+        run_2_hadoop[,21:24] = run_2[,14:17]
+        run_2_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_2_hadoop[,3])
+        run_2_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_2_hadoop[,3])
+        run_2_hadoop[,3] = gsub(' Aggregated', '', run_2_hadoop[,3])
+        write.table(x = run_2_hadoop,
+                    file = paste0(script.basename,
+                                  output_folder, "/updated_nowcast_fortnightly_",
+                                  data_date,
+                                  tag,
+                                  "_",
+                                  results_tag,
+                                  "_hadoop.csv"),
+                    quote = FALSE,
+                    row.names = FALSE,
+                    col.names = FALSE,
+                    sep = ",")
+      } # end save hadoop data
+    } # end save run2 fortnightly data
+
+    ### Weekly estimates ----
+    # same as above, but for weekly estimates instead of fortnightly
+
+    # define and use a function to get the end-of-week dates
+    cast_wks = (function(dd) as.Date(seq(from = dd[1],
+                                         to = dd[2],
+                                         by = 7),
+                                     origin = "1970-01-01"))(range(as.Date(proj_ftnts)) + c(-7, 0))
+
+    # optionally make predictions on a daily basis instead of weekly basis
+
+    # cast weeks are based on fortnights, which are end-of-week dates
+    cast_wks <- seq(from = min(cast_wks) - 6,
+                    to   = max(cast_wks),
+                    by   = 1)
+
+    # create an empty object to hold predicted values for each region
+    proj.res = c()
+
+    # cycle over regions
+    for (rgn in dfs$USA_or_HHSRegion){
+      # cycle over weeks
+      for (cwk in cast_wks) {
+
+        # get the model fit & geoid
+        if (rgn=="USA") {
+          mlm = svymlm_us$mlm
+          geoid = rgn
+        } else {
+          mlm = svymlm_hhs$mlm
+          geoid = as.numeric(rgn)
+        }
+
+        # get the week for the given timepoint
+        wk_date = as.Date(cwk, origin="1970-01-01")
+        # convert date to model_week
+        wk = date_to_model_week(wk_date)
+
+        # Sunday of week
+        week_start  = wk_date - as.numeric(format(wk_date, format = '%w'))
+        # Saturday of week
+        week_ending = week_start + 6
+
+
+        # get the estimates (and SE) for the given place & time
+        ests = se.multinom(mlm = mlm,
+                           newdata_1row = data.frame(
+                             model_week = wk,
+                             HHS = geoid
+                           ),
+                           composite_variant = agg_var_mat)
+
+        # calculate the SE of the growth rate
+        se.gr = with(data = ests,
+                     expr = 100 * exp(sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2))) - 100)
+
+        # calculate the growth rate
+        gr = with(ests,
+                  100 * exp(b_i - sum(p_i * b_i)) - 100)
+
+        # add in doubling times
+        se.gr_link = with(data = ests,
+                          expr = sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2)))
+        gr_link = with(data = ests,
+                       expr = (b_i - sum(p_i * b_i)))
+        gr_lo_link = gr_link - 1.96 * se.gr_link
+        gr_hi_link = gr_link + 1.96 * se.gr_link
+
+        gr_lo = 100 * exp(gr_lo_link) - 100
+        gr_hi = 100 * exp(gr_hi_link) - 100
+
+        # calculate doubling time
+        doubling_time    = log(2)/gr_link * 7
+        doubling_time_lo = log(2)/gr_lo_link * 7
+        doubling_time_hi = log(2)/gr_hi_link * 7
+
+        # empty dataframe to hold growth rates of aggregated variants
+        gr_agg <- data.frame( variant = rownames(agg_var_mat),
+                              gr    = NA,
+                              se.gr = NA,
+                              gr_lo = NA,
+                              gr_hi = NA,
+                              dt    = NA,
+                              dt_lo = NA,
+                              dt_hi = NA)
+        # extract the growth rates for the aggregated variants
+        for(r in 1:nrow(agg_var_mat)){
+          # if nothing is actually being aggregated, just get the growth rate of the individual component
+          if(unname(rowSums(agg_var_mat)[r]) == 1){
+            col_ind <- which(agg_var_mat[r,]>0)
+            gr_agg[r,'gr']    <- gr[col_ind]
+            gr_agg[r,'se.gr'] <- se.gr[col_ind]
+            gr_agg[r,'gr_lo'] <- gr_lo[col_ind]
+            gr_agg[r,'gr_hi'] <- gr_hi[col_ind]
+            gr_agg[r,'dt']    <- doubling_time[col_ind]
+            gr_agg[r,'dt_lo'] <- doubling_time_lo[col_ind]
+            gr_agg[r,'dt_hi'] <- doubling_time_hi[col_ind]
+          } else {
+            # if there are component variants, then take the weighted mean to get the aggregated growth rate
+            col_ind <- unname(which(agg_var_mat[r,]>0))
+            gr_agg[r,'gr']    <- sum(   gr[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+            gr_agg[r,'gr_lo'] <- sum(gr_lo[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+            gr_agg[r,'gr_hi'] <- sum(gr_hi[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+            gr_agg[r,'dt']    <- sum(   doubling_time[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+            gr_agg[r,'dt_lo'] <- sum(doubling_time_lo[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+            gr_agg[r,'dt_hi'] <- sum(doubling_time_hi[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+          }
+        }
+
+        # format estimates into dataframe with relevant info
+        ests = data.table::data.table(
+          USA_or_HHSRegion = rgn,
           Week_ending = week_ending, # this no longer identifies a single estimate.
           Variant = c(model_vars,
                       "Other",
@@ -4490,7 +5109,7 @@ if ( grepl("Run2",tag) ){
           Share = c(ests$p_i,
                     ests$composite_variant$p_i),
           se.Share = c(ests$se.p_i,
-                      ests$composite_variant$se.p_i),
+                       ests$composite_variant$se.p_i),
           growth_rate    = c(gr,    gr_agg$gr),
           growth_rate_lo = c(gr_lo, gr_agg$gr_lo),
           growth_rate_hi = c(gr_hi, gr_agg$gr_hi),
@@ -4505,8 +5124,8 @@ if ( grepl("Run2",tag) ){
 
         # Get binomial CI from p_i and se.p_i
         binom.ci = apply(X = ests,
-                        MARGIN = 1 ,
-                        FUN = function(rr) svyCI(p = as.numeric(rr[4]),
+                         MARGIN = 1 ,
+                         FUN = function(rr) svyCI(p = as.numeric(rr[4]),
                                                   s = as.numeric(rr[5])))
 
         # add the CI into the estimates dataframe
@@ -4516,9 +5135,9 @@ if ( grepl("Run2",tag) ){
         if(calc_99_CI_nowcast){
           binom.ci.99 <- array(data = numeric(), dim = c(2, nrow(ests)))
           for (rr in seq(nrow(ests))){
-              binom.ci.99[,rr] <- svyCI(p = as.numeric(ests[rr,4]),
-                                        s = as.numeric(ests[rr,5]),
-                                        conf.level = 0.99)
+            binom.ci.99[,rr] <- svyCI(p = as.numeric(ests[rr,4]),
+                                      s = as.numeric(ests[rr,5]),
+                                      conf.level = 0.99)
           }
 
           # add the CI into the estimates dataframe
@@ -4529,7 +5148,7 @@ if ( grepl("Run2",tag) ){
 
         # add the estimates for this specific place & time to the results
         proj.res = rbind(proj.res,
-                        ests)
+                         ests)
       } # end loop over weeks
     } # end loop over regions
 
@@ -4569,8 +5188,8 @@ if ( grepl("Run2",tag) ){
 
         # get the daily test tallies & aggregate them by fn across USA
         tests_dy_us <- test_list$tests_daily[,
-                                            .('total_test_positives_daily' = sum(POSITIVE_daily, na.rm = T)),
-                                            by = 'date'][,'HHS' := 'USA']
+                                             .('total_test_positives_daily' = sum(POSITIVE_daily, na.rm = T)),
+                                             by = 'date'][,'HHS' := 'USA']
         # aggregate daily tests by HHS region
         tests_dy_hhs <- test_list$tests_daily[,
                                               .('total_test_positives_daily' = sum(POSITIVE_daily, na.rm = T)),
@@ -4582,8 +5201,8 @@ if ( grepl("Run2",tag) ){
                                               by = 'yr_wk'][,'HHS' := 'USA']
         # aggregate weekly tests by HHS region
         tests_wk_hhs <- test_list$tests_weekly[,
-                                              .('total_test_positives_weekly' = sum(POSITIVE, na.rm = T)),
-                                              by = c('yr_wk', 'HHS')]
+                                               .('total_test_positives_weekly' = sum(POSITIVE, na.rm = T)),
+                                               by = c('yr_wk', 'HHS')]
 
 
         # merge the daily positive test results in with the variant proportion estimates
@@ -4592,9 +5211,9 @@ if ( grepl("Run2",tag) ){
           y = rbind(tests_dy_us,
                     tests_dy_hhs),
           by.x = c("USA_or_HHSRegion",
-                  "date"),
+                   "date"),
           by.y = c('HHS',
-                  'date'),
+                   'date'),
           all.x = TRUE)
 
 
@@ -4604,9 +5223,9 @@ if ( grepl("Run2",tag) ){
           y = rbind(tests_wk_us,
                     tests_wk_hhs)[,'Week_ending' := as.Date(yr_wk) + 6][, 'yr_wk' := NULL],
           by.x = c("USA_or_HHSRegion",
-                  "Week_ending"),
+                   "Week_ending"),
           by.y = c('HHS',
-                  'Week_ending'),
+                   'Week_ending'),
           all.x = TRUE)
 
         # calculate case totals for each variant
@@ -4619,11 +5238,15 @@ if ( grepl("Run2",tag) ){
         proj.res[, cases_hi_weekly := total_test_positives_weekly * Share_hi]
       } else {
         print(paste0('File ',
-                    test_filepath,
-                    ' not found. Not calculating number of infections attributable to each variant for weeks.'))
+                     test_filepath,
+                     ' not found. Not calculating number of infections attributable to each variant for weeks.'))
       }
 
     }
+    # Format output for the run2 lineage list
+    # exclude the lineages that were aggregated (other than "Other")
+    drop_lin <- row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"]
+    # alternatively, just include only the variants that are in c(voc, "Other Aggregated")
 
     if(pre_aggregation==FALSE){
       # Format output for the run 1 lineage list
@@ -4640,8 +5263,8 @@ if ( grepl("Run2",tag) ){
       # output data file depends on NO change in run_1_weekly column order!!!
       # If new columns are to be added, they need to go to the end.
       run_1_weekly <- data.table:::subset.data.table(x = run_1,
-                                                    subset = model_week %% 1 == 0,
-                                                    select = !names(run_1) %in% c('total_test_positives_daily', 'cases_daily', 'cases_lo_daily', 'cases_hi_daily'))
+                                                     subset = model_week %% 1 == 0,
+                                                     select = !names(run_1) %in% c('total_test_positives_daily', 'cases_daily', 'cases_lo_daily', 'cases_hi_daily'))
       # daily results = remove weekly columns
       run_1_daily <- data.table:::subset.data.table(x = run_1,
                                                     select = !names(run_1) %in% c('total_test_positives_weekly', 'cases_weekly', 'cases_lo_weekly', 'cases_hi_weekly'))
@@ -4650,10 +5273,10 @@ if ( grepl("Run2",tag) ){
       if (!all(run_1_weekly[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Week_ending')][,unique(round(total_share, 5))] == 1)){
         warning(paste(
           paste0(script.basename,
-                output_folder, "/updated_nowcast_weekly_",
-                data_date,
-                sub(pattern = '2', replacement = '1', x = tag),
-                ".csv"),
+                 output_folder, "/updated_nowcast_weekly_",
+                 data_date,
+                 sub(pattern = '2', replacement = '1', x = tag),
+                 ".csv"),
           'results are invalid! The total proportion does not add up to 100% in all weeks!')
         )
       } else {
@@ -4685,17 +5308,17 @@ if ( grepl("Run2",tag) ){
           run_1_weekly_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_1_weekly_hadoop[,3])
           run_1_weekly_hadoop[,3] = gsub(' Aggregated', '', run_1_weekly_hadoop[,3])
           write.table(x = run_1_weekly_hadoop,
-                    file = paste0(script.basename,
-                                  output_folder, "/updated_nowcast_weekly_",
-                                  data_date,
-                                  sub(pattern = '2', replacement = '1', x = tag),
-                                  "_",
-                                  results_tag,
-                                  "_hadoop.csv"),
-                    quote = FALSE,
-                    row.names = FALSE,
-                    col.names = FALSE,
-                    sep = ",")
+                      file = paste0(script.basename,
+                                    output_folder, "/updated_nowcast_weekly_",
+                                    data_date,
+                                    sub(pattern = '2', replacement = '1', x = tag),
+                                    "_",
+                                    results_tag,
+                                    "_hadoop.csv"),
+                      quote = FALSE,
+                      row.names = FALSE,
+                      col.names = FALSE,
+                      sep = ",")
         } # end save hadoop data
       } # end save run1 data
       # daily results
@@ -4703,10 +5326,10 @@ if ( grepl("Run2",tag) ){
       if (!all(run_1_daily[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'date')][,unique(round(total_share, 5))] == 1)){
         warning(paste(
           paste0(script.basename,
-                output_folder, "/updated_nowcast_weekly_",
-                data_date,
-                sub(pattern = '2', replacement = '1', x = tag),
-                "_daily.csv"),
+                 output_folder, "/updated_nowcast_weekly_",
+                 data_date,
+                 sub(pattern = '2', replacement = '1', x = tag),
+                 "_daily.csv"),
           'results are invalid! The total proportion does not add up to 100% in all weeks!')
         )
       } else {
@@ -4741,8 +5364,8 @@ if ( grepl("Run2",tag) ){
     # output data file depends on NO change in run_2_weekly column order!!!
     # If new columns are to be added, they need to go to the end.
     run_2_weekly <- data.table:::subset.data.table(x = run_2,
-                                                  subset = model_week %% 1 == 0,
-                                                  select = !names(run_2) %in% c('total_test_positives_daily', 'cases_daily', 'cases_lo_daily', 'cases_hi_daily'))
+                                                   subset = model_week %% 1 == 0,
+                                                   select = !names(run_2) %in% c('total_test_positives_daily', 'cases_daily', 'cases_lo_daily', 'cases_hi_daily'))
     # daily results = remove weekly columns
     run_2_daily <- data.table:::subset.data.table(x = run_2,
                                                   select = !names(run_2) %in% c('total_test_positives_weekly', 'cases_weekly', 'cases_lo_weekly', 'cases_hi_weekly'))
@@ -4751,10 +5374,10 @@ if ( grepl("Run2",tag) ){
     if (!all(run_2_weekly[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Week_ending')][,unique(round(total_share, 5))] == 1)){
       warning(paste(
         paste0(script.basename,
-              output_folder, "/updated_nowcast_weekly_",
-              data_date,
-              tag,
-              ".csv"),
+               output_folder, "/updated_nowcast_weekly_",
+               data_date,
+               tag,
+               ".csv"),
         'results are invalid! The total proportion does not add up to 100% in all weeks!')
       )
     } else {
@@ -4786,17 +5409,17 @@ if ( grepl("Run2",tag) ){
         run_2_weekly_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_2_weekly_hadoop[,3])
         run_2_weekly_hadoop[,3] = gsub(' Aggregated', '', run_2_weekly_hadoop[,3])
         write.table(x = run_2_weekly_hadoop,
-                  file = paste0(script.basename,
-                                output_folder, "/updated_nowcast_weekly_",
-                                data_date,
-                                tag,
-                                "_",
-                                results_tag,
-                                "_hadoop.csv"),
-                  quote = FALSE,
-                  row.names = FALSE,
-                  col.names = FALSE,
-                  sep = ",")
+                    file = paste0(script.basename,
+                                  output_folder, "/updated_nowcast_weekly_",
+                                  data_date,
+                                  tag,
+                                  "_",
+                                  results_tag,
+                                  "_hadoop.csv"),
+                    quote = FALSE,
+                    row.names = FALSE,
+                    col.names = FALSE,
+                    sep = ",")
       } # end save hadoop data
     } # end save run2 weekly data
     # daily results
@@ -4804,10 +5427,10 @@ if ( grepl("Run2",tag) ){
     if (!all(run_2_daily[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'date')][,unique(round(total_share, 5))] == 1)){
       warning(paste(
         paste0(script.basename,
-              output_folder, "/updated_nowcast_weekly_",
-              data_date,
-              tag,
-              "_daily.csv"),
+               output_folder, "/updated_nowcast_weekly_",
+               data_date,
+               tag,
+               "_daily.csv"),
         'results are invalid! The total proportion does not add up to 100% in all weeks!')
       )
     } else {
@@ -4825,9 +5448,8 @@ if ( grepl("Run2",tag) ){
                               "_daily.csv"),
                 row.names = FALSE)
     } # end QA check for daily results
-  }# end loop over weighted_methods (unweighted, weighted)
-} # end Run2
-
+  } # end loop over weighted_methods (unweighted, weighted)
+} # end run 2 Nowcast modeling
 
 
 # Run3 - State-level estimates; Rolling 4 wk bins ------------------------------
@@ -4843,14 +5465,14 @@ if ( grepl("Run3", tag) ){
   all.state = expand.grid(Variant = voc,
                           Roll_4wk_end = data_weeks,
                           State = c("AK", "AL", "AR", "AZ", "CA", "CO", "CT",
-                                     "DC", "DE", "FL", "GA", "GU", "HI", "IA",
-                                     "ID", "IL", "IN", "KS", "KY", "LA", "MA",
-                                     "MD", "ME", "MI", "MN", "MO", "MP", "MS",
-                                     "MT", "NC", "ND", "NE", "NH", "NJ", "NM",
-                                     "NV", "NY", "OH", "OK", "OR", "PA", "PR",
-                                     "RI", "SC", "SD", "TN", "TX", "UT", "VA",
-                                     "VT", "WA", "WI", "WV", "WY", "AS", "MH",
-                                     "VI", "PW", "FM"))[, 3:1]
+                                    "DC", "DE", "FL", "GA", "GU", "HI", "IA",
+                                    "ID", "IL", "IN", "KS", "KY", "LA", "MA",
+                                    "MD", "ME", "MI", "MN", "MO", "MP", "MS",
+                                    "MT", "NC", "ND", "NE", "NH", "NJ", "NM",
+                                    "NV", "NY", "OH", "OK", "OR", "PA", "PR",
+                                    "RI", "SC", "SD", "TN", "TX", "UT", "VA",
+                                    "VT", "WA", "WI", "WV", "WY", "AS", "MH",
+                                    "VI", "PW", "FM"))[, 3:1]
 
 
 
@@ -4938,13 +5560,13 @@ if ( grepl("Run3", tag) ){
   # get the proportion estimates & CI
   other_state_ests_function <- function(others, svyDES){
     ests.others <- apply(X = others,
-                  MARGIN = 1,
-                  FUN = function(rr) myciprop(voc = voc,
-                                              geoid = rr[1],
-                                              svy = subset(svyDES,
-                                                           week >= (as.numeric(rr[2])- 3) &
-                                                             week < (as.numeric(rr[2])+1)),
-                                              str = FALSE))
+                         MARGIN = 1,
+                         FUN = function(rr) myciprop(voc = voc,
+                                                     geoid = rr[1],
+                                                     svy = subset(svyDES,
+                                                                  week >= (as.numeric(rr[2])- 3) &
+                                                                    week < (as.numeric(rr[2])+1)),
+                                                     str = FALSE))
     return(ests.others)
   }
 
@@ -5181,37 +5803,37 @@ if ( grepl("Run3", tag) ){
 
   # Generate file ready for hadoop upload
   all.state.out_hadoop = data.frame(all.state.out[,c("State",
-                                                "Roll_Fourweek_ending",
-                                                "Variant",
-                                                "Share",
-                                                "Share_lo",
-                                                "Share_hi",
-                                                "count",
-                                                "denom_count",
-                                                "DF",
-                                                "eff.size",
-                                                "CI_width",
-                                                "nchs_flag",
-                                                "nchs_flag_wodf")])
+                                                     "Roll_Fourweek_ending",
+                                                     "Variant",
+                                                     "Share",
+                                                     "Share_lo",
+                                                     "Share_hi",
+                                                     "count",
+                                                     "denom_count",
+                                                     "DF",
+                                                     "eff.size",
+                                                     "CI_width",
+                                                     "nchs_flag",
+                                                     "nchs_flag_wodf")])
   all.state.out_hadoop[,14] = data_date
   all.state.out_hadoop[,15] = ''
   all.state.out_hadoop[,16:19] = all.state.out[,c("total_test_positives",
-                                                          "cases",
-                                                          "cases_lo",
-                                                          "cases_hi")]
+                                                  "cases",
+                                                  "cases_lo",
+                                                  "cases_hi")]
   all.state.out_hadoop[is.na(all.state.out_hadoop)] = '\\N'
   write.table(x = all.state.out_hadoop,
-            file = paste0(script.basename,
-                          output_folder, "/state_weighted_roll4wk_",
-                          ci.type,
-                          "CI_svyNEW_",
-                          data_date,
-                          tag,
-                          "_hadoop.csv"),
-            quote = FALSE,
-            row.names = FALSE,
-            col.names = FALSE,
-            sep =  ",")
+              file = paste0(script.basename,
+                            output_folder, "/state_weighted_roll4wk_",
+                            ci.type,
+                            "CI_svyNEW_",
+                            data_date,
+                            tag,
+                            "_hadoop.csv"),
+              quote = FALSE,
+              row.names = FALSE,
+              col.names = FALSE,
+              sep =  ",")
 
 } # end Run3
 

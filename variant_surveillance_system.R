@@ -178,10 +178,12 @@ node = "10"
 if(toupper(opts$nextclade_pango) %in% c('T', 'TRUE', 'Y', 'YES')){
   lineage_table = "sc2_src.nextclade"
   lineage_field = "nextclade_pango"
+  expanded_lineage_field = "" # no expanded lineage for nextclade
   current_data  = TRUE   # If using nextclade_pango, there is no archived frozen data, only current data from nextclade_pango can be used
 } else {
   lineage_table = "sc2_src.pangolin"
   lineage_field = "lineage"
+  expanded_lineage_field = ", expanded_lineage" # include the comma for the query
 }
 
 #ref_lineage = opts$reference_lineage
@@ -373,7 +375,9 @@ dat = DBI::dbGetQuery(conn = impala,
                       statement = query)
 
 # Get the Pango lineages (at the time of the data) from the choosen source
+# (get lineages separately to allow for custom lineages)
 if(custom_lineages == TRUE) {
+  # custom lineages allow for defining lineages based on mutations.
   custom_lineages_sql = paste0('
     CASE
       WHEN regexp_like(P.', lineage_field, ', "^XBB.1.5")  AND udx.substr_range(A.aa_aln, "146") = "K"
@@ -446,7 +450,7 @@ if(custom_lineages == TRUE) {
     pangolin = DBI::dbGetQuery(
       conn = impala,
       statement = paste0(
-      'SELECT DISTINCT nt_id, ', lineage_field, ' as lineage
+      'SELECT DISTINCT nt_id, ', lineage_field, ' as lineage ', expanded_lineage_field,'
       FROM ', lineage_table
       ))
   } else {
@@ -457,7 +461,8 @@ if(custom_lineages == TRUE) {
         '
         SELECT DISTINCT
         P.primary_nt_id as nt_id,
-        P.lineage
+        P.lineage,
+        P.expanded_lineage
         FROM sc2_archive.analytics_metadata_frozen as P
         WHERE to_date(P.date_frozen) = ', date_frozen
       ))
@@ -527,7 +532,7 @@ FROM sc2_archive.nrevss_frozen H
 INNER JOIN
 (SELECT max(date_frozen) as max_frozen
     FROM sc2_archive.nrevss_frozen hf
-    WHERE to_date(hf.date_frozen) = ', '"2023-05-24"', '
+    WHERE to_date(hf.date_frozen) = ', date_frozen, '
 ) as F
 ON H.date_frozen = F.max_frozen'
 )) #     WHERE to_date(hf.date_frozen) = ', date_frozen, '
@@ -994,7 +999,7 @@ us.dat = subset(x = us.dat,
 
 # merge Pangolin lineage into us.dat
 us.dat = merge(x = us.dat,
-              y = pangolin[, c("nt_id", "lineage")],
+              y = pangolin, # [, c("nt_id", "lineage", "expanded_lineage")],
               by.x = "primary_nt_id",
               by.y = "nt_id",
               all.x = TRUE)
@@ -1507,6 +1512,8 @@ svy.dat = data.table::data.table(
   #S1_GROUP = us.dat$group_name,   # s1_group names, only the groups > 0.05% in the analysis weeks will have names based on comparison to chosen reference lineage
   #S1_GROUP_KEY = us.dat$group_key # s1_group_keys
 )
+# add on expanded lineage (if present)
+if('expanded_lineage' %in% names(us.dat)) svy.dat$expanded_lineage <- us.dat$expanded_lineage
 
 # replace NAs with "other
 # svy.dat$LAB[is.na(svy.dat$LAB)] = "OTHER"
@@ -1669,10 +1676,10 @@ NC_labs_to_agg <- grep(pattern = "(INFECTIOUS DISEASES,  NC SLPH COVID-19 RESPON
                        ignore.case = T,
                        value = T)
 if (length(NC_labs_to_agg)>0){
-  labnames_df_nc <- data.frame(old_name = NC_labs_to_agg,
-                              new_name = "INFECTIOUS DISEASES, NC SLPH COVID-19 RESPONSE TEAM")
-  # svy.dat[svy.dat$LAB %in% NC_labs_to_agg,"LAB2"] <- labnames_df_nc$new_name[1]
-  svy.dat[LAB %in% NC_labs_to_agg, "LAB2" := labnames_df_nc$new_name[1]]
+labnames_df_nc <- data.frame(old_name = NC_labs_to_agg,
+                             new_name = "INFECTIOUS DISEASES, NC SLPH COVID-19 RESPONSE TEAM")
+# svy.dat[svy.dat$LAB %in% NC_labs_to_agg,"LAB2"] <- labnames_df_nc$new_name[1]
+svy.dat[LAB %in% NC_labs_to_agg, "LAB2" := labnames_df_nc$new_name[1]]
 } else labnames_df_nc <- NULL
 
 # Aggregate other NC labs
@@ -1893,7 +1900,7 @@ svy.dat[LAB %in% PI_labs_to_agg, 'LAB2' := labnames_df_pi$new_name[1]]
 
 # added 2023-05-24: remove sequences from "Broad Institute's Genomic Center For Infectious Diseases (GCID)" that were collected in 2023
 # added here before they get aggregated into "BROAD INSTITUTE"
-print(paste('Removing', 
+print(paste('Removing',
     svy.dat[ (LAB == toupper("Broad Institute's Genomic Center For Infectious Diseases (GCID)") & date >= '2023-01-01'), length(date) ],
     'sequences from "Broad Institute\'s Genomic Center For Infectious Diseases (GCID)" collected since 2023-01-01'))
 svy.dat <- svy.dat[ !(LAB == toupper("Broad Institute's Genomic Center For Infectious Diseases (GCID)") & date >= '2023-01-01') ]
