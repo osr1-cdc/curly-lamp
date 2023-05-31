@@ -1461,6 +1461,8 @@ if( tolower(opts$voc_aggregation_method) %in% c('updated', 'lineage_expanded') )
     src.dat[src.dat$VARIANT %in% XBB.1[XBB.1 %notin% voc],"VARIANT"] <- "XBB.1"
     src.dat[src.dat$VARIANT %in% XBB.2[XBB.2 %notin% voc],"VARIANT"] <- "XBB.2"
     src.dat[src.dat$VARIANT %in% XBB.2.3[XBB.2.3 %notin% voc],"VARIANT"] <- "XBB.2.3"
+    src.dat[src.dat$VARIANT %in% FD.2[FD.2 %notin% voc],"VARIANT"] <- "FD.2"    
+    src.dat[src.dat$VARIANT %in% FE.1[FE.1 %notin% voc],"VARIANT"] <- "FE.1"
     src.dat[src.dat$VARIANT %in% XBB[XBB %notin% voc],"VARIANT"] <- "XBB"
   }
 } # end old aggregation methods
