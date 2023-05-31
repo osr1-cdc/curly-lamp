@@ -532,7 +532,7 @@ FROM sc2_archive.nrevss_frozen H
 INNER JOIN
 (SELECT max(date_frozen) as max_frozen
     FROM sc2_archive.nrevss_frozen hf
-    WHERE to_date(hf.date_frozen) = ', '"2023-05-24"', '
+    WHERE to_date(hf.date_frozen) = ', date_frozen, '
 ) as F
 ON H.date_frozen = F.max_frozen'
 )) #     WHERE to_date(hf.date_frozen) = ', date_frozen, '

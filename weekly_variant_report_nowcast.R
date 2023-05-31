@@ -1063,6 +1063,8 @@ if( tolower(opts$voc_aggregation_method) %in% c('updated', 'lineage_expanded') )
 
 } else {
   # use the original variant aggregation code
+  # IMPORTANT! LAST UPDATED on 2023-05-31 for pangolin-data v1.19, pangolin v4.2, usher v0.6.2
+  # This version would not be suitable for usage unless manually updated
 
   #Identify all the clades/lineages to aggregate in the surveillance dataset
   # all the AY variants
@@ -1119,11 +1121,12 @@ if( tolower(opts$voc_aggregation_method) %in% c('updated', 'lineage_expanded') )
     XBB.1.16 <- sort(grep("^XBB\\.1\\.16(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T))
     XBB.1.16 <- setdiff(XBB.1.16, XBB.1.16.1)
   } else XBB.1.16 <- NULL
+  if('FE.1' %in% voc) FE.1 <- sort(grep("^FE\\.1(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else FE.1 <- NULL
   if('XBB.1' %in% voc){
     XBB.1 <- sort(grep("^XBB\\.1(?![0-9])|^E[GKLMU]|^F[DEGHL]\\.", unique(src.dat$VARIANT), perl = T, value = T))
     XBB.1 <- setdiff(XBB.1, c(XBB.1.5.1, XBB.1.5.2, XBB.1.5.4, XBB.1.5.5, XBB.1.5.10, XBB.1.5.11, XBB.1.5.13, XBB.1.5.15, FD.2, XBB.1.5.16, XBB.1.5.17,
                               XBB.1.5.19, XBB.1.5.20, XBB.1.5.21, XBB.1.5.30, XBB.1.5.31, XBB.1.5.32, XBB.1.5.33, XBB.1.5.35, XBB.1.9.1, XBB.1.9.2, EG.1,
-                              XBB.1.15, XBB.1.16, XBB.1.16.1))
+                              XBB.1.15, XBB.1.16, XBB.1.16.1, FE.1))
   } else XBB.1 <- NULL
   if('XBB.2.3' %in% voc) XBB.2.3 <- sort(grep("^XBB\\.2\\.3(?![0-9])", unique(src.dat$VARIANT), perl = T, value = T)) else XBB.2.3 <- NULL
   if('XBB.2' %in% voc) {
@@ -1133,7 +1136,7 @@ if( tolower(opts$voc_aggregation_method) %in% c('updated', 'lineage_expanded') )
   if('XBB' %in% voc) {
     XBB <- sort(grep("(^XBB\\.)|^E[GKLMU]|^F[DEGHL]\\.", unique(src.dat$VARIANT), perl = T, value = T))
     XBB <- setdiff(XBB, c(XBB.1, XBB.1.5.1, XBB.1.5.2, XBB.1.5.4, XBB.1.5.5, XBB.1.5.10, XBB.1.5.11, XBB.1.5.13, XBB.1.5.15, FD.2, XBB.1.5.16, XBB.1.5.17,
-                          XBB.1.5.19, XBB.1.5.20, XBB.1.5.21, XBB.1.5.30, XBB.1.5.31, XBB.1.5.32, XBB.1.5.33, XBB.1.5.35, XBB.1.9.1, XBB.1.9.2, EG.1, XBB.1.15, XBB.1.16, XBB.1.16.1,
+                          XBB.1.5.19, XBB.1.5.20, XBB.1.5.21, XBB.1.5.30, XBB.1.5.31, XBB.1.5.32, XBB.1.5.33, XBB.1.5.35, XBB.1.9.1, XBB.1.9.2, EG.1, XBB.1.15, XBB.1.16, XBB.1.16.1,FE.1,
                           XBB.2, XBB.2.3))
   } else XBB <- NULL
 
