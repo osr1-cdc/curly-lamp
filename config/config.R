@@ -50,7 +50,7 @@ use_previously_imported_data <- FALSE
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to
 # the specified run set before each set is run
-results_tag <- "CDT_N"
+results_tag <- "set2"
 results_folder <- paste0("results_", data_date, '_', results_tag)
 
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
