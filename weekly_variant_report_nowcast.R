@@ -3631,12 +3631,12 @@ if ( grepl("Run2",tag) ){
 
     # add an x axis
     axis(side = 1,
-        at     = 10 ^ seq(wow_x_scale,2,by=1),
-        labels = 10 ^ seq(wow_x_scale,2,by=1))
+         at     = 10 ^ seq(wow_x_scale,2,by=1),
+         labels = 10 ^ seq(wow_x_scale,2,by=1))
 
     # add a horizontal line at 0
     abline(h = 0,
-          col = "grey65")
+           col = "grey65")
 
     # add lines for each variant
     for (vv in 1:nrow(gtp)) {
@@ -3668,8 +3668,8 @@ if ( grepl("Run2",tag) ){
 
     # Add second axis
     axis(side = 4,
-        at = plot_growth_rates,
-        labels = round(plot_doubling_times,1))
+         at = plot_growth_rates,
+         labels = round(plot_doubling_times,1))
     # Add second axis label
     mtext("Doubling time (days)",
           side = 4,
@@ -4096,24 +4096,15 @@ if ( grepl("Run2",tag) ){
         agg_var_mat,
         ifelse(colnames(agg_var_mat) %in% other_agg, 1, 0)
       )
+      # update the row name
+      row.names(agg_var_mat)[nrow(agg_var_mat)] <- 'Other Aggregated'
 
-      # create plot of growth rates by region
-      if (fig_gen_run) jpeg(filename = paste0(stub, "growthrate_HHS", hhs, "_", meth, tag,".jpg"),
-                            width = 1500,
-                            height = 1500,
-                            pointsize = 40)
-
-      # make enough room on the right side of the plot for a secondary axis.
-      orpar <- par()
-      par(mar = c(5.1, 4.1, 4.1, 4.1))
-
-      # filter out variants with proportions less than 0.01%
-      if (force_aggregate_omicron && custom_lineages == FALSE) {
-      gtphhs <- subset(gr_tab_hhs,
-                    variant %in% c(voc1, "OTHER"))
-      } else {
-      gtphhs <- subset(gr_tab_hhs,
-                    variant_share >= 0.01) # this is already a percent, so this is filtering out variants with less than 1/1000 of a percent (not 1 percent)
+      # double-check that no variant is aggregated into multiple vocs
+      if(max(colSums(agg_var_mat)) > 1){
+        warning(message = paste(
+          'Aggregated results are invalid! These variants are being aggregated multiple times:',
+          names(agg_var_mat)[colSums(agg_var_mat) > 1],
+          '. Fix the aggregation matrix.'))
       }
 
       # NOTE! Setting up the agg_var_mat in this way assumes that variants included in
@@ -4492,228 +4483,7 @@ if ( grepl("Run2",tag) ){
         doubling_time_lo = log(2)/gr_lo_link * 7
         doubling_time_hi = log(2)/gr_hi_link * 7
 
-        # calculate case totals for each variant
-        proj.res[, cases    := total_test_positives * Share]
-        proj.res[, cases_lo := total_test_positives * Share_lo]
-        proj.res[, cases_hi := total_test_positives * Share_hi]
-      } else {
-        print(paste0('File ',
-                    test_filepath,
-                    ' not found. Not calculating number of infections attributable to each variant for fortnights.'))
-      }
-    }
-
-    if(pre_aggregation==FALSE){
-      # Format output for the run 1 lineage list
-      # exclude variants that have been aggregated into other groups (i.e. have value > 0 in the matrix)
-      # run_1 = proj.res[proj.res$Variant %notin% colnames(agg_var_mat)[colSums(agg_var_mat)>0],]
-      agg_lineages <- colnames(agg_var_mat)[colSums(agg_var_mat)>0] # need to make sure that run1 keeps either "Other" or Other aggregated! (not both or neither)
-      if("Other" %notin% agg_lineages) agg_lineages <- c(agg_lineages, "Other Aggregated")
-      run_1 = proj.res[Variant %notin% agg_lineages]
-
-      # change the name of "Other Aggregated" to "Other" to match other output files
-      run_1[run_1$Variant == "Other Aggregated","Variant"] <- "Other"
-
-      # output data file depends on NO change in run_1 column order!!!
-      # If new columns are to be added, they need to go to the end.
-
-      # QA: make sure that the shares add up to 1 each time period to make sure that the aggregation is doing what I want it to:
-      if (!all(run_1[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Fortnight_ending')][,unique(round(total_share, 5))] == 1)){
-        warning(paste(
-          paste0(script.basename,
-                output_folder, "/updated_nowcast_fortnightly_",
-                data_date,
-                sub(pattern = '2', replacement = '1', x = tag),
-                ".csv"),
-          'results are invalid! The total proportion does not add up to 100% in each time period!')
-        )
-      } else {
-        # only save the results to file if the proportions add up to 100% each week
-        # save the results to file
-        write.csv(x = run_1,
-                  file = paste0(script.basename,
-                                output_folder, "/updated_nowcast_fortnightly_",
-                                meth,
-                                '_',
-                                data_date,
-                                sub(pattern = '2', replacement = '1', x = tag),
-                                "_",
-                                results_tag,
-                                ".csv"),
-                  row.names = FALSE)
-        if(meth == 'weighted'){
-          # process dataframe and save to a format for direct hadoop upload
-          run_1_hadoop = data.frame(run_1[,1:6])
-          run_1_hadoop[is.na(run_1_hadoop)] = '\\N'
-          run_1_hadoop[,7:15] = '\\N'
-          run_1_hadoop[,16] = 'smoothed'
-          run_1_hadoop[,17] = 'biweekly'
-          run_1_hadoop[,18] = data_date
-          run_1_hadoop[,19] = paste0(results_tag, '_Run1')
-          run_1_hadoop[,20] = 1
-          run_1_hadoop[,21:24] = run_1[,14:17]
-          run_1_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_1_hadoop[,3])
-          run_1_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_1_hadoop[,3])
-          run_1_hadoop[,3] = gsub(' Aggregated', '', run_1_hadoop[,3])
-          write.table(x = run_1_hadoop,
-                    file = paste0(script.basename,
-                                  output_folder, "/updated_nowcast_fortnightly_",
-                                  data_date,
-                                  sub(pattern = '2', replacement = '1', x = tag),
-                                  "_",
-                                  results_tag,
-                                  "_hadoop.csv"),
-                    quote = FALSE,
-                    row.names = FALSE,
-                    col.names = FALSE,
-                    sep = ",")
-        } # end save hadoop data
-      } # end save data
-    } # end save data when pre-aggregation == FALSE
-
-    # Format output for the run2 lineage list
-    # exclude the lineages that were aggregated (other than "Other")
-    drop_lin <- row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"]
-    # alternatively, just include only the variants that are in c(voc, "Other Aggregated")
-
-    # Only include variants that are NOT in the list provided
-    # (also use "Other Aggregated" instead of "Other"; this requires dropping the variants that were aggregated into "Other Aggregated")
-    # output data file depends on NO change in run_2 column order!!!
-    # If new columns are to be added, they need to go to the end.
-    run_2 = proj.res[Variant %notin% c(drop_lin, "Other", colnames(agg_var_mat['Other Aggregated',,drop=F])[agg_var_mat['Other Aggregated',,drop=F] > 0])]
-
-    # change the name of "Other Aggregated" to "Other" to match other output files
-    run_2[run_2$Variant=="Other Aggregated","Variant"] <- "Other"
-
-    # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
-    if (!all(run_2[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Fortnight_ending')][,unique(round(total_share, 5))] == 1)){
-      warning(paste(
-        paste0(script.basename,
-              output_folder, "/updated_nowcast_fortnightly_",
-              data_date,
-              tag,
-              ".csv"),
-        'results are invalid! The total proportion does not add up to 100% in all weeks!')
-      )
-    } else {
-      # only save the results to file if the proportions add up to 100% each week
-      write.csv(x = run_2,
-                file = paste0(script.basename,
-                              output_folder, "/updated_nowcast_fortnightly_",
-                              meth,
-                              "_",
-                              data_date,
-                              tag,
-                              "_",
-                              results_tag,
-                              ".csv"),
-                row.names = FALSE)
-      if(meth == "weighted"){
-        # process dataframe and save to a format for direct hadoop upload
-        run_2_hadoop = data.frame(run_2[,1:6])
-        run_2_hadoop[is.na(run_2_hadoop)] = '\\N'
-        run_2_hadoop[,7:15] = '\\N'
-        run_2_hadoop[,16] = 'smoothed'
-        run_2_hadoop[,17] = 'biweekly'
-        run_2_hadoop[,18] = data_date
-        run_2_hadoop[,19] = paste0(results_tag, '_Run2')
-        run_2_hadoop[,20] = 1
-        run_2_hadoop[,21:24] = run_2[,14:17]
-        run_2_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_2_hadoop[,3])
-        run_2_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_2_hadoop[,3])
-        run_2_hadoop[,3] = gsub(' Aggregated', '', run_2_hadoop[,3])
-        write.table(x = run_2_hadoop,
-                  file = paste0(script.basename,
-                                output_folder, "/updated_nowcast_fortnightly_",
-                                data_date,
-                                tag,
-                                "_",
-                                results_tag,
-                                "_hadoop.csv"),
-                  quote = FALSE,
-                  row.names = FALSE,
-                  col.names = FALSE,
-                  sep = ",")
-      } # end save hadoop data
-    } # end save run2 fortnightly data
-
-    ### Weekly estimates ----
-    # same as above, but for weekly estimates instead of fortnightly
-
-    # define and use a function to get the end-of-week dates
-    cast_wks = (function(dd) as.Date(seq(from = dd[1],
-                                        to = dd[2],
-                                        by = 7),
-                                    origin = "1970-01-01"))(range(as.Date(proj_ftnts)) + c(-7, 0))
-
-    # optionally make predictions on a daily basis instead of weekly basis
-
-    # cast weeks are based on fortnights, which are end-of-week dates
-    cast_wks <- seq(from = min(cast_wks) - 6,
-                    to   = max(cast_wks),
-                    by   = 1)
-
-    # create an empty object to hold predicted values for each region
-    proj.res = c()
-
-    # cycle over regions
-    for (rgn in dfs$USA_or_HHSRegion){
-      # cycle over weeks
-      for (cwk in cast_wks) {
-
-        # get the model fit & geoid
-        if (rgn=="USA") {
-          mlm = svymlm_us$mlm
-          geoid = rgn
-        } else {
-          mlm = svymlm_hhs$mlm
-          geoid = as.numeric(rgn)
-        }
-
-        # get the week for the given timepoint
-        wk_date = as.Date(cwk, origin="1970-01-01")
-        # convert date to model_week
-        wk = date_to_model_week(wk_date)
-
-        # Sunday of week
-        week_start  = wk_date - as.numeric(format(wk_date, format = '%w'))
-        # Saturday of week
-        week_ending = week_start + 6
-
-
-        # get the estimates (and SE) for the given place & time
-        ests = se.multinom(mlm = mlm,
-                          newdata_1row = data.frame(
-                            model_week = wk,
-                            HHS = geoid
-                          ),
-                          composite_variant = agg_var_mat)
-
-        # calculate the SE of the growth rate
-        se.gr = with(data = ests,
-                    expr = 100 * exp(sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2))) - 100)
-
-        # calculate the growth rate
-        gr = with(ests,
-                  100 * exp(b_i - sum(p_i * b_i)) - 100)
-
-        # add in doubling times
-        se.gr_link = with(data = ests,
-                          expr = sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2)))
-        gr_link = with(data = ests,
-                      expr = (b_i - sum(p_i * b_i)))
-        gr_lo_link = gr_link - 1.96 * se.gr_link
-        gr_hi_link = gr_link + 1.96 * se.gr_link
-
-        gr_lo = 100 * exp(gr_lo_link) - 100
-        gr_hi = 100 * exp(gr_hi_link) - 100
-
-        # calculate doubling time
-        doubling_time    = log(2)/gr_link * 7
-        doubling_time_lo = log(2)/gr_lo_link * 7
-        doubling_time_hi = log(2)/gr_hi_link * 7
-
-        # empty dataframe to hold growth rates of aggregated variants
+        # empty dataframe to store growth rates (and doubling times) for aggregated variants
         gr_agg <- data.frame( variant = rownames(agg_var_mat),
                               gr    = NA,
                               se.gr = NA,
@@ -5243,10 +5013,6 @@ if ( grepl("Run2",tag) ){
       }
 
     }
-    # Format output for the run2 lineage list
-    # exclude the lineages that were aggregated (other than "Other")
-    drop_lin <- row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"]
-    # alternatively, just include only the variants that are in c(voc, "Other Aggregated")
 
     if(pre_aggregation==FALSE){
       # Format output for the run 1 lineage list
