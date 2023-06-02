@@ -27,7 +27,7 @@
 #
 # Set up mail address for script
 # -M ncy6@cdc.gov,fep2@cdc.gov,nyy7@cdc.gov,qiu5@cdc.gov,rsv4@cdc.gov,oow9@cdc.gov
-#$ -M rsv4@cdc.gov
+#$ -M qiu5@cdc.gov
 # ncy6 = Norman Hassell
 # fep2 = Clinton Paden
 # nyy7 = Sandra Seby
@@ -91,7 +91,7 @@ done
 
 # If no user-supplied username and password, print error msg and usage, exit
 if [[ (-z ${username}) || (-z ${password}) ]]; then
-    echo "username and password has to be provided." >> ${LOGFILE}
+    echo "Data pull failed because username and password have to be provided." >> ${LOGFILE}
     exit
 fi
 
@@ -107,20 +107,24 @@ qsub -N variant_surveillance -sync y ./variant_surveillance_system.sh "${usernam
 #-------------------------------------------
 if [[ $? -eq 0 ]] && [[ ${custom} == 'F' ]]; then
     time_stamp "Data has been pulled in." >> ${LOGFILE}
-    qsub -hold_jid variant_surveillance ./run1_trim.sh
-    qsub -hold_jid variant_surveillance ./run2_trim.sh
-    qsub -hold_jid variant_surveillance ./run3_trim.sh
+    qsub -hold_jid variant_surveillance -sync y ./run1_trim.sh
+    qsub -hold_jid variant_surveillance -sync y ./run2_trim.sh
+#    qsub -hold_jid variant_surveillance ./run3_trim.sh
 elif [[ $? -eq 0 ]] && [[ ${custom} == 'T' ]]; then
     time_stamp "Data has been pulled in." >> ${LOGFILE}
-    qsub -hold_jid variant_surveillance ./run1_trim_custom.sh
-    qsub -hold_jid variant_surveillance ./run2_trim_custom.sh
-    qsub -hold_jid variant_surveillance ./run3_trim_custom.sh
+    qsub -hold_jid variant_surveillance -sync y ./run1_trim_custom.sh
+    qsub -hold_jid variant_surveillance -sync y ./run2_trim_custom.sh
+#    qsub -hold_jid variant_surveillance ./run3_trim_custom.sh
 else
-    time_stamp "Data pull failed." >> ${LOGFILE}
+    time_stamp "Data pull failed. Check Run_var_sys.err" >> ${LOGFILE}
     exit 1
 fi
 #-------------------------------------------
 # Step 3: Send finishing notifications
 #-------------------------------------------
-qsub -hold_jid run1_CDT_N,run2_CDT_N -sync y -b y echo "Modeling run finished." 
-time_stamp "Modeling run finished." >> ${LOGFILE}
+if [[ $? -eq 1 ]] ; then
+    time_stamp "Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2." >> ${LOGFILE}
+    exti 1
+else
+    time_stamp "Modeling run finished." >> ${LOGFILE}
+fi

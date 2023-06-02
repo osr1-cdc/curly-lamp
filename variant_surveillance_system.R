@@ -286,21 +286,21 @@ FROM sc2_archive.analytics_metadata_frozen
 # FROM sc2_archive.hhs_protect_testing_frozen
 #     ')
 
-# # throw an error if the data_date isn't in the
-# # sc2_archive.analytics_metadata_frozen table.
-# if( !((as.character(data_date) %in% unlist(valid_data_dates)) &
-#       (as.character(data_date) %in% unlist(valid_tests_dates))) ){
-#   errorCondition(paste0(
-#     'The "data_date" provided (',
-#     data_date,
-#     ') is not in valid.\n
-#     Valid options from sc2_archive.analytics_metadata_frozen.date_frozen include:\n',
-#     paste(sort(valid_data_dates[,1]), collapse = '\n'),
-#     '\nValid options from sc2_archive.hhs_protect_testing_frozen.date_frozen include:\n',
-#     paste(sort(valid_tests_dates[,1]), collapse = '\n'),
-#     '.'
-#   ))
-# }
+# throw an error if the data_date isn't in the
+# sc2_archive.analytics_metadata_frozen table.
+if( !((as.character(data_date) %in% unlist(valid_data_dates)) &
+      (as.character(data_date) %in% unlist(valid_tests_dates))) ){
+  errorCondition(paste0(
+    'The "data_date" provided (',
+    data_date,
+    ') is not in valid.\n
+    Valid options from sc2_archive.analytics_metadata_frozen.date_frozen include:\n',
+    paste(sort(valid_data_dates[,1]), collapse = '\n'),
+    '\nValid options from sc2_archive.hhs_protect_testing_frozen.date_frozen include:\n',
+    paste(sort(valid_tests_dates[,1]), collapse = '\n'),
+    '.'
+  ))
+}
 
 
 # Get all field/column names from the table
