@@ -37,7 +37,7 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 data_date <- Sys.Date()
-# data_date <- as.Date('2023-05-23')
+# data_date <- as.Date('2023-05-30')
 # This needs to be a date on which data were frozen in the CDP database
 # Set specific date_frozen to read sequencing data; but read test data and voc list from the data_date backup files. This can be used to rerun modeling using later date backfilled data.
 # Default would be data_date
@@ -388,9 +388,11 @@ force_aggregate_B.1 <- TRUE
 # rescale the weights that are used in the multinomial Nowcast model.
 # this can help avoid numerical overflow when trying to calculate prediction intervals.
 rescale_model_weights <- TRUE
-# how to rescale model weights
-rescale_model_weights_by <- 'mean'
+# how to rescale model weights.
+# code will try all options (in order) until a value works for both the national and regional nowcast model ("works" means that the multinomial model fit successfully estimates the Hessian, allowing for estimates of uncertainty)
+rescale_model_weights_by <- c('mean', "max", 100, 'min', 2^seq(1:10))
 # options: "max", "mean", [number]
+# note that R vectors can only have 1 data type, so combining strings with numbers results in all values being treated as string values. That's ok. The code converts number strings to numeric.
 
 # optionally remove UTAH PHL sequences (b/c they were causing issues with Region 8 estimates in January, 2022)
 remove_utahphl <- FALSE

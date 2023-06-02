@@ -765,11 +765,11 @@ if (voc2_extra_preaggregation | (tolower(opts$voc_aggregation_method) == 'update
   voc_lut <- data.frame(
     'variant'                  = unique_vars,
     'lineage_expanded'         = unique_lineage_expanded,
-    'parent_lineage_expanded'  = nearest_parent(unique_lineage_expanded, voc_expanded)
+    'parent_lineage_expanded'  = nearest_parent(unique_lineage_expanded, voc_expanded) # returns "Other" for any 'unique_lineage_expanded' not in 'voc_expanded'
   )
 
-  # add in the parent variant
-  voc_lut$parent_variant <- setNames(voc_lut$variant, voc_lut$lineage_expanded)[voc_lut$parent_lineage_expanded]
+  # add in the parent variant short name
+  voc_lut$parent_variant <- c(setNames(voc_lut$variant, voc_lut$lineage_expanded), 'Other' = 'Other')[voc_lut$parent_lineage_expanded]
   # update the row names
   row.names(voc_lut) <- 1:nrow(voc_lut)
 
@@ -1461,7 +1461,7 @@ if( tolower(opts$voc_aggregation_method) %in% c('updated', 'lineage_expanded') )
     src.dat[src.dat$VARIANT %in% XBB.1[XBB.1 %notin% voc],"VARIANT"] <- "XBB.1"
     src.dat[src.dat$VARIANT %in% XBB.2[XBB.2 %notin% voc],"VARIANT"] <- "XBB.2"
     src.dat[src.dat$VARIANT %in% XBB.2.3[XBB.2.3 %notin% voc],"VARIANT"] <- "XBB.2.3"
-    src.dat[src.dat$VARIANT %in% FD.2[FD.2 %notin% voc],"VARIANT"] <- "FD.2"    
+    src.dat[src.dat$VARIANT %in% FD.2[FD.2 %notin% voc],"VARIANT"] <- "FD.2"
     src.dat[src.dat$VARIANT %in% FE.1[FE.1 %notin% voc],"VARIANT"] <- "FE.1"
     src.dat[src.dat$VARIANT %in% XBB[XBB %notin% voc],"VARIANT"] <- "XBB"
   }
@@ -3225,21 +3225,6 @@ if ( grepl("Run2",tag) ){
                       model_week %in% ((1:model_weeks)-model_week_mid)) # same as model_week_df$model_week
   # this filter now incorporates time_end; the previous filter (week >= max(week) - model_weeks) did not.
 
-  # scale the data weights to help avoid numerical overflow in the multinomial model
-  if(rescale_model_weights){
-    if (tolower(rescale_model_weights_by) == 'max') {
-      src.moddat$wts <- src.moddat$weights / max(src.moddat$weights)
-    }
-    if (tolower(rescale_model_weights_by) == 'mean') {
-      src.moddat$wts <- src.moddat$weights / mean(src.moddat$weights)
-    }
-    if (is.numeric(rescale_model_weights_by)){
-      src.moddat$wts <- src.moddat$weights / rescale_model_weights_by
-    }
-  } else {
-    src.moddat$wts <- src.moddat$weights
-  }
-
   # If a model_variant is only observed in the final model_week, then throw a warning
   # because there's a good chance that the model will predict that the variant will
   # just take over everything
@@ -3253,65 +3238,111 @@ if ( grepl("Run2",tag) ){
     ))
   }
 
-  # optionally save src.moddat that's been prepped for analysis
-  if(save_datasets_to_file){
-
-    # consider saving a list of everything that is needed to fit the nowcast model: list(src.moddat, mysvy, model_vars)
-    saveRDS(object = src.moddat,
-            file = paste0(script.basename,
-                          output_folder, '/src.moddat_', # save to results instead of 'data' folder
-                          data_date,
-                          tag,
-                          '.RDS'))
-  }
-
-
   # loop over weighting methods (weighted & unweighted only)
   for (meth in weighted_methods){
-    ### survey design ----
-    # weight using "weights", which is either SIMPLE_ADJ_WT or wts_trimmed
-    mysvy = survey::svydesign(ids     = ~SOURCE,
-                              strata  = ~STUSAB + yr_wk,
-                              weights = ~wts,
-                              nest = TRUE, # TRUE = disable checking for duplicate cluster ID's across strata
-                              data = src.moddat) # not specifying fpc signifies sampling with replacement
 
-    # for unweighted estimates, set all weights to 1
-    if (meth == 'unweighted'){
-      mysvy$prob <- rep(1, length(mysvy$prob))
+    # Scale weights & fit the models
+    # This is in a "while" loop so that we can try multiple scaling options for the weights
+    # to ensure that the regional model can estimate the Hessian
+    hessian_estimated <- FALSE # variable for use in the while loop
+    counter <- 1 # counter for the while loop
+
+    while( !(hessian_estimated) & (counter <= length(rescale_model_weights_by)) ){
+      # stop if the hessian is estimated or when all of the different "rescale_model_weights_by" values are tried
+
+      # scale the data weights to help avoid numerical overflow in the multinomial model
+      if(rescale_model_weights){
+        if (tolower(rescale_model_weights_by[counter]) == 'max') {
+          src.moddat$wts <- src.moddat$weights / max(src.moddat$weights)
+        }
+        if (tolower(rescale_model_weights_by[counter]) == 'mean') {
+          src.moddat$wts <- src.moddat$weights / mean(src.moddat$weights)
+        }
+        if (tolower(rescale_model_weights_by[counter]) == 'min') {
+          src.moddat$wts <- src.moddat$weights / min(src.moddat$weights)
+        }
+        # if it only contains numbers, use that number
+        if ( grepl(pattern = '^[0-9]+$', x = rescale_model_weights_by[counter]) ){
+          src.moddat$wts <- src.moddat$weights / as.numeric(rescale_model_weights_by[counter])
+        }
+      } else {
+        src.moddat$wts <- src.moddat$weights
+      }
+
+      ### survey design ----
+      # weight using "weights", which is either SIMPLE_ADJ_WT or wts_trimmed
+      mysvy = survey::svydesign(ids     = ~SOURCE,
+                                strata  = ~STUSAB + yr_wk,
+                                weights = ~wts,
+                                nest = TRUE, # TRUE = disable checking for duplicate cluster ID's across strata
+                                data = src.moddat) # not specifying fpc signifies sampling with replacement
+
+      # for unweighted estimates, set all weights to 1
+      if (meth == 'unweighted'){
+        mysvy$prob <- rep(1, length(mysvy$prob))
+      }
+
+
+      ## Fit Nowcast model ----
+
+      # produces results for Run1 & Run2
+      # (summarizes the output of the nowcast model to only include variants in voc1 for the Run1 output)
+
+      ### National model ----
+      svymlm_us = svymultinom(mod.dat = src.moddat,
+                              mysvy = mysvy,
+                              fmla = formula("as.numeric(as.factor(K_US))  ~ model_week"),
+                              model_vars = model_vars)
+
+      ### Regional model ----
+      svymlm_hhs = svymultinom(mod.dat = src.moddat,
+                               mysvy = mysvy,
+                               fmla = formula("as.numeric(as.factor(K_US)) ~ model_week + as.factor(HHS)"),
+                               model_vars = model_vars)
+
+      # check if the Hessians have been estimated successfully
+      # if the Hessian is not estimated, the mlm$Hessian slot is NULL. If the "is.matrix" test ever fails for some reason, consider: !(is.null(svymlm_us$mlm$Hessian | is.null(svymlm_hhs$mlm$Hessian))
+      hessian_estimated <- (is.matrix(svymlm_us$mlm$Hessian) & is.matrix(svymlm_hhs$mlm$Hessian))
+      # if the Hessian is still not estimated, proceed
+      if (!hessian_estimated) counter <- counter + 1
     }
 
+    # print out what was used to rescale model weights:
+    print(paste0('National and regional models both fit using weights scaled by: ', rescale_model_weights_by[counter]))
+    # save the scaling value to file so that it's easier to check back later & see what was used
+    write.table(rescale_model_weights_by[counter],
+                file = paste0(script.basename,
+                              output_folder, '/rescale_model_weights_by.txt'),
+                sep = '')
 
-    ## Fit Nowcast model ----
 
-    # produces results for Run1 & Run2
-    # (summarizes the output of the nowcast model to only include variants in voc1 for the Run1 output)
-
-    ### National model ----
-    svymlm_us = svymultinom(mod.dat = src.moddat,
-                            mysvy = mysvy,
-                            fmla = formula("as.numeric(as.factor(K_US))  ~ model_week"),
-                            model_vars = model_vars)
-
-    ### Regional model ----
-    svymlm_hhs = svymultinom(mod.dat = src.moddat,
-                             mysvy = mysvy,
-                             fmla = formula("as.numeric(as.factor(K_US)) ~ model_week + as.factor(HHS)"),
-                             model_vars = model_vars)
-    #write svymlm_hhs to file
+    # write model objects to file (for later trouble-shooting or reference)
     saveRDS(object = svymlm_hhs,
             file = paste0(script.basename,
                           output_folder, '/svymlm_hhs_', # save to results instead of 'data' folder
                           data_date,
                           tag,
                           '.RDS'))
-
     saveRDS(object = svymlm_us,
             file = paste0(script.basename,
                           output_folder, '/svymlm_us_', # save to results instead of 'data' folder
                           data_date,
                           tag,
                           '.RDS'))
+
+    # optionally save src.moddat that's been prepped for analysis
+    if(save_datasets_to_file){
+
+      # consider saving a list of everything that is needed to fit the nowcast model: list(src.moddat, mysvy, model_vars)
+      saveRDS(object = src.moddat,
+              file = paste0(script.basename,
+                            output_folder, '/src.moddat_', # save to results instead of 'data' folder
+                            data_date,
+                            tag,
+                            '.RDS'))
+    }
+
+
 
     ## Plot results ----
 
