@@ -276,18 +276,18 @@ valid_data_dates <- DBI::dbGetQuery(
 SELECT DISTINCT to_date(date_frozen)
 FROM sc2_archive.analytics_metadata_frozen
     ')
-# # In order to get the tests data, "data_date" must be in the
-# # sc2_archive.hhs_protect_testing_frozen table.
-# # valid "data_date" values include:
-# valid_tests_dates <- DBI::dbGetQuery(
-#   conn = impala,
-#   statement = '
-# SELECT DISTINCT to_date(date_frozen)
-# FROM sc2_archive.hhs_protect_testing_frozen
-#     ')
+# In order to get the tests data, "data_date" must be in the
+# sc2_archive.hhs_protect_testing_frozen table.
+# valid "data_date" values include:
+valid_tests_dates <- DBI::dbGetQuery(
+  conn = impala,
+  statement = '
+SELECT DISTINCT to_date(date_frozen)
+FROM sc2_archive.analytics_metadata_frozen
+    ')
 
-# throw an error if the data_date isn't in the
-# sc2_archive.analytics_metadata_frozen table.
+#throw an error if the data_date isn't in the
+#sc2_archive.analytics_metadata_frozen table.
 if( !((as.character(data_date) %in% unlist(valid_data_dates)) &
       (as.character(data_date) %in% unlist(valid_tests_dates))) ){
   errorCondition(paste0(
@@ -650,15 +650,16 @@ FROM
             count(a.primary_virus_name) / z.region_total AS fraction,
             if(count(a.primary_virus_name) / z.region_total >= 0.01, TRUE, FALSE) AS is_one_percent,
             if(count(a.primary_virus_name) / z.region_total >= 0.005, TRUE, FALSE) AS is_zerofive_percent
-    FROM sc2_air.analytics_metadata a
+    FROM sc2_archive.analytics_metadata_frozen a
     LEFT JOIN ", lineage_table, " l on a.primary_nt_id = l.nt_id
     LEFT JOIN
         (SELECT date_add(primary_collection_date, datediff('2023-05-13',primary_collection_date)%14) AS biweek_ending,
                 count(za.primary_virus_name) AS region_total
-        FROM sc2_air.analytics_metadata za
+        FROM sc2_archive.analytics_metadata_frozen za
         WHERE
             ( contractor_vendor_name IS NOT NULL OR eventid_all LIKE '%1771%' OR primary_sampling_strategy = 'Baseline_Surveillance' )
             AND primary_country = 'United States'
+            AND to_date(date_frozen) =  '", date_frozen, "'
         GROUP BY biweek_ending) z ON date_add(primary_collection_date,datediff('2023-05-13',primary_collection_date)%14) = z.biweek_ending
     AND 1=1
     LEFT JOIN sc2_src.variant_definitions c ON a.lineage = c.lineage
@@ -668,6 +669,7 @@ FROM
         -- AND (a.contractor_vendor_id IS NOT NULL OR a.cdceventid = '1771')
         AND ( contractor_vendor_name IS NOT NULL OR eventid_all LIKE '%1771%' OR primary_sampling_strategy = 'Baseline_Surveillance' )
         AND primary_country = 'United States'
+        AND to_date(date_frozen) =  '", date_frozen, "'
     GROUP BY l.", lineage_field, ",
             c.variant_type,
             biweek_ending,
