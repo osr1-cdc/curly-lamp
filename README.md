@@ -90,15 +90,15 @@ This is the simplest way to run when variant list for CDC COVID data tracker has
 2. Make sure the files are up to date with the git repository
    ```bash 
 	git status 
-	# make sure it's on the appropriate branch, master branch should generally be used
+	# make sure it is on the appropriate branch, master branch should generally be used
 	git fetch --all
 	git status
-   # if not up-to-date, pull updates from remote repository
-   git pull
+    # if not up-to-date, pull updates from remote repository
+    git pull
    ```
-3. Get the list of autoselected voc2s by running the sql in Hue. Decide the list of variants to be shown on CDC COVID data tracker website (voc1) and any additional variants to add to voc2 (that have not receached the selection criteria).
+3. Get the list of autoselected voc2s by running the [voc2_autoselection sql](https://cdp-01.biotech.cdc.gov:8889/hue/editor?editor=74361) in Hue. Decide the list of variants to be shown on CDC COVID data tracker website (voc1) and any additional variants to add to voc2 (that have not receached the selection criteria).
 
-   - To change voc1 list: change `voc1` definition in `config\config.R`
+   - To change voc1 list (Variants shown in CDT): change `voc1` definition in `config\config.R`
    - Make sure all voc1s are included in `voc2_additional` definition in `config\config.R`
    - To add additional variants to voc2: change `voc2_additionl` definition in `config\config.R`
 
@@ -152,53 +152,37 @@ This is the simplest way to run when variant list for CDC COVID data tracker has
 10. Input run information in [SC2_Proportion_Modeling_Run_Records](https://cdc.sharepoint.com/:x:/r/teams/NCEZID-OD_CAWG/_layouts/15/Doc.aspx?sourcedoc=%7B44002A5C-B5B1-49ED-AA6B-27F34EEAC8CC%7D&file=SC2_Proportion_Modeling_Run_Records.xlsx&action=default&mobileredirect=true&cid=13859ed2-691c-4865-b2a7-c548e4b1a585)
 
 # Option B
-
+This is the expanded way to run the whole process step by step without using the wrapper script. Use this option when debugging, or when special modifications/requests/tests are needed for the modeling run.
 
 1. Navigate to the folder from which you will run the analyses. Typically this is the shared project folder. 
    ```bash
    cd /scicomp/groups/Projects/SARS2Seq/repos/sc2_proportion_modeling
    ```
-2. Save the results of previous runs
-   ```bash
-   # do things interactively via GUI
-   xdg-open .
-	# Create a new subfolder for results files: results/YYY-MM-DD
-   # Move previous week’s results files into subfolder as a backup
-   ```
-3. Make sure the files are up to date with the git repository
+2. Make sure the files are up to date with the git repository
    ```bash 
 	git status 
-	# make sure it's on the appropriate branch
+	# make sure it is on the appropriate branch
 	git fetch --all
 	git status
    # if not up-to-date, pull updates from remote repository
    git pull
    ```
-4. Activate the conda environment (requires conda to be installed for your user):
+3. Update configuration settings in `config/config.R` if required. The variables you will most likely need to update include `data_date`, `voc1`, `voc2_additional`, `voc3`. However, updating configuration settings from one week to another is not necessarily required (as it was in the past).
+4. Run the `variant_surveillance_system.sh` script submitting your username and password (FreeIPA CDP password) as well as specifying whether or not to include custom lineages. 
    ```bash
-   conda activate /scicomp/groups/Projects/SARS2Seq/bin/miniconda/envs/prop_model
-   ```
-5. Update configuration settings in `config/config.R` if required. The variables you will most likely need to update include `data_date`, `voc1`, `voc2_additional`, `voc3`. However, updating configuration settings from one week to another is not necessarily required (as it was in the past).
-6. Run the `variant_surveillance_system.R` script submitting your username and password (FreeIPA CDP password) as well as specifying whether or not to include custom lineages. 
-   ```bash
-   Rscript variant_surveillance_system.R -u <username> -p <password> -c F
+   qsub variant_surveillance_system.sh <username> <password> 'F' 'F'
    # optionally get custom dataset simultaneously from another terminal window or screen session
-   Rscript variant_surveillance_system.R -u <username> -p <password> -c T
+   qsub variant_surveillance_system.sh <username> <password> 'T' 'F'
    ```
    This  will generate the survey dataset. Data results will be output in a folder titled `data/` and will be dated using `data_date` variable from `config/config.R`.
-7. Wait until databasets are created.
+5. Wait until databasets are created.
    - As the code runs, it will print out lab names to the terminal window. `LAB` includes lab source names as present in the dataset. `LAB2` includes cleaned lab source names. Look for typos in `LAB2` that result in individual labs being listed more than once (e.g. `Montana Public Health Lab` and `Montana PHL`). If `LAB2` contains duplicates, edit `variant_surveillance_system.R` to combine them. 
-8. Run the `weekly_variant_report_nowcast.R` script with the desired specified runs (1-3) and specifying whether or not to include custom lineages. 
+6. Run the `weekly_variant_report_nowcast.R` script with the desired specified runs (1-3) and specifying whether or not to include custom lineages. 
    ```bash
-   qsub run1.sh 
-   qsub run2.sh
-	qsub run3.sh
-   qsub run1_custom.sh
-	qsub run2_custom.sh
-   # or run on current node
-   # Rscript weekly_variant_report_nowcast.R -r 1 -c F
+   qsub run1_trim.sh 
+   qsub run2_trim.sh
    ```
-9. Backup the code that was used for a production run to the git repository
+7. Backup the code that was used for a production run to the git repository
    ```bash
    git add *
 	git commit -m 'Production runs: YYYY-MM-DD'
