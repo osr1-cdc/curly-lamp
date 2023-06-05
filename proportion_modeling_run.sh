@@ -62,7 +62,7 @@ function time_stamp() {
 # MAIN
 ##############################################################
 # Run all scripts in the sc2_proportion_modeling folder
-cd /scicomp/groups-pure/Projects/SARS2Seq/repos/sc2_proportion_modeling
+# cd /scicomp/groups-pure/Projects/SARS2Seq/repos/sc2_proportion_modeling
 
 #---------------------
 # Defining variables
