@@ -644,7 +644,7 @@ FROM
 FROM
     (SELECT l.", lineage_field, " as lineage,
             c.variant_type,
-            date_add(primary_collection_date,datediff('2023-05-13',primary_collection_date)%14) AS biweek_ending,
+            date_add(primary_collection_date,datediff('2039-12-31',primary_collection_date)%14) AS biweek_ending,
             count(a.primary_virus_name) AS lineage_count,
             z.region_total,
             count(a.primary_virus_name) / z.region_total AS fraction,
@@ -653,14 +653,14 @@ FROM
     FROM sc2_archive.analytics_metadata_frozen a
     LEFT JOIN ", lineage_table, " l on a.primary_nt_id = l.nt_id
     LEFT JOIN
-        (SELECT date_add(primary_collection_date, datediff('2023-05-13',primary_collection_date)%14) AS biweek_ending,
+        (SELECT date_add(primary_collection_date, datediff('2039-12-31',primary_collection_date)%14) AS biweek_ending,
                 count(za.primary_virus_name) AS region_total
         FROM sc2_archive.analytics_metadata_frozen za
         WHERE
             ( contractor_vendor_name IS NOT NULL OR eventid_all LIKE '%1771%' OR primary_sampling_strategy = 'Baseline_Surveillance' )
             AND primary_country = 'United States'
             AND to_date(date_frozen) =  '", date_frozen, "'
-        GROUP BY biweek_ending) z ON date_add(primary_collection_date,datediff('2023-05-13',primary_collection_date)%14) = z.biweek_ending
+        GROUP BY biweek_ending) z ON date_add(primary_collection_date,datediff('2039-12-31',primary_collection_date)%14) = z.biweek_ending
     AND 1=1
     LEFT JOIN sc2_src.variant_definitions c ON a.lineage = c.lineage
     WHERE -- THis is generally the weeks
