@@ -3258,6 +3258,9 @@ if ( grepl("Run2",tag) ){
         if (tolower(rescale_model_weights_by[counter]) == 'mean') {
           src.moddat$wts <- src.moddat$weights / mean(src.moddat$weights)
         }
+        if (tolower(rescale_model_weights_by[counter]) == 'sum') {
+          src.moddat$wts <- src.moddat$weights / sum(src.moddat$weights)
+        }
         if (tolower(rescale_model_weights_by[counter]) == 'min') {
           src.moddat$wts <- src.moddat$weights / min(src.moddat$weights)
         }

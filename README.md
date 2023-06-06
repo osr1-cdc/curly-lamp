@@ -6,28 +6,55 @@ Code for applying a weights and confidence intervals to SARS-CoV-2 proportion da
  **with updates from** Norman Hassell <ncy6@cdc.gov>, Philip Shirk <rsv4@cdc.gov>, Xiaoyu Sherry Zheng <qiu5@cdc.gov>
 
 **Reference**:
-Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants Circulating in the United States, December 2020–May 2021. MMWR Morb Mortal Wkly Rep 2021;70:846–850. DOI: [http://dx.doi.org/10.15585/mmwr.mm7023a3](http://dx.doi.org/10.15585/mmwr.mm7023a3)
+Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants Circulating in the United States, December 2020–May 2021. MMWR Morb Mortal Wkly Rep 2021;70:846–850. DOI: [http://dx.doi.org/10.15585/mmwr.mm7023a3](http://dx.doi.org/10.15585/mmwr.mm7023a3)  
 
+- [Code](#code)
+- [Data Requirements](#data-requirements)
+- [Other Requirements](#other-requirements)
+- [Output Files](#output-files)
+- [How to run from a scicomp location](#how-to-run-from-a-scicomp-location)
+   - [Option A](#option-a)
+   - [Option B](#option-b)
+- [Other Important Notes](#other-important-notes)
+   - [Lab Aggregation](#lab-aggregation)
+   - [Lineage Aggregation](#lineage-aggregation)
+   - [Weight Scaling](#weight-scalling)
+- [Color Codes used on CDT](#color-codes-used-on-cdt)
+- [Column Descriptions for Run1 and Run2 proportion modeling output](#column-descriptions-for-run1-and-run2-proportion-modeling-output-sc2_archivestate_proportion_modeling)
+- [Column Descriptions for Run3 state proportion modeling output](#column-descriptions-for-run3-state-proportionmodeling-output-sc2_archivestate_proportion_modeling)
+- [Multinomial Logistic Regression growth rates](#multinomial-logistic-regression-growth-rates)
 
 ## Code
 - **config/config.R** - Specify various configuration settings, such as data dates, VOCs to include in particular runs, and figure settings.
-- **variant_surveillance_system.R** - Generates the analytic dataset with the survey weights
-- **variant_surveillance_system.sh** - Wrapper script for submitting variant_surveillance_system.R to run in HPC.
-   - qsub variant_surveillance_system.sh <`username`> <`password`> <T/F for custom lineage> <T/F for using nextclade pango calls>
-- **weekly_variant_report_nowcast.R** - Creates variant proportion estimates using the dataset created in `variant_surveillance_system.R`. 
+
+- **variant_surveillance_system.R** - Generates the analytic dataset with the survey weights. Input arguments and their explanations can be found in the script.
+
+- **variant_surveillance_system.sh** - Wrapper script for submitting variant_surveillance_system.R to run in HPC. Input arguments and their explanations can be found in the script. General usage:
+   ```bash
+   qsub variant_surveillance_system.sh <`username`> <`password`> <`T/F for custom lineage`> <`T/F for using nextclade pango calls`>
+   ```
+
+- **weekly_variant_report_nowcast.R** - Creates variant proportion estimates using the dataset created in `variant_surveillance_system.R`. Input arguments and their detailed explanations can be found in the script. 
    - `weekly_variant_report_nowcast.R` accomodates 3 different "runs", each of which has its own set of "vocs" (i.e. variants for which to calculate proportions)
       1) Run 1 calculates variant share/proportion and confidence intervals estimated using survey design for both fortnights (HHS regions & nationally) and weeks (HHS regions & nationally) for vocs that are shown on CDC COVID data tracker website (voc1). 
       2) Run 2 generates the same 2 files as Run 1, but with vocs specified for Run 2 (voc2). Run 2 voc2s are usually automatically generated based on preset selection criteria. Currently, Run 2 autoselected vocs include all variants that occur at a frequency >= 1% of the unweighted sequence data in any of the 2-week periods from -1 to -7 2-week periods and variants at a frequency >= 0.5% of the unweighted sequence data in the -1 2-week period (See table below). All variants from Run 1 are also added to Run 2 voc2. Additionally, any variant of special interest can also be added to voc2 using the `voc2_additional` variable. Run 2 fits model-based smoothed trends in variant share to both national and HHS regional estimates (i.e. "_Nowcast_"). Run 2 also generates nowcast estimates for voc list for Run1 (voc1) by aggregating estimates for lineages from Run 2 to their corresponding parental lineages.
-         ### Run 2 vocs auto selection criteria
+      #### Run 2 vocs auto selection criteria
 
          | fortnight |      -7     |      -6     |      -5     |     -4    |     -3    |     -2    |      -1     |  Current Fortnight  |
          |:---------:|:-----------:|:-----------:|:-----------:|:---------:|:---------:|:---------:|:-----------:|      :-------------------:|
          |    week   | -15 and -14 | -13 and -12 | -11 and -10 | -9 and -8 | -7 and -6 | -5 and -4 |  -3 and -2  | -1 and Current Week |
          | Nowcast   |  >=1% (unw)  |  >=1% (unw)  |  >=1% (unw)  | >=1% (unw) | >=1% (unw) | >=1% (unw) | >=0.5% (unw) |                     |
       3) Run3 generates state-level estimates in rolling 4 wk bins using survey design (same as Run 1). NO LONGER NEEDED. 
-- **proportion_modeling_run.sh** - Wrapper script for running variant_surveillance_system.sh and weekly_variant_report_nowcast.R.
-- **weekly_s1_variant_report_nowcast.R** - Creates s1_species proportion estimates using the dataset created in `variant_surveillance_system.R`. 
-   - qsub s1_run.sh <`username`> <`password`> <`reference lineage`>
+
+- **proportion_modeling_run.sh** - Wrapper script for running variant_surveillance_system.sh and weekly_variant_report_nowcast.R. Input arguments and their explanations can be found in the script. General usage:
+   ```bash
+   qsub proportion_modeling_run.sh -u <`username`> -p <`cdp password`> -c <`'T' or 'F' for custom lineage`>
+   ```
+
+- **weekly_s1_variant_report_nowcast.R** - Creates s1_species proportion estimates using the dataset created in `variant_surveillance_system.R`. General usage:
+   ```bash
+   qsub s1_run.sh <`username`> <`cdp password`> <`reference lineage`>
+   ```
 
 
 ## Data Requirements
@@ -136,7 +163,7 @@ This is the simplest way to run when variant list for CDC COVID data tracker has
 
 6. Run the wrapper script by submitting it as a HPC job to the server.
    ```bash
-   qsub proportion_modeling_run.sh -u <username> -p <cdp password> -c <'T' or 'F' for custom lineage>
+   qsub proportion_modeling_run.sh -u <`username`> -p <`cdp password`> -c <`'T' or 'F' for custom lineage`>
    ```
    
    This wrapper script submits the job for running variant_surveillance_system.sh first. When that is finished, it submits the jobs for run1_trim.sh and run2_trim.sh. So user will receive individual notification emails for the above three jobs and finally a notification for finishing this wrapper job.
@@ -158,7 +185,11 @@ This is the simplest way to run when variant list for CDC COVID data tracker has
    
    c. automated aggregation is implemented based on the `extended_lineage` field in `sc2_src.pangolin`. This only works when custom lineage option is NOT used and nextclade_pango option is NOT used. lineage aggregation results can be checked in the following files:
       - `lineage_aggregation_summary...` list the aggregation done before the actuall weighting and modeling processes.
+         - In Run2, lineages in voc2 (voc2_auto and voc2_additional) should not be aggregated to parental lineages.
+         - In Run2, Lineages (`original` column) that are not in voc2 should be aggregated to the closest parent lineages (`aggregated` column) which are included in voc2.
+         - In Run1, Lineages (`original` column) that are not in voc1 should be aggregated to the closest parent lineages (`aggregated` column) which are included in voc1.
       - `agg_var_mat...` lists the aggregation done after the nowcast modeling processes are finished in Run2, to aggregate variants in voc2 but not in voc1 to their parental lineages in voc1, and generate the nowcast results for Run 1.
+         - Cells with the value `1` means the lineage in the corresponding column name is aggregated to the corresponding row lineage.
    
 9. Backup the code that was used for a production run to the git repository
    ```bash
@@ -190,7 +221,7 @@ This is the expanded way to run the whole process step by step without using the
    - One is to pull data with custom lineages. This requires defining the custom lineage in sql in` variant_suerveillance_system.R` and update the lineage aggregation code blocks in `weekly_variant_report_nowcast.R`. 
    - The other is to pull lineage definition from the `nexclade_pango` field from `sc2_src.nextclade` table. If using this option, lineage aggregation code blocks in `weekly_variant_report_nowcast.R` need to be manually updated.
    ```bash
-   qsub variant_surveillance_system.sh <username> <password> <'T' or 'F' for custom lineage> <'T' or 'F' for nextclade_pango>
+   qsub variant_surveillance_system.sh <`username`> <`password`> <`'T' or 'F' for custom lineage`> <`'T' or 'F' for nextclade_pango`>
    ```
    This  will generate the survey dataset. Data results will be output in a folder titled `data/` and will be dated using `data_date` variable from `config/config.R`.
 
@@ -243,9 +274,6 @@ For example, the below two labs should be combined.\
    5. Add "labnames_df_xx" to "labnames_df" below
    6. Run variant_surveillance_system.sh again
    7. After running the new code, look at ./data/backup_YYYY-MM-DD/lab_name_updates_YYYY-MM-DD.csv to make sure that ONLY the intended labs are being renamed.
-
-## Lineage Aggregation
-## Weight Scalling
 
 # Color Codes used on CDT
 |     Variant            |     Hex Value    |   |
@@ -330,6 +358,91 @@ For example, the below two labs should be combined.\
 | cases_lo             | float     | The lower bound of the 95% confidence interval for the estimated number   of infections attributable to a given variant in a given week. (cases_lo =   share_lo * total_test_positives) |   |   |
 | cases_hi             | float     | The upper bound of the 95% confidence interval for the estimated number   of infections attributable to a given variant in a given week. (cases_hi =   share_hi * total_test_positives) |   |   |
 
+
+<br>
+
+## Weights
+
+We weight sequences based on their inverse probability of selection from all SARS-CoV-2 infections in the United States. In other words, a sequence's weight is the number of infections represented by that sequence. We estimate the total number of infections in each state-week combination using the methods of [Chiu & Ndeffo-Mbah](https://doi.org/10.1371/journal.pcbi.1009374), which is based on an observed correlation between testing and total infections (not theory). To account for states that are missing testing data, we first calculate infections at the HHR region level and split up the regional infections to individual states based on population. (In other words, we calculate an infection rate for a given region and then multiply it by a state's population to get the number of infections in a given state.)  
+
+>$$
+I_{rw} \approx \sqrt{ \frac{p_{rw}}{t_{rw}} } * t_{rw+}
+>$$
+>
+>$I_{rw}$ = number of infections in HHS region $r$ in week $w$  
+>$p_{rw}$ = population of all the states in region $r$ that reported testing data in week $w$  
+>$t_{rw}$ = total number of tests conducted in region $r$ in week $w$  
+>$t_{rw+}$ = number of positive tests conducted in region $r$ in week $w$
+
+<br>
+
+If we move $t_{rw+}$ inside the squareroot, we get: 
+
+>$$
+I_{rw} \approx \sqrt{ \frac{t_{rw+}}{t_{rw}} * p_{rw} * t_{rw+}}
+>$$
+
+This formulation separates out the test positivity rate, $\frac{t_{rw+}}{t_{rw}}$, which allows us to combine testing data from NREVSS and CELR. Test positivity, $\frac{t_{rw+}}{t_{rw}}$, comes from NREVSS because after the public health emergency ended in May, 2023, we only get the total number of tests, $t_{rw}$, from NREVSS. We still use CELR data for the number of positive tests, $t_{rw+}$. Adding subscripts for the test data source, we get:  
+
+>$$
+I_{rw} \approx \sqrt{ \frac{t_{rw+,N}}{t_{rw,N}} * p_{rwC} * t_{rw+C}}
+>$$
+>
+>$t_{rwN}$ = total number of tests conducted in region $r$ in week $w$ and reported to NREVSS  
+>$t_{rw+N}$ = number of positive tests conducted in region $r$ in week $w$ and reported to NREVSS  
+>$t_{rw+C}$ = number of positive tests conducted in region $r$ in week $w$ and reported to CELR  
+>$p_{rwC}$ = population of all the states in region $r$ that reported testing data to CELR in week $w$
+
+<br>
+
+We then attribute regional infections, $I_{rw}$, to states based on population. 
+
+>$$
+I_{sw} = \frac{p_{s}}{p_{r}} * I_{rw}
+>$$
+>
+>$I_{sw}$ = number of infections in state $s$ in week $w$  
+>$p_{s}$ = population of state $s$  
+>$p_{r}$ = total population of region $r$ (including all states, not just those reporting testing)  
+>$I_{rw}$ = number of infections in HHS region $r$ in week $w$
+
+<br>
+
+The final weights are the estimated number of infections per sequence in a given state and week. 
+
+>$$
+w_{sw} = \frac{I_{sw}}{s_{sw}}
+>$$
+>
+>$s_{sw}$ = number of sequences from state $s$ in week $w$  
+
+<br>
+
+All sequences from the same state and week have the same weight.
+
+
+<br>
+
+## Lineage Aggregation
+
+Rather than working with each Pango lineage, we aggregate lineages to their nearest parent lineage that is listed in the VOCs for a particular run. The nearest parent is determined by using the `expanded_lineage` name and looking for the longest (i.e. the most `.`) lineage listed in the VOCs that is a perfect subset of the given lineage name. For example, `XBB.1.5` is a perfect subset of `XBB.1.5.1`. We ensure that parent lineages are actually parent lineages by making sure that the parent lineage is still a subset of the child lineage after adding a `.` to the end of the parent lineage name. This ensures that `BA.1` is _not_ a subset/parent of `BA.11` because `BA.1.` is not a subset of `BA.11`. 
+
+
+<br>
+
+## Multinomial Logistic Regression prediction intervals
+
+We fit multinomial logist regression models using the `nnet` package in R. The `nnet` package estimates model parameters using a neural network. It optionally estimates the Hessian matrix of the neural network. The Hessian is needed if one wants confidence intervals on model parameter estimates (or prediction intervals on model predictions). 
+
+The Hessian matrix is the second derivatives of the likelihood with respect to the parameters. The second derivative of a function gives the curvature (the first derivative gives the slope), and the curvature of the likelihood function describes our certainty in the model estimates. The more curvature, the faster the likelihood declines as we go away from the model estimates and the smaller the confidence interval on the model estimates. 
+
+However, `nnet` is not always able to estimate the Hessian. In those cases, it will still return estimates of model parameters, which means that we can use the model to make predictions, but we cannot produce prediction intervals for those predictions. The most common reason for our models to fail to estimate the Hessian is because of numerical under/overflow: when a number is too small (or large) for the software to handle. (Model fitting is commonly done on the log scale to help avoid numerical overflow, but it can still happen.) The easiest way to work around this is to scale the weights on the data in the model. If all of the weights of the data in the model are multiplied (or divided) by the same number, the model fit will be exactly the same. But some of the intermediate values used in estimating the model fit will be larger (or smaller), which can help to avoid numerical under/overflow. Because the weights that we use for our data are relatively large (they represent the number of infections represented by a given sequence), we divide those weights by a constant value when fitting the multinomial model. In practice, we can give the code multiple values to try (via `rescale_model_weights_by` in `config/config.R`), and it will go through those values one at a time, fit the multinomial Nowcast model, check to see if the Hessian was successfully estimated, and if it was not, it will try the next value until one of the values works in estimating the Hessian or until all of the values have been tried.  
+
+I think another reason that the model may fail to estimate the Hessian is if the model is "poorly specified". This means that the model doesn't match the data well. The problem could be with the data or the model, but we'll assume that the root of the problem is with the data. If the model still can't estimate the Hessian after trying a wide range of values of `rescale_model_weights_by`, then the next potential solution is to make sure that the data fit the model reasonably well. This means that individual lineage's proportions decline smoothly (possibly after increasing). Our multinomial model cannot currently model a lineage that declines then increases. Lineages might decline and then increase in our data if sublineages emerge and grow or if the sample size is small and there's a lot of random noise from week to week. Usually the model will still fit and estimate the Hessian, but will predict that the lineage declines smoothly, even if it does not. Sometimes the model will not be able to estimate a Hessian. In that case, try fitting the model to fewer lineages (try removing the rarest lineages first). 
+
+Note that our methods adjust the multinomial model uncertainty using the survey design. Because samples from the same state, week, and/or lab are likely to be correlated, they contribute less information than perfectly random samples would; the effective sample size is smaller than the actual number of sequences. In essense, adjusting the model uncertainty using survey design calculates the model uncertainty based on the effective sample size, rather than the actual number of sequences. The adjusted uncertainty will almost always be larger than the unadjusted model uncertainty. 
+
+<br>
 
 ## Multinomial Logistic Regression growth rates
 Multinomial logistic regression is essentially a series of logistic regressions (comparing each outcome category to the same reference category) with an added [normalization factor](https://en.wikipedia.org/wiki/Multinomial_logistic_regression#As_a_log-linear_model:~:text=as%20well%20as%20an%20additional%20normalization%20factor) to ensure that the probabilities always sum to 1. The normalization factor changes depending on the values of predictor variables and coefficient values. Because the relationship between coefficient value(s) and the predicted proportion vary with the normalization factor, one cannot just use multinomial regression coefficient value(s) as growth rates (as one can do with logistic regression). Rather, we calculate growth rate as the exponent of the derivative (i.e. instantaneous rate of change) of the log of the model-estimated proportion at time $`t`$:  $`p_i(t)`$. The estimated proportion of variant $`i`$ at time $`t`$ is:  
