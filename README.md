@@ -365,10 +365,10 @@ For example, the below two labs should be combined.\
 
 We weight sequences based on their inverse probability of selection from all SARS-CoV-2 infections in the United States. In other words, a sequence's weight is the number of infections represented by that sequence. We estimate the total number of infections in each state-week combination using the methods of [Chiu & Ndeffo-Mbah](https://doi.org/10.1371/journal.pcbi.1009374), which is based on an observed correlation between testing and total infections (not theory). To account for states that are missing testing data, we first calculate infections at the HHR region level and split up the regional infections to individual states based on population. (In other words, we calculate an infection rate for a given region and then multiply it by a state's population to get the number of infections in a given state.)  
 
->$$
+```math
 I_{rw} \approx \sqrt{ \frac{p_{rw}}{t_{rw}} } * t_{rw+}
->$$
->
+```
+
 >$I_{rw}$ = number of infections in HHS region $r$ in week $w$  
 >$p_{rw}$ = population of all the states in region $r$ that reported testing data in week $w$  
 >$t_{rw}$ = total number of tests conducted in region $r$ in week $w$  
@@ -378,16 +378,16 @@ I_{rw} \approx \sqrt{ \frac{p_{rw}}{t_{rw}} } * t_{rw+}
 
 If we move $t_{rw+}$ inside the squareroot, we get: 
 
->$$
+```math
 I_{rw} \approx \sqrt{ \frac{t_{rw+}}{t_{rw}} * p_{rw} * t_{rw+}}
->$$
+```
 
 This formulation separates out the test positivity rate, $\frac{t_{rw+}}{t_{rw}}$, which allows us to combine testing data from NREVSS and CELR. Test positivity, $\frac{t_{rw+}}{t_{rw}}$, comes from NREVSS because after the public health emergency ended in May, 2023, we only get the total number of tests, $t_{rw}$, from NREVSS. We still use CELR data for the number of positive tests, $t_{rw+}$. Adding subscripts for the test data source, we get:  
 
->$$
+```math
 I_{rw} \approx \sqrt{ \frac{t_{rw+,N}}{t_{rw,N}} * p_{rwC} * t_{rw+C}}
->$$
->
+```
+
 >$t_{rwN}$ = total number of tests conducted in region $r$ in week $w$ and reported to NREVSS  
 >$t_{rw+N}$ = number of positive tests conducted in region $r$ in week $w$ and reported to NREVSS  
 >$t_{rw+C}$ = number of positive tests conducted in region $r$ in week $w$ and reported to CELR  
@@ -397,10 +397,10 @@ I_{rw} \approx \sqrt{ \frac{t_{rw+,N}}{t_{rw,N}} * p_{rwC} * t_{rw+C}}
 
 We then attribute regional infections, $I_{rw}$, to states based on population. 
 
->$$
+```math
 I_{sw} = \frac{p_{s}}{p_{r}} * I_{rw}
->$$
->
+```
+
 >$I_{sw}$ = number of infections in state $s$ in week $w$  
 >$p_{s}$ = population of state $s$  
 >$p_{r}$ = total population of region $r$ (including all states, not just those reporting testing)  
@@ -410,10 +410,10 @@ I_{sw} = \frac{p_{s}}{p_{r}} * I_{rw}
 
 The final weights are the estimated number of infections per sequence in a given state and week. 
 
->$$
+```math
 w_{sw} = \frac{I_{sw}}{s_{sw}}
->$$
->
+```
+
 >$s_{sw}$ = number of sequences from state $s$ in week $w$  
 
 <br>
