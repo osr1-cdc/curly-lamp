@@ -107,12 +107,12 @@ qsub -N variant_surveillance -sync y ./variant_surveillance_system.sh "${usernam
 #-------------------------------------------
 if [[ $? -eq 0 ]] && [[ ${custom} == 'F' ]]; then
     time_stamp "Data has been pulled in." >> ${LOGFILE}
-    qsub -hold_jid variant_surveillance -sync y ./run1_trim.sh
+    qsub -hold_jid variant_surveillance ./run1_trim.sh
     qsub -hold_jid variant_surveillance -sync y ./run2_trim.sh
 #    qsub -hold_jid variant_surveillance ./run3_trim.sh
 elif [[ $? -eq 0 ]] && [[ ${custom} == 'T' ]]; then
     time_stamp "Data has been pulled in." >> ${LOGFILE}
-    qsub -hold_jid variant_surveillance -sync y ./run1_trim_custom.sh
+    qsub -hold_jid variant_surveillance ./run1_trim_custom.sh
     qsub -hold_jid variant_surveillance -sync y ./run2_trim_custom.sh
 #    qsub -hold_jid variant_surveillance ./run3_trim_custom.sh
 else

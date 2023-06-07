@@ -658,8 +658,8 @@ FROM
         FROM sc2_archive.analytics_metadata_frozen za
         WHERE
             ( contractor_vendor_name IS NOT NULL OR eventid_all LIKE '%1771%' OR primary_sampling_strategy = 'Baseline_Surveillance' )
+            AND to_date(date_frozen) = ", date_frozen, "
             AND primary_country = 'United States'
-            AND to_date(date_frozen) =  '", date_frozen, "'
         GROUP BY biweek_ending) z ON date_add(primary_collection_date,datediff('2039-12-31',primary_collection_date)%14) = z.biweek_ending
     AND 1=1
     LEFT JOIN sc2_src.variant_definitions c ON a.lineage = c.lineage
@@ -668,8 +668,8 @@ FROM
         AND datediff(date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), 5), date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5))< 112
         -- AND (a.contractor_vendor_id IS NOT NULL OR a.cdceventid = '1771')
         AND ( contractor_vendor_name IS NOT NULL OR eventid_all LIKE '%1771%' OR primary_sampling_strategy = 'Baseline_Surveillance' )
+        AND to_date(date_frozen) = ", date_frozen, "
         AND primary_country = 'United States'
-        AND to_date(date_frozen) =  '", date_frozen, "'
     GROUP BY l.", lineage_field, ",
             c.variant_type,
             biweek_ending,

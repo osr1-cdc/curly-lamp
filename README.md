@@ -16,13 +16,13 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
    - [Option A](#option-a)
    - [Option B](#option-b)
 - [Other Important Notes](#other-important-notes)
-   - [Lab Aggregation](#lab-aggregation)
+   - [Lab Aggregation](#lab-aggregation)  
+   - [Column Descriptions for Run1 and Run2 proportion modeling output](#column-descriptions-for-run1-and-run2-proportion-modeling-output-sc2_archivestate_proportion_modeling)
+   - [Column Descriptions for Run3 state proportion modeling output](#column-descriptions-for-run3-state-proportionmodeling-output-sc2_archivestate_proportion_modeling)
+   - [Weights](#weights)
    - [Lineage Aggregation](#lineage-aggregation)
-   - [Weight Scaling](#weight-scalling)
-- [Color Codes used on CDT](#color-codes-used-on-cdt)
-- [Column Descriptions for Run1 and Run2 proportion modeling output](#column-descriptions-for-run1-and-run2-proportion-modeling-output-sc2_archivestate_proportion_modeling)
-- [Column Descriptions for Run3 state proportion modeling output](#column-descriptions-for-run3-state-proportionmodeling-output-sc2_archivestate_proportion_modeling)
-- [Multinomial Logistic Regression growth rates](#multinomial-logistic-regression-growth-rates)
+   - [Multinomial Logistic Regression prediction intervals](#multinomial-logistic-regression-prediction-intervals)
+   - [Multinomial Logistic Regression growth rates](#multinomial-logistic-regression-growth-rates)
 
 ## Code
 - **config/config.R** - Specify various configuration settings, such as data dates, VOCs to include in particular runs, and figure settings.
@@ -31,12 +31,13 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
 
 - **variant_surveillance_system.sh** - Wrapper script for submitting variant_surveillance_system.R to run in HPC. Input arguments and their explanations can be found in the script. General usage:
    ```bash
-   qsub variant_surveillance_system.sh <`username`> <`password`> <`T/F for custom lineage`> <`T/F for using nextclade pango calls`>
+   qsub variant_surveillance_system.sh <username> <`password`> <`T/F for custom lineage`> <`T/F for using nextclade pango calls`>
    ```
 
 - **weekly_variant_report_nowcast.R** - Creates variant proportion estimates using the dataset created in `variant_surveillance_system.R`. Input arguments and their detailed explanations can be found in the script. 
    - `weekly_variant_report_nowcast.R` accomodates 3 different "runs", each of which has its own set of "vocs" (i.e. variants for which to calculate proportions)
-      1) Run 1 calculates variant share/proportion and confidence intervals estimated using survey design for both fortnights (HHS regions & nationally) and weeks (HHS regions & nationally) for vocs that are shown on CDC COVID data tracker website (voc1). 
+      1) Run 1 calculates variant share/proportion and confidence intervals estimated using survey design for both fortnights (HHS regions & nationally) and weeks (HHS regions & nationally) for vocs that are shown on CDC COVID data tracker website (voc1).
+
       2) Run 2 generates the same 2 files as Run 1, but with vocs specified for Run 2 (voc2). Run 2 voc2s are usually automatically generated based on preset selection criteria. Currently, Run 2 autoselected vocs include all variants that occur at a frequency >= 1% of the unweighted sequence data in any of the 2-week periods from -1 to -7 2-week periods and variants at a frequency >= 0.5% of the unweighted sequence data in the -1 2-week period (See table below). All variants from Run 1 are also added to Run 2 voc2. Additionally, any variant of special interest can also be added to voc2 using the `voc2_additional` variable. Run 2 fits model-based smoothed trends in variant share to both national and HHS regional estimates (i.e. "_Nowcast_"). Run 2 also generates nowcast estimates for voc list for Run1 (voc1) by aggregating estimates for lineages from Run 2 to their corresponding parental lineages.
       #### Run 2 vocs auto selection criteria
 
@@ -44,16 +45,17 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
          |:---------:|:-----------:|:-----------:|:-----------:|:---------:|:---------:|:---------:|:-----------:|      :-------------------:|
          |    week   | -15 and -14 | -13 and -12 | -11 and -10 | -9 and -8 | -7 and -6 | -5 and -4 |  -3 and -2  | -1 and Current Week |
          | Nowcast   |  >=1% (unw)  |  >=1% (unw)  |  >=1% (unw)  | >=1% (unw) | >=1% (unw) | >=1% (unw) | >=0.5% (unw) |                     |
+      
       3) Run3 generates state-level estimates in rolling 4 wk bins using survey design (same as Run 1). NO LONGER NEEDED. 
 
 - **proportion_modeling_run.sh** - Wrapper script for running variant_surveillance_system.sh and weekly_variant_report_nowcast.R. Input arguments and their explanations can be found in the script. General usage:
    ```bash
-   qsub proportion_modeling_run.sh -u <`username`> -p <`cdp password`> -c <`'T' or 'F' for custom lineage`>
+   qsub proportion_modeling_run.sh -u <username> -p <cdp password> -c <'T' or 'F' for custom lineage>
    ```
 
 - **weekly_s1_variant_report_nowcast.R** - Creates s1_species proportion estimates using the dataset created in `variant_surveillance_system.R`. General usage:
    ```bash
-   qsub s1_run.sh <`username`> <`cdp password`> <`reference lineage`>
+   qsub s1_run.sh <username> <cdp password> <`reference lineage`>
    ```
 
 
@@ -77,15 +79,16 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
 ## Output Files
 Result folder: `paste0("/scicomp/groups/Projects/SARS2Seq/repos/sc2_proportion_modeling/results_", data_date, '_', results_tag)`
    1) Run 1
-      - Pre-modeling Lineage aggregation results: `paste0("lineage_aggregataion_summary_KGCI_svyNEW_", data_date, "state_tag_included_Run1.csv")`
+      - Pre-modeling Lineage aggregation results: `paste0("voc_aggregation_table", data_date, "_state_tag_included_Run1.csv)`
       - Fornightly weighted estimates: `paste0("variant_share_weighted_KGCI_svyNEW_", data_date, "state_tag_included_Run1", results_tag,".csv")`
       - Weekly weighted estimates: `paste0("variant_share_weekly_weighted_KGCI_svyNEW_", data_date, "state_tag_included_Run1", results_tag,".csv")`      
       - Fornightly weighted estimates formatted for hadoop table `sc2_archive.proportion_modeling`: `paste0("variant_share_weighted_KGCI_svyNEW_", data_date, "state_tag_included_Run1", results_tag,"_hadoop.csv")`
       - Weekly weighted estimates formatted for hadoop table `sc2_archive.proportion_modeling`: `paste0("variant_share_weekly_weighted_KGCI_svyNEW_", data_date, "state_tag_included_Run1", results_tag,"_hadoop.csv")`
+      - ONLY useful when automatic lineage aggregation is turned off.Pre-modeling Lineage aggregation results: `paste0("lineage_aggregataion_summary_KGCI_svyNEW_", data_date, "state_tag_included_Run1.csv")`
 
    2) Run 2 
    - *NOTE! Run 2 produces results for both Run 2 AND Run 1!*
-      - Pre-modeling Lineage aggregation results: `paste0("lineage_aggregataion_summary_KGCI_svyNEW_", data_date, "_state_tag_included_Run2.csv")`
+      - Pre-modeling Lineage aggregation results: `paste0("voc_aggregation_table", data_date, "_state_tag_included_Run2.csv)`      
       - Fornightly weighted estimates: `paste0("variant_share_weighted_KGCI_svyNEW_", data_date, "_state_tag_included_Run2", results_tag,".csv")`
       - Weekly weighted estimates: `paste0("variant_share_weekly_weighted_KGCI_svyNEW_", data_date, "_state_tag_included_Run2", results_tag,".csv")`
       - Fornightly nowcast estimates: `paste0("updated_nowcast_fornightly_", weighted_methods, "_", data_date, "_state_tag_included_Run2", results_tag,".csv")`
@@ -93,7 +96,8 @@ Result folder: `paste0("/scicomp/groups/Projects/SARS2Seq/repos/sc2_proportion_m
       - Fornightly weighted estimates formatted for hadoop table `sc2_archive.proportion_modeling`: `paste0("variant_share_weighted_KGCI_svyNEW_", data_date, "_state_tag_included_Run2", results_tag,"_hadoop.csv")`
       - Weekly weighted estimates formatted for hadoop table `sc2_archive.proportion_modeling`: `paste0("variant_share_weekly_weighted_KGCI_svyNEW_", data_date, "_state_tag_included_Run2", results_tag,"_hadoop.csv")`
       - Fornightly nowcast estimates formatted for hadoop table `sc2_archive.proportion_modeling`: `paste0("updated_nowcast_fornightly_", data_date, "_state_tag_included_Run2", results_tag,"_hadoop.csv")`
-      - Weekly nowcast estimates formatted for hadoop table `sc2_archive.proportion_modeling`: `paste0("updated_nowcast_weekly_", data_date, "_state_tag_included_Run2", results_tag,"_hadoop.csv")`\
+      - Weekly nowcast estimates formatted for hadoop table `sc2_archive.proportion_modeling`: `paste0("updated_nowcast_weekly_", data_date, "_state_tag_included_Run2", results_tag,"_hadoop.csv")`
+      - ONLY useful when automatic lineage aggregation is turned off.Pre-modeling Lineage aggregation results: `paste0("lineage_aggregataion_summary_KGCI_svyNEW_", data_date, "_state_tag_included_Run2.csv")`\
    - The following files are nowcast estimates for the Run1 vocs
       - Fornightly nowcast estimates: `paste0("updated_nowcast_fornightly_", weighted_methods, "_", data_date, "state_tag_included_Run1", results_tag,".csv")`
       - Weekly nowcast estimates: `paste0("updated_nowcast_weekly_", weighted_methods, "_", data_date, "_state_tag_included_Run1", results_tag,".csv")`
@@ -163,7 +167,7 @@ This is the simplest way to run when variant list for CDC COVID data tracker has
 
 6. Run the wrapper script by submitting it as a HPC job to the server.
    ```bash
-   qsub proportion_modeling_run.sh -u <`username`> -p <`cdp password`> -c <`'T' or 'F' for custom lineage`>
+   qsub proportion_modeling_run.sh -u <username> -p <cdp password> -c <'T' or 'F' for custom lineage>
    ```
    
    This wrapper script submits the job for running variant_surveillance_system.sh first. When that is finished, it submits the jobs for run1_trim.sh and run2_trim.sh. So user will receive individual notification emails for the above three jobs and finally a notification for finishing this wrapper job.
@@ -184,10 +188,10 @@ This is the simplest way to run when variant list for CDC COVID data tracker has
       ```
    
    c. automated aggregation is implemented based on the `extended_lineage` field in `sc2_src.pangolin`. This only works when custom lineage option is NOT used and nextclade_pango option is NOT used. lineage aggregation results can be checked in the following files:
-      - `lineage_aggregation_summary...` list the aggregation done before the actuall weighting and modeling processes.
+      - `voc_aggregation_table...` (`lineage_aggregation_summary...` for the original aggregation method) list the aggregation done before the actuall weighting and modeling processes.
          - In Run2, lineages in voc2 (voc2_auto and voc2_additional) should not be aggregated to parental lineages.
-         - In Run2, Lineages (`original` column) that are not in voc2 should be aggregated to the closest parent lineages (`aggregated` column) which are included in voc2.
-         - In Run1, Lineages (`original` column) that are not in voc1 should be aggregated to the closest parent lineages (`aggregated` column) which are included in voc1.
+         - In Run2, Lineages (`original` column) that are not in voc2 should be aggregated to the nearest parent lineages (`aggregated` column) which are included in voc2.
+         - In Run1, Lineages (`original` column) that are not in voc1 should be aggregated to the nearest parent lineages (`aggregated` column) which are included in voc1.
       - `agg_var_mat...` lists the aggregation done after the nowcast modeling processes are finished in Run2, to aggregate variants in voc2 but not in voc1 to their parental lineages in voc1, and generate the nowcast results for Run 1.
          - Cells with the value `1` means the lineage in the corresponding column name is aggregated to the corresponding row lineage.
    
@@ -221,7 +225,7 @@ This is the expanded way to run the whole process step by step without using the
    - One is to pull data with custom lineages. This requires defining the custom lineage in sql in` variant_suerveillance_system.R` and update the lineage aggregation code blocks in `weekly_variant_report_nowcast.R`. 
    - The other is to pull lineage definition from the `nexclade_pango` field from `sc2_src.nextclade` table. If using this option, lineage aggregation code blocks in `weekly_variant_report_nowcast.R` need to be manually updated.
    ```bash
-   qsub variant_surveillance_system.sh <`username`> <`password`> <`'T' or 'F' for custom lineage`> <`'T' or 'F' for nextclade_pango`>
+   qsub variant_surveillance_system.sh <username> <`password`> <'T' or 'F' for custom lineage> <`'T' or 'F' for nextclade_pango`>
    ```
    This  will generate the survey dataset. Data results will be output in a folder titled `data/` and will be dated using `data_date` variable from `config/config.R`.
 
@@ -245,8 +249,12 @@ This is the expanded way to run the whole process step by step without using the
       ```
    
    c. automated aggregation is implemented based on the `extended_lineage` field in `sc2_src.pangolin`. This only works when custom lineage option is NOT used and nextclade_pango option is NOT used. lineage aggregation results can be checked in the following files:
-      - `lineage_aggregation_summary...` list the aggregation done before the actuall weighting and modeling processes.
+      - `voc_aggregation_table...` (`lineage_aggregation_summary...` for the original aggregation method) list the aggregation done before the actuall weighting and modeling processes.
+         - In Run2, lineages in voc2 (voc2_auto and voc2_additional) should not be aggregated to parental lineages.
+         - In Run2, Lineages (`original` column) that are not in voc2 should be aggregated to the nearest parent lineages (`aggregated` column) which are included in voc2.
+         - In Run1, Lineages (`original` column) that are not in voc1 should be aggregated to the nearest parent lineages (`aggregated` column) which are included in voc1.
       - `agg_var_mat...` lists the aggregation done after the nowcast modeling processes are finished in Run2, to aggregate variants in voc2 but not in voc1 to their parental lineages in voc1, and generate the nowcast results for Run 1.
+         - Cells with the value `1` means the lineage in the corresponding column name is aggregated to the corresponding row lineage.
 
 8. Backup the code that was used for a production run to the git repository
    ```bash
@@ -274,37 +282,6 @@ For example, the below two labs should be combined.\
    5. Add "labnames_df_xx" to "labnames_df" below
    6. Run variant_surveillance_system.sh again
    7. After running the new code, look at ./data/backup_YYYY-MM-DD/lab_name_updates_YYYY-MM-DD.csv to make sure that ONLY the intended labs are being renamed.
-
-# Color Codes used on CDT
-|     Variant            |     Hex Value    |   |
-|------------------------|------------------|---|
-|     B.1.1.529          |     #E26028      |   |
-|     BA.1.1             |     #FF824C      |   |
-|     BA.2               |     #9CCC65      |   |
-|     BA.2.12.1          |     #7CB342      |   |
-|     BA.2.75            |     #D4E157      |   |
-|     BA.2.75.2          |     #C0CA33      |   |
-|     CH.1.1             |     #827717      |   |
-|     BN.1               |     #9e9d24      |   |
-|     BA.4               |     #FFD54F      |   |
-|     BA.4.6             |     #FFB300      |   |
-|     BA.5               |     #80CBC4      |   |
-|     BF.7               |     #81D4FA      |   |
-|     BF.11              |     #29B6F6      |   |
-|     BA.5.2.6           |     #009688      |   |
-|     BQ.1               |     #006064      |   |
-|     BQ.1.1             |     #00838F      |   |
-|     XBB                |     #9FA8DA      |   |
-|     XBB.1.5            |     #3F51B5      |   |
-|     XBB.1.5.1          |     #1a237e      |   |
-|     XBB.1.9.1          |     #304ffe      |   |
-|     XBB.1.9.2          |     #536DFE      |   |
-|     FD.2               |     #8C9EFF      |   |
-|     XBB.1.16           |     #4527A0      |   |
-|     XBB.1.16.1         |     #f89b9b      |   |
-|     XBB.2.3            |     #f7bcdf      |   |
-|     B.1.617.2          |     #B39DDB      |   |
-|     Other              |     #797979      |   |
 
 ## Column Descriptions for Run1 and Run2 proportion modeling output (sc2_archive.state_proportion_modeling)
 | name                 | type      | comment                                                                                                                                                                                 |
