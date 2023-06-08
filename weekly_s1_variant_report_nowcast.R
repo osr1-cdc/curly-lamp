@@ -65,6 +65,18 @@ options(survey.adjust.domain.lonely = T,
       help    = "Whether or not to use custom lineages (character value of T or F)",
       metavar = "character"
     ),
+    
+    # type of weights to use
+    # - original        (weights used from 2021 to May 2023)
+    # - updated         (uses regional positivity rate from NREVSS testing data (intead of state positivity rate from CLERS, as for "original"))
+    # - population      (uses population-based weights (no testing data))
+    optparse::make_option(
+      opt_str = c("-b", "--weight_type"),
+      type    = "character",
+      default = "updated",
+      help    = 'options include "original", "updated", and "population" ',
+      metavar = "character"
+    ),
 
     # # whether or not to use reduced vocs
     # optparse::make_option(
@@ -526,7 +538,7 @@ src.dat[, "SAW" := sqrt(state_population/TOTAL) * POSITIVE/sum(1/sgtf_weights)/s
 src.dat[, "SAW_ALT" := state_population*HHS_INCIDENCE / sum(1/sgtf_weights)/sgtf_weights,
         .(STUSAB, yr_wk)]
 # use "SAW_ALT" when SAW is NA
-src.dat[, "SIMPLE_ADJ_WT" := ifelse(is.na(SAW), SAW_ALT, SAW)]
+src.dat[, "SIMPLE_ADJ_WT0" := ifelse(is.na(SAW), SAW_ALT, SAW)]
 # remove "SAW" and "SAW_ALT" columns
 src.dat[, c("SAW", "SAW_ALT") := .(NULL, NULL)]
 
@@ -540,10 +552,39 @@ if(use_group_weights){
   src.dat[, "SAW_ALT" := group_population*HHS_INCIDENCE_gp / sum(1/sgtf_weights_gp)/sgtf_weights_gp,
           .(STUSAB, group)]
   # use "SAW_ALT" when SAW is NA
-  src.dat[, "SIMPLE_ADJ_WT" := ifelse(is.na(SAW), SAW_ALT, SAW)]
+  src.dat[, "SIMPLE_ADJ_WT0" := ifelse(is.na(SAW), SAW_ALT, SAW)]
   # remove "SAW" and "SAW_ALT" columns
   src.dat[, c("SAW", "SAW_ALT") := .(NULL, NULL)]
 }
+
+# population-based weighting
+# (number of people represented by each sequence)
+src.dat[, "population_weight" := state_population / sum(count), by = c('STUSAB', 'yr_wk')]
+# src.dat[, "population_weight.hhs"   := population_reporting.HHS / sum(count), by = c('HHS',    'yr_wk')] # this uses CLERS testing data to get the regional population (total population of states within each region that reported testing data to CLERS)
+
+# UPDATED weights using NREVSS testing data
+# Based on Prabasaj's "weighty_matters.rmd".
+# proxy_infections    = estimated number of infections in a given state-week
+# state_population    = state population
+# POSITIVE.HHS.nrevss = number of positive tests reported to NREVSS in a given HHS region in a given week
+# TOTAL.HHS.nrevss    = number of total    tests reported to NREVSS in a given HHS region in a given week
+# POSITIVE.HHS        = number of positive tests reported to CLERS in a given HHS region in a given week
+# population_reporting.HHS.nrevss = total population of the states in a given HHS region that reported tests to NREVSS in a given week
+src.dat[
+  ,
+  "proxy_infections" := state_population * sqrt(POSITIVE.HHS.nrevss / TOTAL.HHS.nrevss) *
+    sqrt( POSITIVE.HHS / population_reporting.HHS )]
+# this formula is equivalent to calculating the regional infections as: sqrt(POSITIVE.HHS.nrevss / TOTAL.HHS.nrevss * population_reporting.HHS * POSITIVE.HHS) and then splitting it up among states in the region based on population (i.e. multiplying by): (state_population / population_reporting.HHS)
+
+# calculate the updated weight (number of infections represented by each sequence) based on "proxy_infections"
+src.dat[, 'updated_weight' := proxy_infections / sum(count), by = c('STUSAB', 'yr_wk')] # this still works for states that are missing POSITIVE in a given week
+# choose which weights to use
+src.dat$SIMPLE_ADJ_WT <- switch(
+  EXPR = tolower(opts$weight_type),
+  'original'       = {src.dat$SIMPLE_ADJ_WT0},
+  'population'     = {src.dat$population_weight},
+  'updated'        = {src.dat$updated_weight}
+)
 
 # check for weights of 0 (possible if there was very little testing in a state and no tests were positive)
 # If using weight trimming, these are replaced with the minimum weight > 0.

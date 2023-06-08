@@ -36,8 +36,8 @@
 # custom_lineages = FALSE
 # set date for data creation
 # (generally set to current date to allow more portability)
-data_date <- Sys.Date()
-#data_date <- as.Date('2023-04-26')
+# data_date <- Sys.Date()
+data_date <- as.Date('2023-06-06')
 # This needs to be a date on which data were frozen in the CDP database, which is often Thursdays.
 
 # results folder name inherits from data_date for auto completion, however the set name needs to be edited to 
@@ -119,7 +119,7 @@ n_top = 10
 n_recent_weeks = 7
 # start of the first week
 week0day1 = get0("week0day1",
-                 ifnotfound = as.Date("2020-01-05"))
+                 ifnotfound = as.Date("2020-01-12"))
 # Multinomial model includes current week + model_weeks weeks of previous data
 model_weeks = 8 # early on the model ended up including 1 more week than was set here. Now it includes the number set here.
 # FOR S1 species proprotion ONLY ---- modified 2022-11-15
@@ -150,7 +150,7 @@ weighted_weeks <- 12
 # start-time for the weighted estimates
 # (this speeds up calculations by only calculating weighted variant proportions for the most recent "weighted_weeks")
 # time_start_weights <- time_end - 6 - weighted_weeks*7
-time_start_weights <- as.Date('2021-05-02') # keep using week of (2021-05-02 to 2021-05-08) for consistency
+time_start_weights <- as.Date('2021-05-09') # keep using week of (2021-05-02 to 2021-05-08) for consistency
 # start time will be the earlier of: 1) time_start_weights; 2) "model_weeks" before time_end
 time_start <- min(time_start_weights, time_end - model_weeks*7 + 1) # +1 to start on Monday
 
@@ -173,7 +173,7 @@ use_group_weights <- FALSE
 # this can help avoid numerical overflow when trying to calculate prediction intervals.
 rescale_model_weights <- TRUE
 # how to rescale model weights
-rescale_model_weights_by <- "max"
+rescale_model_weights_by <- 'mean'
 # options: "max", "mean", [number]
 
 # optionally remove UTAH PHL sequences (b/c they were causing issues with Region 8 estimates in January, 2022)
