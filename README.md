@@ -182,16 +182,18 @@ This is the simplest way to run when variant list for CDC COVID data tracker has
       The following error message can be ignored:\
           ```WARNING: sun.reflect.Reflection.getCallerClass is not supported. This will impact performance. ERROR StatusLogger No Log4j 2 configuration file found. Using default configuration (logging only errors to the console), or user programmatically provided configurations. Set system property 'log4j2.debug' to show Log4j 2 internal initialization logging. See https://logging.apache.org/log4j/2.x/manual/configuration.html for instructions on how to configure Log4j 2```
 
-   b. Move the corresponding .err and .out files to result folder.\
+   b. Check the output files to makes sure the files and images are all generated. See the output description in [Output Files](#output-files)
+   
+   c. Move the corresponding .err and .out files to result folder.\
       ```bash
       mv Run1_<results_tag>.[eo]* results/results_<data_date>_<results_tag>/
       ```
    
-   c. automated aggregation is implemented based on the `extended_lineage` field in `sc2_src.pangolin`. This only works when custom lineage option is NOT used and nextclade_pango option is NOT used. lineage aggregation results can be checked in the following files:
+   d. automated aggregation is implemented based on the `extended_lineage` field in `sc2_src.pangolin`. This only works when custom lineage option is NOT used and nextclade_pango option is NOT used. `Variant` column shows the original lineage names (data from sc2_src.pangolin), `parent_variant` shows the lineage it is aggregated to in the run (should be aggregated to the nearest parent lineage included in the specific voc). lineage aggregation results can be checked in the following files:
       - `voc_aggregation_table...` (`lineage_aggregation_summary...` for the original aggregation method) list the aggregation done before the actuall weighting and modeling processes.
          - In Run2, lineages in voc2 (voc2_auto and voc2_additional) should not be aggregated to parental lineages.
-         - In Run2, Lineages (`original` column) that are not in voc2 should be aggregated to the nearest parent lineages (`aggregated` column) which are included in voc2.
-         - In Run1, Lineages (`original` column) that are not in voc1 should be aggregated to the nearest parent lineages (`aggregated` column) which are included in voc1.
+         - In Run1, lineages in voc1 should not be aggregated to parental lineages.
+
       - `agg_var_mat...` lists the aggregation done after the nowcast modeling processes are finished in Run2, to aggregate variants in voc2 but not in voc1 to their parental lineages in voc1, and generate the nowcast results for Run 1.
          - Cells with the value `1` means the lineage in the corresponding column name is aggregated to the corresponding row lineage.
    
@@ -243,16 +245,18 @@ This is the expanded way to run the whole process step by step without using the
       The following error message can be ignored:\
           ```WARNING: sun.reflect.Reflection.getCallerClass is not supported. This will impact performance. ERROR StatusLogger No Log4j 2 configuration file found. Using default configuration (logging only errors to the console), or user programmatically provided configurations. Set system property 'log4j2.debug' to show Log4j 2 internal initialization logging. See https://logging.apache.org/log4j/2.x/manual/configuration.html for instructions on how to configure Log4j 2```
 
-   b. Move the corresponding .err and .out files to result folder.\
+   b. Check the output files to makes sure the files and images are all generated. See the output description in [Output Files](#output-files)
+   
+   c. Move the corresponding .err and .out files to result folder.\
       ```bash
       mv Run1_<results_tag>.[eo]* results/results_<data_date>_<results_tag>/
       ```
    
-   c. automated aggregation is implemented based on the `extended_lineage` field in `sc2_src.pangolin`. This only works when custom lineage option is NOT used and nextclade_pango option is NOT used. lineage aggregation results can be checked in the following files:
+   d. automated aggregation is implemented based on the `extended_lineage` field in `sc2_src.pangolin`. This only works when custom lineage option is NOT used and nextclade_pango option is NOT used. `Variant` column shows the original lineage names (data from sc2_src.pangolin), `parent_variant` shows the lineage it is aggregated to in the run (should be aggregated to the nearest parent lineage included in the specific voc). lineage aggregation results can be checked in the following files:
       - `voc_aggregation_table...` (`lineage_aggregation_summary...` for the original aggregation method) list the aggregation done before the actuall weighting and modeling processes.
          - In Run2, lineages in voc2 (voc2_auto and voc2_additional) should not be aggregated to parental lineages.
-         - In Run2, Lineages (`original` column) that are not in voc2 should be aggregated to the nearest parent lineages (`aggregated` column) which are included in voc2.
-         - In Run1, Lineages (`original` column) that are not in voc1 should be aggregated to the nearest parent lineages (`aggregated` column) which are included in voc1.
+         - In Run1, lineages in voc1 should not be aggregated to parental lineages.
+
       - `agg_var_mat...` lists the aggregation done after the nowcast modeling processes are finished in Run2, to aggregate variants in voc2 but not in voc1 to their parental lineages in voc1, and generate the nowcast results for Run 1.
          - Cells with the value `1` means the lineage in the corresponding column name is aggregated to the corresponding row lineage.
 
