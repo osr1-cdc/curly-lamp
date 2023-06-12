@@ -31,7 +31,7 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
 
 - **variant_surveillance_system.sh** - Wrapper script for submitting variant_surveillance_system.R to run in HPC. Input arguments and their explanations can be found in the script. General usage:
    ```bash
-   qsub variant_surveillance_system.sh <username> <`password`> <`T/F for custom lineage`> <`T/F for using nextclade pango calls`>
+   qsub variant_surveillance_system.sh <username> <password> <T/F for custom lineage> <T/F for using nextclade pango calls>
    ```
 
 - **weekly_variant_report_nowcast.R** - Creates variant proportion estimates using the dataset created in `variant_surveillance_system.R`. Input arguments and their detailed explanations can be found in the script. 
@@ -41,10 +41,10 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
       2) Run 2 generates the same 2 files as Run 1, but with vocs specified for Run 2 (voc2). Run 2 voc2s are usually automatically generated based on preset selection criteria. Currently, Run 2 autoselected vocs include all variants that occur at a frequency >= 1% of the unweighted sequence data in any of the 2-week periods from -1 to -7 2-week periods and variants at a frequency >= 0.5% of the unweighted sequence data in the -1 2-week period (See table below). All variants from Run 1 are also added to Run 2 voc2. Additionally, any variant of special interest can also be added to voc2 using the `voc2_additional` variable. Run 2 fits model-based smoothed trends in variant share to both national and HHS regional estimates (i.e. "_Nowcast_"). Run 2 also generates nowcast estimates for voc list for Run1 (voc1) by aggregating estimates for lineages from Run 2 to their corresponding parental lineages.
       #### Run 2 vocs auto selection criteria
 
-         | fortnight |      -7     |      -6     |      -5     |     -4    |     -3    |     -2    |      -1     |  Current Fortnight  |
-         |:---------:|:-----------:|:-----------:|:-----------:|:---------:|:---------:|:---------:|:-----------:|      :-------------------:|
-         |    week   | -15 and -14 | -13 and -12 | -11 and -10 | -9 and -8 | -7 and -6 | -5 and -4 |  -3 and -2  | -1 and Current Week |
-         | Nowcast   |  >=1% (unw)  |  >=1% (unw)  |  >=1% (unw)  | >=1% (unw) | >=1% (unw) | >=1% (unw) | >=0.5% (unw) |                     |
+      | fortnight |      -7     |      -6     |      -5     |     -4    |     -3    |     -2    |      -1     |  Current Fortnight  |
+      |:---------:|:-----------:|:-----------:|:-----------:|:---------:|:---------:|:---------:|:-----------:|      :-------------------:|
+      |    week   | -15 and -14 | -13 and -12 | -11 and -10 | -9 and -8 | -7 and -6 | -5 and -4 |  -3 and -2  | -1 and Current Week |
+      | Nowcast   |  >=1% (unw)  |  >=1% (unw)  |  >=1% (unw)  | >=1% (unw) | >=1% (unw) | >=1% (unw) | >=0.5% (unw) |                     |
       
       3) Run3 generates state-level estimates in rolling 4 wk bins using survey design (same as Run 1). NO LONGER NEEDED. 
 
@@ -55,7 +55,7 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
 
 - **weekly_s1_variant_report_nowcast.R** - Creates s1_species proportion estimates using the dataset created in `variant_surveillance_system.R`. General usage:
    ```bash
-   qsub s1_run.sh <username> <cdp password> <`reference lineage`>
+   qsub s1_run.sh <username> <cdp password> <reference lineage>
    ```
 
 
@@ -106,8 +106,8 @@ Result folder: `paste0("/scicomp/groups/Projects/SARS2Seq/repos/sc2_proportion_m
       - Post-modeling lineage aggregation results (aggregateing voc2 variants to their parental lineages in voc1): `paste0(agg_var_mat_KGCI_svyNEW_", data_date, "_state_tag_included_Run2.csv")`
    - Image files
       - National data
-         - `paste0("/results/wtd_shares_",data_date,"_","barplot_US",tag,".jpg")`
-         - `paste0("/results/wtd_shares_",data_date,"_","projection_US",tag,".jpg")`
+         - `paste0("/results/wtd_shares_",data_date,"_","barplot_US",tag,".png")`
+         - `paste0("/results/wtd_shares_",data_date,"_","growthrate_US",tag,".png")`
          - `paste0("/results/wtd_shares_",data_date,"_","growthrate_US",tag,".png")`
       - For each HHS region
          - `paste0("/results/wtd_shares_",data_date,"_","barplot_HHS",hhs,tag,".jpg")`
@@ -227,7 +227,7 @@ This is the expanded way to run the whole process step by step without using the
    - One is to pull data with custom lineages. This requires defining the custom lineage in sql in` variant_suerveillance_system.R` and update the lineage aggregation code blocks in `weekly_variant_report_nowcast.R`. 
    - The other is to pull lineage definition from the `nexclade_pango` field from `sc2_src.nextclade` table. If using this option, lineage aggregation code blocks in `weekly_variant_report_nowcast.R` need to be manually updated.
    ```bash
-   qsub variant_surveillance_system.sh <username> <`password`> <'T' or 'F' for custom lineage> <`'T' or 'F' for nextclade_pango`>
+   qsub variant_surveillance_system.sh <username> <password> <'T' or 'F' for custom lineage> <'T' or 'F' for nextclade_pango>
    ```
    This  will generate the survey dataset. Data results will be output in a folder titled `data/` and will be dated using `data_date` variable from `config/config.R`.
 

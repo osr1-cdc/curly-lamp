@@ -3391,153 +3391,153 @@ if ( grepl("Run2",tag) ){
     # weeks (number of sequences collected weekly above each bar), and model-based
     # smoothed estimates, nationwide:
 
-    # ### barplot of weighted share (national) ----
+    ### barplot of weighted share (national) ----
 
-    # # tabulate/count the normalized survey weights by week, and variant
-    # # (only used for barplot below)
-    # bp_us = xtabs(formula = NORM_WTS ~ model_week + VARIANT,
-    #               data = src.dat,
-    #               subset = src.dat$model_week %in% ((data_week_df$model_week - 2 - display_lookback + 1):(data_week_df$model_week - 2))) #  ((model_week_mid - display_lookback + 1):model_week_mid))
-    # # DOUBLE-CHECK THAT THIS ALWAYS WORKS!
+    # tabulate/count the normalized survey weights by week, and variant
+    # (only used for barplot below)
+    bp_us = xtabs(formula = NORM_WTS ~ model_week + VARIANT,
+                  data = src.dat,
+                  subset = src.dat$model_week %in% ((data_week_df$model_week - 2 - display_lookback + 1):(data_week_df$model_week - 2))) #  ((model_week_mid - display_lookback + 1):model_week_mid))
+    # DOUBLE-CHECK THAT THIS ALWAYS WORKS!
 
-    # # Normalize values to proportions
-    # bp_us = prop.table(bp_us, 1)
+    # Normalize values to proportions
+    bp_us = prop.table(bp_us, 1)
 
-    # # subset the weights to only include the variants to be displayed
-    # bp_us = bp_us[, display_vars]
+    # subset the weights to only include the variants to be displayed
+    bp_us = bp_us[, display_vars]
 
-    # # give the table prettier column names
-    # # rownames(bp_us) = week_label(as.numeric(rownames(bp_us)) - current_week)
-    # rownames(bp_us) = format(
-    #   x = ((as.numeric(rownames(bp_us)) + data_week_df$model_week - 2) + model_week_min) * 7 + as.Date(week0day1),
-    #   # x = ((as.numeric(rownames(bp_us)) + model_week_mid) + model_week_min) * 7 + as.Date(week0day1), # DOUBLE-CHECK THAT THIS IS ALWAYS GIVING THE CORRECT WEEKS
-    #   format = '%m-%d'
-    # )
+    # give the table prettier column names
+    # rownames(bp_us) = week_label(as.numeric(rownames(bp_us)) - current_week)
+    rownames(bp_us) = format(
+      x = ((as.numeric(rownames(bp_us)) + data_week_df$model_week - 2) + model_week_min) * 7 + as.Date(week0day1),
+      # x = ((as.numeric(rownames(bp_us)) + model_week_mid) + model_week_min) * 7 + as.Date(week0day1), # DOUBLE-CHECK THAT THIS IS ALWAYS GIVING THE CORRECT WEEKS
+      format = '%m-%d'
+    )
 
-    # # create plot
-    # if (fig_gen_run) jpeg(filename  = paste0(stub, "barplot_US", tag, ".jpg"),
-    #                       width     = 1500,
-    #                       height    = 1500,
-    #                       pointsize = 40)
-    # # create a barplot of "observed" values (i.e. weighted counts)
-    # bp = barplot(height = 100 * t(bp_us),
-    #              xlab = "Week beginning",
-    #              ylab = "Weighted variant share (%)",
-    #              main = "Nationwide",
-    #              border = NA,
-    #              ylim = 110 * 0:1,
-    #              col = col.dk,
-    #              names.arg = rownames(bp_us),
-    #              legend.text = display_vars,
-    #              args.legend = list(x = "topleft",
-    #                                 bty = "n",
-    #                                 border = NA))
+    # create plot
+    if (fig_gen_run) jpeg(filename  = paste0(stub, "barplot_US", tag, ".jpg"),
+                          width     = 1500,
+                          height    = 1500,
+                          pointsize = 40)
+    # create a barplot of "observed" values (i.e. weighted counts)
+    bp = barplot(height = 100 * t(bp_us),
+                 xlab = "Week beginning",
+                 ylab = "Weighted variant share (%)",
+                 main = "Nationwide",
+                 border = NA,
+                 ylim = 110 * 0:1,
+                 col = col.dk,
+                 names.arg = rownames(bp_us),
+                 legend.text = display_vars,
+                 args.legend = list(x = "topleft",
+                                    bty = "n",
+                                    border = NA))
 
-    # # add text to the barplot
-    # text(x = bp,
-    #      y = 3 + colSums(100 * t(tail(bp_us, 12))),
-    #      labels = with(subset(src.dat,
-    #                           week < current_week - 1 &
-    #                             week >= current_week - display_lookback),
-    #                    table(week)),
-    #      cex = 0.7)
-    # if (fig_gen_run) dev.off()
+    # add text to the barplot
+    text(x = bp,
+         y = 3 + colSums(100 * t(tail(bp_us, 12))),
+         labels = with(subset(src.dat,
+                              week < current_week - 1 &
+                                week >= current_week - display_lookback),
+                       table(week)),
+         cex = 0.7)
+    if (fig_gen_run) dev.off()
 
 
-    # ### barplot of model-predicted data (national) ----
-    # # note: the x-axis labels are at the week midpoint, but labeled with week starting date
+    ### barplot of model-predicted data (national) ----
+    # note: the x-axis labels are at the week midpoint, but labeled with week starting date
 
-    # # create a dataframe for predictions for each week
-    # pred_us.df = expand.grid(model_week = seq(from = -display_lookback,
-    #                                           to = 2, # go 2 weeks into the future
-    #                                           by = (1/7)) + data_week_df$model_week)
+    # create a dataframe for predictions for each week
+    pred_us.df = expand.grid(model_week = seq(from = -display_lookback,
+                                              to = 2, # go 2 weeks into the future
+                                              by = (1/7)) + data_week_df$model_week)
 
-    # #add a column for (predicted) each variant proportion for each timepoint
-    # pred_us.df = cbind(pred_us.df,
-    #                    predict(object = svymlm_us$mlm,
-    #                            newdata = pred_us.df,
-    #                            type = "probs"))
+    #add a column for (predicted) each variant proportion for each timepoint
+    pred_us.df = cbind(pred_us.df,
+                       predict(object = svymlm_us$mlm,
+                               newdata = pred_us.df,
+                               type = "probs"))
 
-    # # add in dates
-    # # pred_us.df$date       = as.Date((pred_us.df$model_week + model_week_mid + model_week_min) * 7 + week0day1)
-    # # pred_us.df$week_start = pred_us.df$date - as.numeric(format(pred_us.df$date, format = '%w'))
-    # # pred_us.df$week_end   = pred_us.df$week_start + 6
-    # # pred_us.df$week_mid   = pred_us.df$week_start + 3
+    # add in dates
+    # pred_us.df$date       = as.Date((pred_us.df$model_week + model_week_mid + model_week_min) * 7 + week0day1)
+    # pred_us.df$week_start = pred_us.df$date - as.numeric(format(pred_us.df$date, format = '%w'))
+    # pred_us.df$week_end   = pred_us.df$week_start + 6
+    # pred_us.df$week_mid   = pred_us.df$week_start + 3
 
-    # # Barplot of Nowcast predicted values
-    # if (fig_gen_run) jpeg(filename  = paste0(stub, "projection_US", tag, ".jpg"),
-    #                       width     = 1500,
-    #                       height    = 1500,
-    #                       pointsize = 40)
+    # Barplot of Nowcast predicted values
+    if (fig_gen_run) jpeg(filename  = paste0(stub, "projection_US", tag, ".jpg"),
+                          width     = 1500,
+                          height    = 1500,
+                          pointsize = 40)
 
-    # bp = barplot(height = 100 * t(pred_us.df[, 1 + display_indices]),
-    #              xlab = "Week beginning",
-    #              ylab = "Weighted variant share (%)",
-    #              main = "Nationwide",
-    #              space = 0,
-    #              border = NA,
-    #              ylim = 110 * 0:1,
-    #              col = col.dk,
-    #              names.arg = ifelse(test = pred_us.df$model_week %% 1 == 0,
-    #                                 yes = format(((pred_us.df$model_week + (data_week_df$model_week - 2)) + model_week_min) * 7 + as.Date(week0day1), format = '%m-%d'),
-    #                                 no = NA),
-    #              legend.text = display_vars,
-    #              args.legend = list(x = "topleft",
-    #                                 bty = "n",
-    #                                 border = NA))
+    bp = barplot(height = 100 * t(pred_us.df[, 1 + display_indices]),
+                 xlab = "Week beginning",
+                 ylab = "Weighted variant share (%)",
+                 main = "Nationwide",
+                 space = 0,
+                 border = NA,
+                 ylim = 110 * 0:1,
+                 col = col.dk,
+                 names.arg = ifelse(test = pred_us.df$model_week %% 1 == 0,
+                                    yes = format(((pred_us.df$model_week + (data_week_df$model_week - 2)) + model_week_min) * 7 + as.Date(week0day1), format = '%m-%d'),
+                                    no = NA),
+                 legend.text = display_vars,
+                 args.legend = list(x = "topleft",
+                                    bty = "n",
+                                    border = NA))
 
-    # # predicted percent contributions of some variants for the current week
-    # # pc = unlist(100 * subset(pred_us.df,
-    # #                          week==current_week)[, 1+display_indices])
+    # predicted percent contributions of some variants for the current week
     # pc = unlist(100 * subset(pred_us.df,
-    #                          model_week == data_week_df$model_week)[, 1+display_indices])
+    #                          week==current_week)[, 1+display_indices])
+    pc = unlist(100 * subset(pred_us.df,
+                             model_week == data_week_df$model_week)[, 1+display_indices])
 
-    # # define a y-value for the text to be added to the plot
-    # y = cumsum(pc) - pc/2
+    # define a y-value for the text to be added to the plot
+    y = cumsum(pc) - pc/2
 
-    # # define x-values for grey boxes signifying that recent data is likely incomplete
-    # # x = bp[which(pred_us.df$week %in% (current_week + c(-2, 0, 2)))]
-    # x <- bp[which(pred_us.df$model_week %in% (data_week_df$model_week + c(-2, 0, 2)))]
+    # define x-values for grey boxes signifying that recent data is likely incomplete
+    # x = bp[which(pred_us.df$week %in% (current_week + c(-2, 0, 2)))]
+    x <- bp[which(pred_us.df$model_week %in% (data_week_df$model_week + c(-2, 0, 2)))]
 
-    # # add text to the plot
-    # text(x = x[2], # 1.02 * tail(bp, 1),
-    #      y = y,
-    #      labels = round(pc, 1),
-    #      cex = 0.7,
-    #      xpd = TRUE,
-    #      adj = c(0.5, 0.5))
+    # add text to the plot
+    text(x = x[2], # 1.02 * tail(bp, 1),
+         y = y,
+         labels = round(pc, 1),
+         cex = 0.7,
+         xpd = TRUE,
+         adj = c(0.5, 0.5))
 
-    # # add grey rectangles to plot
-    # rect(xleft   = x[1] + (x[2]-x[1])*.25, # shift it over by 1/2 week so that it is centered on individual weeks
-    #      ybottom = 0,
-    #      xright  = x[2] + (x[3]-x[2])*.25,
-    #      ytop    = 100,
-    #      border  = NA,
-    #      col = "#00000020")
-    # # abline(v = x[2],
-    # #        lty = 2, color = 'grey20')
+    # add grey rectangles to plot
+    rect(xleft   = x[1] + (x[2]-x[1])*.25, # shift it over by 1/2 week so that it is centered on individual weeks
+         ybottom = 0,
+         xright  = x[2] + (x[3]-x[2])*.25,
+         ytop    = 100,
+         border  = NA,
+         col = "#00000020")
+    # abline(v = x[2],
+    #        lty = 2, color = 'grey20')
 
-    # # add text to the plot
-    # text(x = mean(c(x[1], x[2])) + (x[2]-x[1])*.25,
-    #      y = 101,
-    #      labels = 'Nowcast',
-    #      cex = 0.7,
-    #      xpd = TRUE,
-    #      adj = c(0.5, 0))
-    # rect(xleft   = x[2] + (x[3]-x[2])*.25,
-    #      ybottom = 0,
-    #      xright  = x[3],
-    #      ytop    = 100,
-    #      border  = NA,
-    #      col = "#00000040")
-    # # add text to the plot
-    # text(x = mean(c(x[2], x[3]))+ (x[2]-x[1])*.125,
-    #      y = 101,
-    #      labels = 'Future',
-    #      cex = 0.7,
-    #      xpd = TRUE,
-    #      adj = c(0.5, 0))
-    # if (fig_gen_run) dev.off()
+    # add text to the plot
+    text(x = mean(c(x[1], x[2])) + (x[2]-x[1])*.25,
+         y = 101,
+         labels = 'Nowcast',
+         cex = 0.7,
+         xpd = TRUE,
+         adj = c(0.5, 0))
+    rect(xleft   = x[2] + (x[3]-x[2])*.25,
+         ybottom = 0,
+         xright  = x[3],
+         ytop    = 100,
+         border  = NA,
+         col = "#00000040")
+    # add text to the plot
+    text(x = mean(c(x[2], x[3]))+ (x[2]-x[1])*.125,
+         y = 101,
+         labels = 'Future',
+         cex = 0.7,
+         xpd = TRUE,
+         adj = c(0.5, 0))
+    if (fig_gen_run) dev.off()
 
     ### WoW growth rate vs. transmission ----
     #  - the vertical axis depicts the variant share growth rate

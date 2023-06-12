@@ -181,9 +181,15 @@ if(toupper(opts$nextclade_pango) %in% c('T', 'TRUE', 'Y', 'YES')){
   expanded_lineage_field = "" # no expanded lineage for nextclade
   current_data  = TRUE   # If using nextclade_pango, there is no archived frozen data, only current data from nextclade_pango can be used
 } else {
-  lineage_table = "sc2_src.pangolin"
-  lineage_field = "lineage"
-  expanded_lineage_field = ", expanded_lineage" # include the comma for the query
+  if(current_data){
+    lineage_table = "sc2_src.pangolin"
+    lineage_field = "lineage"
+    expanded_lineage_field = ", expanded_lineage" # include the comma for the query
+  } else {
+    lineage_table = "sc2_archive.analytics_metadata_frozen"
+    lineage_filed = "lineage"
+    expanded_lineage_field = ", expanded_lineage" # include the comma for the query
+  }
 }
 
 #ref_lineage = opts$reference_lineage
@@ -630,6 +636,7 @@ if(is.na(voc2_manual)){
 # "data_date" must be a date on which archive data was created.
 
 # for the moment just use the old query that does not group by HHS region:
+if(nextclade_pango=='F')
 voc2_df = DBI::dbGetQuery(
     conn = impala,
     statement = paste0(
@@ -676,7 +683,7 @@ FROM
             z.region_total
 ) Q
 WHERE Q.is_one_percent IS TRUE --OR Q.variant_type is not null
-    OR (Q.is_zerofive_percent IS TRUE AND Q.biweek_ending = date_add(date_trunc('week', date_add(now(), 1)), -23))
+    OR (Q.is_zerofive_percent IS TRUE AND Q.biweek_ending = date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), -23))
 GROUP BY lineage) QQ
 LEFT JOIN sc2_air.analytics_lineage_corr cor ON QQ.lineage = cor.lineage
 WHERE cor.date_range_of_calc LIKE '%US:3mo'"
