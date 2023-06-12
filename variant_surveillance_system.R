@@ -181,15 +181,9 @@ if(toupper(opts$nextclade_pango) %in% c('T', 'TRUE', 'Y', 'YES')){
   expanded_lineage_field = "" # no expanded lineage for nextclade
   current_data  = TRUE   # If using nextclade_pango, there is no archived frozen data, only current data from nextclade_pango can be used
 } else {
-  if(current_data){
-    lineage_table = "sc2_src.pangolin"
-    lineage_field = "lineage"
-    expanded_lineage_field = ", expanded_lineage" # include the comma for the query
-  } else {
-    lineage_table = "sc2_archive.analytics_metadata_frozen"
-    lineage_filed = "lineage"
-    expanded_lineage_field = ", expanded_lineage" # include the comma for the query
-  }
+  lineage_table = "sc2_src.pangolin"
+  lineage_field = "lineage"
+  expanded_lineage_field = ", expanded_lineage" # include the comma for the query
 }
 
 #ref_lineage = opts$reference_lineage
@@ -636,7 +630,6 @@ if(is.na(voc2_manual)){
 # "data_date" must be a date on which archive data was created.
 
 # for the moment just use the old query that does not group by HHS region:
-if(nextclade_pango=='F')
 voc2_df = DBI::dbGetQuery(
     conn = impala,
     statement = paste0(
@@ -676,7 +669,7 @@ FROM
         -- AND (a.contractor_vendor_id IS NOT NULL OR a.cdceventid = '1771')
         AND ( contractor_vendor_name IS NOT NULL OR eventid_all LIKE '%1771%' OR primary_sampling_strategy = 'Baseline_Surveillance' )
         AND to_date(date_frozen) = ", date_frozen, "
-        AND primary_country = 'United States'
+    OR (Q.is_zerofive_percent IS TRUE AND Q.biweek_ending = date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), -23))
     GROUP BY l.", lineage_field, ",
             c.variant_type,
             biweek_ending,
