@@ -669,7 +669,6 @@ FROM
         -- AND (a.contractor_vendor_id IS NOT NULL OR a.cdceventid = '1771')
         AND ( contractor_vendor_name IS NOT NULL OR eventid_all LIKE '%1771%' OR primary_sampling_strategy = 'Baseline_Surveillance' )
         AND to_date(date_frozen) = ", date_frozen, "
-    OR (Q.is_zerofive_percent IS TRUE AND Q.biweek_ending = date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), -23))
     GROUP BY l.", lineage_field, ",
             c.variant_type,
             biweek_ending,
