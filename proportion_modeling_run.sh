@@ -1,4 +1,4 @@
-#!/bin/bash -l
+#!/bin/bash
 
 # Title: proportion_modeling_run.sh
 # Usage: proportion_modeling_run.sh <username> <password>
@@ -49,6 +49,8 @@
 #$ -l h_vmem=32G
 # set the run-time <hh:mm:ss> (default is 72 hrs)
 #$ -l h_rt=08:00:00
+
+source /etc/profile
 ##############################################################
 # HELPER FUNCTIONS
 ##############################################################

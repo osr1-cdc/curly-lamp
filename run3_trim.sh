@@ -1,4 +1,4 @@
-#!/bin/bash -l
+#!/bin/bash
 #
 # Embedded Grid Engine parameters
 # All Embedded parameters must start with "#$"
@@ -41,7 +41,7 @@
 #$ -l h_vmem=120G
 # set the run-time <hh:mm:ss> (default is 72 hrs)
 #$ -l h_rt=03:00:00
-
+source /etc/profile
 source /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
 
 Rscript weekly_variant_report_nowcast.R -r 3 -c F -v F -t quantile_99 -s T -p 10 -w weighted -b updated
