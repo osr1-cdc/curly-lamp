@@ -124,7 +124,7 @@ fi
 #-------------------------------------------
 if [[ $? -eq 1 ]] ; then
     time_stamp "Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2." >> ${LOGFILE}
-    exti 1
+    exit 1
 else
     time_stamp "Modeling run finished." >> ${LOGFILE}
 fi
