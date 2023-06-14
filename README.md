@@ -44,7 +44,7 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
       | fortnight |      -7     |      -6     |      -5     |     -4    |     -3    |     -2    |      -1     |  Current Fortnight  |
       |:---------:|:-----------:|:-----------:|:-----------:|:---------:|:---------:|:---------:|:-----------:|      :-------------------:|
       |    week   | -15 and -14 | -13 and -12 | -11 and -10 | -9 and -8 | -7 and -6 | -5 and -4 |  -3 and -2  | -1 and Current Week |
-      | Nowcast   |  >=1% (unw)  |  >=1% (unw)  |  >=1% (unw)  | >=1% (unw) | >=1% (unw) | >=1% (unw) | >=0.5% (unw) |                     |
+      | Nowcast   |  >=1% (unw)  |  >=1% (unw)  |  >=1% (unw)  | >=1% (unw) | >=1% (unw) | >=0.5% (unw) | >=1% (unw) |                     |
       
       3) Run3 generates state-level estimates in rolling 4 wk bins using survey design (same as Run 1). NO LONGER NEEDED. 
 
