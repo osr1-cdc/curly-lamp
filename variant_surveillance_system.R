@@ -637,10 +637,10 @@ voc2_df = DBI::dbGetQuery(
     cor.*
 FROM
 (SELECT Q.lineage,
-        max(biweek_ending) AS most_recent,
+        to_date(max(biweek_ending)) AS most_recent,
         max(fraction) AS max_fraction,
         max(lineage_count) AS max_virus_count,
-        to_timestamp('", data_date, "', 'yyyy-MM-dd') AS pull_date
+        to_date('", data_date, "') AS pull_date
 FROM
     (SELECT l.", lineage_field, " as lineage,
             c.variant_type,
@@ -664,9 +664,10 @@ FROM
     AND 1=1
     LEFT JOIN sc2_src.variant_definitions c ON a.lineage = c.lineage
     WHERE -- THis is generally the weeks. For the publishing week and the next off week, -9 is -1st 2-week period  -106 is the -7th 2-week period.
-        biweek_ending <= date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), -9) 
-        AND biweek_ending >= date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), -106)
+        biweek_ending <= date_add(date_trunc('week', date_add(to_date('", data_date, "'), 1)), -9) 
+        AND biweek_ending >= date_add(date_trunc('week', date_add(to_date('", data_date, "'), 1)), -106)
         AND ( contractor_vendor_name IS NOT NULL OR eventid_all LIKE '%1771%' OR primary_sampling_strategy = 'Baseline_Surveillance' )
+        AND primary_country = 'United States'
         AND to_date(date_frozen) = ", date_frozen, "
     GROUP BY l.", lineage_field, ",
             c.variant_type,
@@ -676,8 +677,8 @@ FROM
 WHERE Q.is_one_percent IS TRUE --OR Q.variant_type is not null
     OR (Q.is_zerofive_percent IS TRUE
     -- For the publishing week and the next off week, this choose the -2nd 2-week period (last weighted period)
-        AND Q.biweek_ending <= date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), -23)
-        AND Q.biweek_ending >= date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), -30)
+        AND Q.biweek_ending <= date_add(date_trunc('week', date_add(to_date('", data_date, "'), 1)), -23)
+        AND Q.biweek_ending >= date_add(date_trunc('week', date_add(to_date('", data_date, "'), 1)), -30)
         AND lineage_count > 1)
 GROUP BY lineage) QQ
 LEFT JOIN sc2_air.analytics_lineage_corr cor ON QQ.lineage = cor.lineage
