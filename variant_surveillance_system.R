@@ -663,10 +663,9 @@ FROM
         GROUP BY biweek_ending) z ON date_add(primary_collection_date,datediff('2039-12-31',primary_collection_date)%14) = z.biweek_ending
     AND 1=1
     LEFT JOIN sc2_src.variant_definitions c ON a.lineage = c.lineage
-    WHERE -- THis is generally the weeks
-        datediff(date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), 5), date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5))>=14
-        AND datediff(date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), 5), date_add(date_trunc('week', date_add(primary_collection_date, 1)), 5))< 112
-        -- AND (a.contractor_vendor_id IS NOT NULL OR a.cdceventid = '1771')
+    WHERE -- THis is generally the weeks. For the publishing week and the next off week, -9 is -1st 2-week period  -106 is the -7th 2-week period.
+        biweek_ending <= date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), -9) 
+        AND biweek_ending >= date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), -106)
         AND ( contractor_vendor_name IS NOT NULL OR eventid_all LIKE '%1771%' OR primary_sampling_strategy = 'Baseline_Surveillance' )
         AND to_date(date_frozen) = ", date_frozen, "
     GROUP BY l.", lineage_field, ",
@@ -675,7 +674,11 @@ FROM
             z.region_total
 ) Q
 WHERE Q.is_one_percent IS TRUE --OR Q.variant_type is not null
-    OR (Q.is_zerofive_percent IS TRUE AND Q.biweek_ending = date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), -23))
+    OR (Q.is_zerofive_percent IS TRUE
+    -- For the publishing week and the next off week, this choose the -2nd 2-week period (last weighted period)
+        AND Q.biweek_ending <= date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), -23)
+        AND Q.biweek_ending >= date_add(date_trunc('week', date_add(to_timestamp('", data_date, "', 'yyyy-MM-dd'), 1)), -30)
+        AND lineage_count > 1)
 GROUP BY lineage) QQ
 LEFT JOIN sc2_air.analytics_lineage_corr cor ON QQ.lineage = cor.lineage
 WHERE cor.date_range_of_calc LIKE '%US:3mo'"
