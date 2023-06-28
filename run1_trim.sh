@@ -45,7 +45,7 @@
 
 source /etc/profile
 
-source /scicomp/home-pure/ukc2/miniconda3/bin/activate /scicomp/home-pure/ukc2/miniconda3/envs/prop_model_pure
+source /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
 
 
 Rscript weekly_variant_report_nowcast.R -r 1 -c F -v F -t quantile_99 -s T -p 24 -w weighted -b updated -d FALSE -e updated
