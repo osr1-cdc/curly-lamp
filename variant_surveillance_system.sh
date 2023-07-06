@@ -42,7 +42,6 @@
 # set the run-time <hh:mm:ss> (default is 72 hrs)
 #$ -l h_rt=01:00:00
 source /etc/profile
-
 source /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
 
 
