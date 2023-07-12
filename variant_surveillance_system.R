@@ -682,8 +682,9 @@ WHERE Q.is_one_percent IS TRUE --OR Q.variant_type is not null
         AND lineage_count > 1)
 GROUP BY lineage) QQ
 LEFT JOIN sc2_air.analytics_lineage_corr cor ON QQ.lineage = cor.lineage
-WHERE cor.date_range_of_calc LIKE '%US:3mo' order by max_fraction desc"
-    ))
+WHERE cor.date_range_of_calc LIKE '%US:3mo'
+Order by max_fraction desc"
+))
 
 # get the variant names
 voc2_auto = sort(voc2_df$lineage)
