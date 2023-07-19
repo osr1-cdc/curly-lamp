@@ -633,7 +633,7 @@ if(is.na(voc2_manual)){
 voc2_df = DBI::dbGetQuery(
     conn = impala,
     statement = paste0(
-    "SELECT QQ.*,
+"SELECT QQ.*,
     cor.*
 FROM
 (SELECT Q.lineage,
