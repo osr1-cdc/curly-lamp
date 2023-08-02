@@ -37,7 +37,7 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 # data_date <- Sys.Date()
-data_date <- as.Date('2023-07-25')
+data_date <- as.Date('2023-08-01')
 # This needs to be a date on which data were frozen in the CDP database
 # Set specific date_frozen to read sequencing data; but read test data and voc list from the data_date backup files. This can be used to rerun modeling using later date backfilled data.
 # Default would be data_date
@@ -244,12 +244,11 @@ state_time_end = (data_date - as.numeric(format(data_date, '%w')) - 1) - (7*5:1)
 # otherwise set manually:
 # state_time_end=c(as.Date("2021-09-25"),as.Date("2021-10-02"),as.Date("2021-10-09"),as.Date("2021-10-16"),as.Date("2021-10-23"))
 
+date_frozen <- paste0('"', data_date, '"')
 if(data_date == Sys.Date()){
-  date_frozen <- "to_date(date_frozen)" # "date_frozen" is a column in pangolin table
   # flag for whether or not current data is being used
   current_data = TRUE
 } else {
-  date_frozen <- paste0('"', data_date, '"')
   current_data = FALSE
 }
 
