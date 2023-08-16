@@ -37,7 +37,7 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 # data_date <- Sys.Date()
-data_date <- as.Date('2023-08-08')
+data_date <- as.Date('2023-08-15')
 # This needs to be a date on which data were frozen in the CDP database
 # Set specific date_frozen to read sequencing data; but read test data and voc list from the data_date backup files. This can be used to rerun modeling using later date backfilled data.
 # Default would be data_date
@@ -94,19 +94,24 @@ voc1 = c(# "AY.1", "AY.2",
          'XBB.1.5.1',
          'XBB.1.9.1',
          'XBB.1.5.10',
+         'FD.1.1',
          'FD.2',
          'EU.1.1',
          'XBB.1.5.59',
          'XBB.1.5.68',
+         'XBB.1.5.70',
          'XBB.1.5.72',
          'XBB.1.9.2',
          'EG.5',
+         'EG.6.1',
          'XBB.1.16',
          'XBB.1.16.1',
          'XBB.1.16.6',
+         'XBB.1.16.11',
          'FE.1.1',
          'FL.1.5.1',
          'XBB.2.3',
+         'GE.1',
          "B.1.617.2", # Delta
          "B.1.1.529") # Omicron
 # define an alternate set of vocs
@@ -150,18 +155,23 @@ voc2_additional = c(
                     'XBB.1.5.1',
                     'XBB.1.9.1',
                     'XBB.1.5.10',
+                    'FD.1.1',
                     'FD.2',
                     'EU.1.1',
                     'XBB.1.5.59',
                     'XBB.1.5.68',
+                    'XBB.1.5.70',
                     'XBB.1.5.72',
                     'XBB.1.9.2',
                     'EG.5',
+                    'EG.6.1',
                     'XBB.1.16',
                     'XBB.1.16.6',
+                    'XBB.1.16.11',
                     'FE.1.1',
                     'FL.1.5.1', 
-                   'XBB.2.3',
+                    'XBB.2.3',
+                    'GE.1',
                     "B.1.617.2", # Delta
                     "B.1.1.529" # Omicron
                     )
