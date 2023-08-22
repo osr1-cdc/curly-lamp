@@ -2410,7 +2410,6 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
                                                     "CI_width",
                                                     "nchs_flag",
                                                     "nchs_flag_wodf")])
-        all.ftnt3_hadoop[is.na(all.ftnt3_hadoop)] = '\\N'
         all.ftnt3_hadoop[,14:15] = '\\N'
         all.ftnt3_hadoop[,16] = 'weighted'
         all.ftnt3_hadoop[,17] = 'biweekly'
@@ -2418,6 +2417,7 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
         all.ftnt3_hadoop[,19] = paste0(results_tag, '_Run', opts$run_number)
         all.ftnt3_hadoop[,20] = 1
         all.ftnt3_hadoop[,21:24] = all.ftnt3[,c("cases", "cases_hi", "cases_lo")]
+        all.ftnt3_hadoop[is.na(all.ftnt3_hadoop)] = '\\N'
         # all.ftnt3_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', all.ftnt3_hadoop[,3])
         # all.ftnt3_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', all.ftnt3_hadoop[,3])
         # all.ftnt3_hadoop[,3] = gsub(' Aggregated', '', all.ftnt3_hadoop[,3])
@@ -3115,6 +3115,7 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
           all.wkly3_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', all.wkly3_hadoop[,3])
           all.wkly3_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', all.wkly3_hadoop[,3])
           all.wkly3_hadoop[,3] = gsub(' Aggregated', '', all.wkly3_hadoop[,3])
+          all.wkly3_hadoop[is.na(all.wkly3_hadoop)] = '\\N'
           write.table(x = all.wkly3_hadoop,
                       file = paste0(script.basename,
                                     output_folder, "/variant_share_weekly_weighted_",
@@ -4712,6 +4713,7 @@ if ( grepl("Run2",tag) ){
           run_1_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_1_hadoop[,3])
           run_1_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_1_hadoop[,3])
           run_1_hadoop[,3] = gsub(' Aggregated', '', run_1_hadoop[,3])
+          run_1_hadoop[is.na(run_1_hadoop)] = '\\N'
           write.table(x = run_1_hadoop,
                       file = paste0(script.basename,
                                     output_folder, "/updated_nowcast_fortnightly_",
@@ -4779,6 +4781,7 @@ if ( grepl("Run2",tag) ){
         run_2_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_2_hadoop[,3])
         run_2_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_2_hadoop[,3])
         run_2_hadoop[,3] = gsub(' Aggregated', '', run_2_hadoop[,3])
+        run_2_hadoop[is.na(run_2_hadoop)] = '\\N'
         write.table(x = run_2_hadoop,
                     file = paste0(script.basename,
                                   output_folder, "/updated_nowcast_fortnightly_",
@@ -5107,6 +5110,7 @@ if ( grepl("Run2",tag) ){
           run_1_weekly_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_1_weekly_hadoop[,3])
           run_1_weekly_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_1_weekly_hadoop[,3])
           run_1_weekly_hadoop[,3] = gsub(' Aggregated', '', run_1_weekly_hadoop[,3])
+          run_1_weekly_hadoop[is.na(run_1_weekly_hadoop)] = '\\N'
           write.table(x = run_1_weekly_hadoop,
                       file = paste0(script.basename,
                                     output_folder, "/updated_nowcast_weekly_",
@@ -5208,6 +5212,7 @@ if ( grepl("Run2",tag) ){
         run_2_weekly_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_2_weekly_hadoop[,3])
         run_2_weekly_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_2_weekly_hadoop[,3])
         run_2_weekly_hadoop[,3] = gsub(' Aggregated', '', run_2_weekly_hadoop[,3])
+        run_2_weekly_hadoop[is.na(run_2_weekly_hadoop)] = '\\N'
         write.table(x = run_2_weekly_hadoop,
                     file = paste0(script.basename,
                                   output_folder, "/updated_nowcast_weekly_",
