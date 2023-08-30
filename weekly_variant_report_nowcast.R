@@ -2442,7 +2442,7 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
       ### Weekly estimates
       # (repeat of above code, but with weeks instead of fortnights)
 
-      include_run1_weekly <- TRUE
+      include_run1_weekly <- FALSE
       if (include_run1_weekly){
 
         # subset data to only include data since 2 May, 2021
