@@ -4524,6 +4524,10 @@ if ( grepl("Run2",tag) ){
                               se.gr = NA,
                               gr_lo = NA,
                               gr_hi = NA,
+                              gr_link = NA,
+                              se.gr_link = NA,
+                              gr_lo_link = NA,
+                              gr_hi_link = NA,
                               dt    = NA,
                               dt_lo = NA,
                               dt_hi = NA)
@@ -4536,18 +4540,33 @@ if ( grepl("Run2",tag) ){
             gr_agg[r,'se.gr'] <- se.gr[col_ind]
             gr_agg[r,'gr_lo'] <- gr_lo[col_ind]
             gr_agg[r,'gr_hi'] <- gr_hi[col_ind]
+            gr_agg[r,'gr_link'] <- gr_link[col_ind]
+            gr_agg[r,'se.gr_link'] <- se.gr_link[col_ind]
+            gr_agg[r,'gr_lo_link'] <- gr_lo_link[col_ind]
+            gr_agg[r,'gr_hi_link'] <- gr_hi_link[col_ind]
             gr_agg[r,'dt']    <- doubling_time[col_ind]
             gr_agg[r,'dt_lo'] <- doubling_time_lo[col_ind]
             gr_agg[r,'dt_hi'] <- doubling_time_hi[col_ind]
           } else {
             # if there are component variants, then take the weighted mean to get the aggregated growth rate
             col_ind <- unname(which(agg_var_mat[r,]>0))
-            gr_agg[r,'gr']    <- sum(   gr[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-            gr_agg[r,'gr_lo'] <- sum(gr_lo[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-            gr_agg[r,'gr_hi'] <- sum(gr_hi[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-            gr_agg[r,'dt']    <- sum(   doubling_time[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-            gr_agg[r,'dt_lo'] <- sum(doubling_time_lo[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-            gr_agg[r,'dt_hi'] <- sum(doubling_time_hi[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+            # gr_agg[r,'gr']    <- sum(   gr[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+            # gr_agg[r,'gr_lo'] <- sum(gr_lo[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+            # gr_agg[r,'gr_hi'] <- sum(gr_hi[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+            gr_agg[r,'gr_link']    <- sum(gr_link[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+            gr_agg[r,'se.gr_link'] <- sum(se.gr_link[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+            gr_agg[r,'gr_lo_link'] <- gr_agg[r,'gr_link'] - 1.96 * gr_agg[r,'se.gr_link']
+            gr_agg[r,'gr_hi_link'] <- gr_agg[r,'gr_link'] + 1.96 * gr_agg[r,'se.gr_link']
+
+            gr_agg[r,'gr']    <- 100 * exp(gr_agg[r,'gr_link']) - 100
+            gr_agg[r,'gr_lo'] <- 100 * exp(gr_agg[r,'gr_lo_link']) - 100
+            gr_agg[r,'gr_hi'] <- 100 * exp(gr_agg[r,'gr_hi_link']) - 100
+            # gr_agg[r,'dt']    <- sum(   doubling_time[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+            # gr_agg[r,'dt_lo'] <- sum(doubling_time_lo[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+            # gr_agg[r,'dt_hi'] <- sum(doubling_time_hi[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+            gr_agg[r,'dt']    <- log(2) / gr_agg[r,'gr_link'] * 7
+            gr_agg[r,'dt_lo'] <- log(2) / gr_agg[r,'gr_lo_link'] * 7
+            gr_agg[r,'dt_hi'] <- log(2) / gr_agg[r,'gr_hi_link'] * 7
           }
         }
 
