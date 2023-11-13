@@ -628,9 +628,10 @@ svymultinom = function(mod.dat,
 #       errors using the results of "svymultinom"; the "svymultinom" function
 #       fits the model and estimates the SE of model coefficients.
 # If including time as a predictor variable, make it the first covariate!
-se.multinom = function(mlm,
-                       newdata_1row,
-                       composite_variant = NULL) {
+se.multinom = function(mlm, 
+                      newdata_1row,
+                      composite_variant=NA,
+                      dy_dt=data.frame(week=1)) { 
   # Arguments:
   #  ~  mlm:   model output, with Hessian;
   #  ~  newdata_1row:  1-row dataframe consistent with predictors in formula
@@ -647,7 +648,7 @@ se.multinom = function(mlm,
   # mlm not geographically stratified for geoid="USA": ~ (week - current_week)
   # mlm, for HHS Regions: ~ week + HHS (1 as reference level)
 
-  # Output: list of 5 items:
+  # Output: list of 14 items:
   #  ~  p_i:     predicted values for each clade/variant (numeric vector)
   #  ~  se.p_i:  SE of predicted values (numeric vector)
   #  ~  b_i:     coefficient (beta) values (numeric vector)
@@ -658,21 +659,32 @@ se.multinom = function(mlm,
   #                        matrix = composite_variant (input matrix)
   #                        p_i    = predicted proportions for composite variants
   #                        se.p_i = SE of the predicted proportions
+  #  ~ y_i:      linear predictor on the link (logit) scale
+  #  ~ vc_y_i:   variance-covariance matrix of the linear predictor on the link (logit) scale
+  #
+  #  ~ S:        S is matrix of all variants, simple and composite; one row per variant, one column per modeled variant
+  #  ~ p_S:      predicted values for each clade/variant, simple and composite (numeric vector)
+  #  ~ se.p_S:   SE of predicted values, simple and composite (numeric vector)
+  #  ~ g_S:      growth rates (simple and composite variants) on the link (logit) scale
+  #  ~ se.g_S:   SE of the growth rates (simple and composite variants) on the link (logit) scale
+  #  ~ p.vcov:   variance-covariance matrix of p_S (on the link (logit) scale)
+  #  ~ g.vcov:   variance-covariance matrix of g_S (on the link (logit) scale)
+  #
 
   # modification history:
   # Modified to handle 1-row dataframe consistent with predictors in formula (similar to interface for predict) [2022-01-21]
   # Modified to handle composite variants (eg. Delta = combination of multiple lineages in multinomial model) [2021-09-29]
   # Modified to handle output from svymultinom [2021-08-15]
-
+  # Modified to integrate variance estimation for growth rates (including for composites) [2023-10-16]
+ 
   # get the model coefficients
-  cf = coefficients(mlm)
-
+  cf <- coefficients(mlm)
   # get the variance-covariance matrix
   if ("svyvcov" %in% names(mlm)) {
-    vc = mlm$svyvcov
-  } else {
+    vc <- mlm$svyvcov}
+  else { 
     if ("Hessian" %in% names(mlm)) {
-      vc = solve(mlm$Hessian)
+      vc <- solve(mlm$Hessian)
       # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
       # Why use solve(hessian) instead of solve(-hessian)?
       #   svymle(), through a call to nlm(), minimizes a function. The functions
@@ -683,140 +695,90 @@ se.multinom = function(mlm,
     } else {
       # If there's no variance-covariance matrix from the svymultinom function
       # and there's no Hessian, just set the variance-covariance to 0
-      # vc = rep(0, length(cf)^2)
-      vc = matrix(data = 0,
+      vc <- matrix(data = 0,
                   nrow = length(cf),
                   ncol = length(cf))
     }
   }
-
   # get the model matrix from the model fit & the new data
-  mm = model.matrix(as.formula(paste("~",as.character(mlm$terms)[3])),
+  mm <- model.matrix(as.formula(paste("~",as.character(mlm$terms)[3])),
                     newdata_1row,
-                    xlev = mlm$xlevels)
-
+                    xlev=mlm$xlevels)
+  # umm is set up for growth-rates [2023-10-11]
+  umm <- mm * 0
+  for (nm in names(dy_dt)) umm[, nm] = dy_dt[, nm]
   # get the covariate names for each variant
   mnames = outer(X = mlm$lev[-1],
                  Y = colnames(mm),
                  FUN = paste, sep=":")
-
   # vc = vcov(mlm)
-
   # matrix of covariate values (first create empty matrix)
   cmat = matrix(data = 0,
                 nrow = nrow(mnames),
-                # ncol = length(cf),
                 ncol = ncol(vc),
-                dimnames = list(mlm$lev[-1],
-                                as.vector(t(mnames))))
-                                # colnames(mlm$Hessian)))
-
+                dimnames = list(mlm$lev[-1], colnames(mlm$Hessian)))
+  #cmat = matrix(data = 0,
+  #              nrow = nrow(mnames),
+  #              # ncol = length(cf),
+  #              ncol = ncol(vc),
+  #              dimnames = list(mlm$lev[-1],
+  #                              as.vector(t(mnames))))
+                               # colnames(mlm$Hessian)))
   # fill in covariate values into the cmat
   for (rr in 1:nrow(cmat)) cmat[rr, mnames[rr,]] = c(mm)
-
+  # ucmat is set up for growth-rates [2023-10-11]
+  ucmat = cmat * 0
+  for (rr in 1:nrow(ucmat)) ucmat[rr, mnames[rr,]] = c(umm)
+  cmat = rbind(`1`=0, cmat) # pad with 0s for reference variant 1
+  ucmat = rbind(`1`=0, ucmat) # pad with 0s for reference variant 1
   # linear predictor values
   y_i = c(0, coefficients(mlm) %*% c(mm))
-
+  u_i = c(0, coefficients(mlm) %*% c(umm))
   # get the variance-covariance matrix of the linear predictor
   # (after adjusting for survey design)
-  vc.y_i = rbind(0, cbind(0, cmat %*% vc %*% t(cmat)))
-
-
-
-  # # Rearrange terms to ease pulling out relevant submatrix
-  # # convert symmetrical matrix with rows & columns for each coefficient:
-  # # 4-d array with dim 1 for each covariates
-  # #                dim 2 for each outcome class
-  # #                dim 3 for each covariate
-  # #                dim 4 for each outcome class
-  # dim(vc) = rep(x = rev(dim(cf)),
-  #               times = 2)
-  #
-  # # Boolean: is the geoid the reference level
-  # ref_geoid = ((length(mlm$xlevels) == 0) || (geoid == mlm$xlevels[[1]][1]))
-  #
-  # # get the number/index of the geoid/area being modeled
-  # if (ref_geoid) { # if the geoid is the reference level
-  #   n_geoid = NULL
-  # } else { # if it's not the reference level
-  #   n_geoid = which(mlm$xlevels[[1]] == geoid)
-  # }
-  #
-  # # Set value for "hhs1tail"
-  # # index of column identifying column for the hhs region in question
-  # if (ref_geoid) { # if the geoid is the reference level
-  #   hhs1tail = NULL
-  # } else { # if it's not the reference level
-  #   hhs1tail = n_geoid + 1
-  # }
-  #
-  # # save values to vector
-  # # only want the coefficients for the intercept, the week in question, and the
-  # # hhs region in question
-  # indices = c(1, 2, hhs1tail)
-  #
-  # # reset value for "hhs1tail"
-  # # indicator (0/1) covariate value (1 for the hhs region in question)
-  # if (ref_geoid) {
-  #   hhs1tail = NULL
-  # } else {
-  #   hhs1tail = 1
-  # }
-  #
-  # # save values to another vector
-  # # (aren't these really covariate values, not coefficients?)
-  # coeffs = c(1, week, hhs1tail)
-  #
-  # # b is vector of coefficients of time (week)
-  # # subset the variance-covariance matrix to the relevant parameters
-  # sub.vc = vc[indices,,indices,]
-  #
-  # # get the linear predictor values
-  # # (what's the 0 on the beginning for?)
-  # y_i = c(0, cf[, indices] %*% coeffs)
-  #
-  # # get the variance-covariance matrix of the linear predictor
-  # # (after adjusting for survey design)
-  # vc.y_i = outer(1:dim(sub.vc)[2],
-  #                1:dim(sub.vc)[4],
-  #                Vectorize(function(i, j) c(coeffs %*% sub.vc[, i, , j] %*% coeffs)))
-  # # (the "coeffs" here really covariates)
-  #
-  # # add in row and column for the intercept???
-  # vc.y_i = rbind(0, cbind(0, vc.y_i))
-
+  vc.y_i = cmat %*% vc %*% t(cmat)
+  vc.z_i = rbind(cmat, ucmat) %*% vc %*% t(rbind(cmat, ucmat))
   # calculate the predicted proportions
   p_i = exp(y_i)/sum(exp(y_i))
-
+  g_i = u_i - sum(p_i * u_i)
   # Taylor series based variance:
-  # dp_i/dy_j = delta_ij p_i - p_i * p_j
   dp_dy = diag(p_i) - outer(p_i, p_i, `*`)
-
   # calculate variance/covariance of the predicted proportions
   p.vcov = dp_dy %*% vc.y_i %*% dp_dy
-  # SE = sqrt of variance
-  se.p_i = as.vector(sqrt(diag(p.vcov)))
-
+  S = diag(nrow = length(y_i))
+  if (all(!is.na(composite_variant))) S = rbind(S, composite_variant)
+  p.vcov = S %*% p.vcov %*% t(S) # add in composites
+  se.p_S = as.vector(sqrt(diag(p.vcov)))
+  p_S = as.vector(S %*% p_i)
+  w_S = t(t(S) * p_i)/p_S # one row per variant (includes composites), rowsums are 1
+  g_S = as.vector(w_S %*% g_i)
+  dg_dz = matrix(c(-p_i * g_i, -p_i), nrow=nrow(S), ncol=nrow(vc.z_i), byrow=TRUE) + cbind(w_S * outer(-g_S, g_i, `+`), w_S)
+  g.vcov = (dg_dz %*% vc.z_i %*% t(dg_dz))
+  se.g_S = as.vector(sqrt(diag(g.vcov)))
   # if there are composite variants, calculate calculate their proportions & SE
-  if (!is.null(composite_variant)) {
-    composite_variant = list(
-      matrix = composite_variant,
-      p_i    = as.vector(composite_variant %*% p_i),
-      se.p_i = as.vector(sqrt(diag(composite_variant %*% p.vcov %*% t(composite_variant))))
-    )
+  if (all(!is.na(composite_variant))) {
+    composite_variant = list(matrix = composite_variant, 
+                             p_i = p_S[-(1:length(y_i))],
+                             se.p_i = se.p_S[-(1:length(y_i))])
   }
-
-  # change the dimensions of the variance-covariance matrix to aid in
-  # pulling out the coefficient of time.
-  dim(vc) = rep(rev(dim(cf)), 2)
-
-  # output
-  list(p_i = p_i, # predicted values
-       se.p_i = se.p_i, # SE of predicted values
-       b_i = c(0, cf[, 2]), # coefficient values for ?? (intercept & week?)
-       se.b_i = c(0, sqrt(diag(vc[2,,2,]))), # SE of the coefficients
-       # (but unadjusted for survey design. Why not take these from svymultinom ouput?)
-       composite_variant = composite_variant) # predicted probabilities (and SE) for the composite variants
+  dim(vc) = rep(rev(dim(cf)), 2) # To pull out coefficient of time...
+  res_old = list(p_i=p_i,
+                  se.p_i=se.p_S[1:length(y_i)],
+                  b_i=c(0, cf[, 2]),
+                  se.b_i= c(0, sqrt(diag(vc[2,,2,]))),
+                  composite_variant=composite_variant,
+                  y_i=y_i,
+                  vc.y_i=vc.y_i)
+  # updated output
+  # S describes all variants (including composites), p_S are proportions, g_S are growth rates, se are standard deviations, vcov are covariance matrices
+  res_new = list(S=S,
+                  p_S=p_S,
+                  se.p_S=se.p_S,
+                  g_S=g_S,
+                  se.g_S=se.g_S,
+                  p.vcov=p.vcov,
+                  g.vcov=g.vcov)
+  c(res_old, res_new)
 }
 
 # Function to get binomial confidence interval based on the point estimated

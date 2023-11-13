@@ -52,139 +52,139 @@ calc_99_CI_nowcast  <- TRUE  # these should not add a lot of time
   # -e voc_aggregation_method
 
   # (get the run number from the command line)
-  option_list <- list(
+    option_list <- list(
 
-    # Run number
-    optparse::make_option(
-      opt_str = c("-r", "--run_number"),
-      type    = "character",
-      default = "2",
-      help    = "Run number",
-      metavar = "character"),
-    # options:
-    # Run1: calc proportions USING SURVEY DESIGN for VOCs specified in voc1
-    # Run2: calc proportions for VOCs with >= 1% unweighted share (many Delta subclades)
-    #       this is the only run that includes the multinomial "nowcast" model
-    #     Note: Nowcast runs best with a large set of variants (or very few variants with Omicron)
-    #           (if you group everything into Delta, then the model breaks)
-    # Run3: calc state-level proportions in 4-week bins for VOCs specified in voc3
-    #       runs & VOC's generally won't change
+      # Run number
+      optparse::make_option(
+        opt_str = c("-r", "--run_number"),
+        type    = "character",
+        default = "2",
+        help    = "Run number",
+        metavar = "character"),
+      # options:
+      # Run1: calc proportions USING SURVEY DESIGN for VOCs specified in voc1
+      # Run2: calc proportions for VOCs with >= 1% unweighted share (many Delta subclades)
+      #       this is the only run that includes the multinomial "nowcast" model
+      #     Note: Nowcast runs best with a large set of variants (or very few variants with Omicron)
+      #           (if you group everything into Delta, then the model breaks)
+      # Run3: calc state-level proportions in 4-week bins for VOCs specified in voc3
+      #       runs & VOC's generally won't change
 
-    # whether or not to use Custom Lineages
-    optparse::make_option(
-      opt_str = c("-c", "--custom_lineages"),
-      type    = "character",
-      default = "F",
-      help    = "Whether or not to use custom lineages (character value of T or F)",
-      metavar = "character"
-    ),
+      # whether or not to use Custom Lineages
+      optparse::make_option(
+        opt_str = c("-c", "--custom_lineages"),
+        type    = "character",
+        default = "F",
+        help    = "Whether or not to use custom lineages (character value of T or F)",
+        metavar = "character"
+      ),
 
-    # Get lineage definition from sc2_src.nextclade instead of the default sc2_src.pangolin
-    optparse::make_option(
-      opt_str = c("-n", "--nextclade_pango"),
-      type    = "character",
-      default = "F",
-      help    = "Whether or not to swith to get lineage defintion from sc2_src.nextclade instead of sc2_src.pangolin (character value of T or F)",
-      metavar = "character"
-    ),
+      # Get lineage definition from sc2_src.nextclade instead of the default sc2_src.pangolin
+      optparse::make_option(
+        opt_str = c("-n", "--nextclade_pango"),
+        type    = "character",
+        default = "F",
+        help    = "Whether or not to swith to get lineage defintion from sc2_src.nextclade instead of sc2_src.pangolin (character value of T or F)",
+        metavar = "character"
+      ),
 
-    # whether or not to use reduced vocs
-    optparse::make_option(
-      opt_str = c("-v", "--reduced_vocs"),
-      type    = "character",
-      default = "F",
-      help    = "Whether or not to use reduced set of vocs (character value of T or F)",
-      metavar = "character"
-    ),
+      # whether or not to use reduced vocs
+      optparse::make_option(
+        opt_str = c("-v", "--reduced_vocs"),
+        type    = "character",
+        default = "F",
+        help    = "Whether or not to use reduced set of vocs (character value of T or F)",
+        metavar = "character"
+      ),
 
-    # whether (and how) to trim weights.
-    # options include:
-    #   - "quantile_99" = 99th percentile. This must contain the letters "quant" followed by a number.
-    #   - "F", "FALSE", "N", or "NO" = no weight trimming
-    #   - "IQR" = median + 6 * IQR
-    optparse::make_option(
-      opt_str = c("-t", "--trim_weights"),
-      type    = "character",
-      default = "quantile_99",
-      help    = "Maximum weight for any individual sequence",
-      metavar = "character"
-    ),
+      # whether (and how) to trim weights.
+      # options include:
+      #   - "quantile_99" = 99th percentile. This must contain the letters "quant" followed by a number.
+      #   - "F", "FALSE", "N", or "NO" = no weight trimming
+      #   - "IQR" = median + 6 * IQR
+      optparse::make_option(
+        opt_str = c("-t", "--trim_weights"),
+        type    = "character",
+        default = "quantile_99",
+        help    = "Maximum weight for any individual sequence",
+        metavar = "character"
+      ),
 
-    # optionally save datasets that are produced by this script
-    # setting to true will save:
-    #  - src.dat (processed data used for weighted variant proportions)
-    #  - data used for the nowcast models
-    optparse::make_option(
-      opt_str = c("-s", "--save_datasets_to_file"),
-      type    = "character",
-      default = "T",
-      help    = "Maximum weight for any individual sequence",
-      metavar = "character"
-    ),
+      # optionally save datasets that are produced by this script
+      # setting to true will save:
+      #  - src.dat (processed data used for weighted variant proportions)
+      #  - data used for the nowcast models
+      optparse::make_option(
+        opt_str = c("-s", "--save_datasets_to_file"),
+        type    = "character",
+        default = "T",
+        help    = "Maximum weight for any individual sequence",
+        metavar = "character"
+      ),
 
-    # optionally run the weighted estimates in parallel
-    # setting to a number will use that many cores (make sure the qsub script reserves adequate cores)
-    # options: must be a number or FALSE
-    optparse::make_option(
-      opt_str = c("-p", "--parallel_cores"),
-      type    = "character",
-      default = "12",
-      help    = "Number of cores for parallel estimation of weighted proportions",
-      metavar = "character"
-    ),
+      # optionally run the weighted estimates in parallel
+      # setting to a number will use that many cores (make sure the qsub script reserves adequate cores)
+      # options: must be a number or FALSE
+      optparse::make_option(
+        opt_str = c("-p", "--parallel_cores"),
+        type    = "character",
+        default = "12",
+        help    = "Number of cores for parallel estimation of weighted proportions",
+        metavar = "character"
+      ),
 
-    # choose how to calculated proportions (and CI)
-    # options: weighted   =   weighted estimate with survey-design-based CI
-    #          unweighted = unweighted estimate with survey-design-based CI
-    #          both       = both weighted & unweighted (saved to different files)
-    # (all options will also calculate unweighted proportions with binomial CI)
-    optparse::make_option(
-      opt_str = c("-w", "--weighted_methods"),
-      type    = "character",
-      default = "weighted",
-      help    = '"weighted", "unweighted" (with survey design CI), or "both"',
-      metavar = "character"
-    ),
+      # choose how to calculated proportions (and CI)
+      # options: weighted   =   weighted estimate with survey-design-based CI
+      #          unweighted = unweighted estimate with survey-design-based CI
+      #          both       = both weighted & unweighted (saved to different files)
+      # (all options will also calculate unweighted proportions with binomial CI)
+      optparse::make_option(
+        opt_str = c("-w", "--weighted_methods"),
+        type    = "character",
+        default = "weighted",
+        help    = '"weighted", "unweighted" (with survey design CI), or "both"',
+        metavar = "character"
+      ),
 
-    # type of weights to use
-    # - original        (weights used from 2021 to May 2023)
-    # - updated         (uses regional positivity rate from NREVSS testing data (intead of state positivity rate from CLERS, as for "original"))
-    # - population      (uses population-based weights (no testing data))
-    optparse::make_option(
-      opt_str = c("-b", "--weight_type"),
-      type    = "character",
-      default = "updated",
-      help    = 'options include "original", "updated", and "population" ',
-      metavar = "character"
-    ),
+      # type of weights to use
+      # - original        (weights used from 2021 to May 2023)
+      # - updated         (uses regional positivity rate from NREVSS testing data (intead of state positivity rate from CLERS, as for "original"))
+      # - population      (uses population-based weights (no testing data))
+      optparse::make_option(
+        opt_str = c("-b", "--weight_type"),
+        type    = "character",
+        default = "updated",
+        help    = 'options include "original", "updated", and "population" ',
+        metavar = "character"
+      ),
 
-    # whether or not to aggregate subvariants when looking for voc2 that are
-    # over 0.5% in lag week -3
-    # e.g. when TRUE, if variant xyz.123 meets the 0.5% criterion for inclusion in voc2,
-    #      then all subvariants of xyz.123 (that are not already included in voc2) will be
-    #      aggregated into xyz.123. This scenario is unlikely to occur unless a variant and
-    #      its subvariants are split out in at the same time.
-    optparse::make_option(
-      opt_str = c("-d", "--voc2_extra_preaggregation"),
-      type    = "character",
-      default = "FALSE",
-      help    = 'T/F, whether or not to pre-aggregate subvariants (to myriad parent variants) when looking for extra vocs to include in Nowcast modeling',
-      metavar = "character"
-    ),
-    # voc aggregation method
-    # original = the lengthy code based on abbreviated pango lineages
-    # updated = shorter/faster code based on lineage_expanded
-    optparse::make_option(
-      opt_str = c("-e", "--voc_aggregation_method"),
-      type    = "character",
-      default = "updated", # "original"; "updated"/"lineage_expanded"
-      help    = "Whether to use the original voc aggregation method (based on variant name) or the updated method (based on lineage_expanded)",
-      metavar = "character"
+      # whether or not to aggregate subvariants when looking for voc2 that are
+      # over 0.5% in lag week -3
+      # e.g. when TRUE, if variant xyz.123 meets the 0.5% criterion for inclusion in voc2,
+      #      then all subvariants of xyz.123 (that are not already included in voc2) will be
+      #      aggregated into xyz.123. This scenario is unlikely to occur unless a variant and
+      #      its subvariants are split out in at the same time.
+      optparse::make_option(
+        opt_str = c("-d", "--voc2_extra_preaggregation"),
+        type    = "character",
+        default = "FALSE",
+        help    = 'T/F, whether or not to pre-aggregate subvariants (to myriad parent variants) when looking for extra vocs to include in Nowcast modeling',
+        metavar = "character"
+      ),
+      # voc aggregation method
+      # original = the lengthy code based on abbreviated pango lineages
+      # updated = shorter/faster code based on lineage_expanded
+      optparse::make_option(
+        opt_str = c("-e", "--voc_aggregation_method"),
+        type    = "character",
+        default = "updated", # "original"; "updated"/"lineage_expanded"
+        help    = "Whether to use the original voc aggregation method (based on variant name) or the updated method (based on lineage_expanded)",
+        metavar = "character"
+      )
     )
-  )
 
-  # parsing options list
-  opts <- optparse::parse_args(optparse::OptionParser(option_list = option_list))
+    # parsing options list
+    opts <- optparse::parse_args(optparse::OptionParser(option_list = option_list))
 
   # use the specified flags to set several variables
   # convert custom_lineages flag to a logical value
@@ -2442,7 +2442,7 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
       ### Weekly estimates
       # (repeat of above code, but with weeks instead of fortnights)
 
-      include_run1_weekly <- FALSE
+      include_run1_weekly <- TRUE
       if (include_run1_weekly){
 
         # subset data to only include data since 2 May, 2021
@@ -4492,83 +4492,99 @@ if ( grepl("Run2",tag) ){
                              model_week = wk,
                              HHS = geoid
                            ),
-                           composite_variant = agg_var_mat)
-
+                           composite_variant = agg_var_mat,
+                           dy_dt = data.frame(model_week = 1))
         # calculate the SE of the growth rate
-        se.gr = with(data = ests,
-                     expr = 100 * exp(sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2))) - 100)
+        #se.gr = with(data = ests,
+        #             expr = 100 * exp(sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2))) - 100)
 
         # calculate the growth rate
-        gr = with(ests,
-                  100 * exp(b_i - sum(p_i * b_i)) - 100)
+        #gr = with(ests,
+        #          100 * exp(b_i - sum(p_i * b_i)) - 100)
 
         # add in doubling times
-        se.gr_link = with(data = ests,
-                          expr = sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2)))
-        gr_link = with(data = ests,
-                       expr = (b_i - sum(p_i * b_i)))
-        gr_lo_link = gr_link - 1.96 * se.gr_link
-        gr_hi_link = gr_link + 1.96 * se.gr_link
+        #se.gr_link = with(data = ests,
+        #                  expr = sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2)))
+        #gr_link = with(data = ests,
+        #               expr = (b_i - sum(p_i * b_i)))
+        #gr_lo_link = gr_link - 1.96 * se.gr_link
+        #gr_hi_link = gr_link + 1.96 * se.gr_link
 
-        gr_lo = 100 * exp(gr_lo_link) - 100
-        gr_hi = 100 * exp(gr_hi_link) - 100
+        #gr_lo = 100 * exp(gr_lo_link) - 100
+        #gr_hi = 100 * exp(gr_hi_link) - 100
 
         # calculate doubling time
-        doubling_time    = log(2)/gr_link * 7
-        doubling_time_lo = log(2)/gr_lo_link * 7
-        doubling_time_hi = log(2)/gr_hi_link * 7
+        #doubling_time    = log(2)/gr_link * 7
+        #doubling_time_lo = log(2)/gr_lo_link * 7
+        #doubling_time_hi = log(2)/gr_hi_link * 7
 
         # empty dataframe to store growth rates (and doubling times) for aggregated variants
-        gr_agg <- data.frame( variant = rownames(agg_var_mat),
-                              gr    = NA,
-                              se.gr = NA,
-                              gr_lo = NA,
-                              gr_hi = NA,
-                              gr_link = NA,
-                              se.gr_link = NA,
-                              gr_lo_link = NA,
-                              gr_hi_link = NA,
-                              dt    = NA,
-                              dt_lo = NA,
-                              dt_hi = NA)
+        #gr_agg <- data.frame( variant = rownames(agg_var_mat),
+        #                      gr    = NA,
+        #                     se.gr = NA,
+        #                      gr_lo = NA,
+        #                     gr_hi = NA,
+        #                      dt    = NA,
+        #                      dt_lo = NA,
+        #                      dt_hi = NA)
         # extract the growth rates for the aggregated variants
-        for(r in 1:nrow(agg_var_mat)){
+        #for(r in 1:nrow(agg_var_mat)){
           # if nothing is actually being aggregated, just get the growth rate of the individual component
-          if(unname(rowSums(agg_var_mat)[r]) == 1){
-            col_ind <- which(agg_var_mat[r,]>0)
-            gr_agg[r,'gr']    <- gr[col_ind]
-            gr_agg[r,'se.gr'] <- se.gr[col_ind]
-            gr_agg[r,'gr_lo'] <- gr_lo[col_ind]
-            gr_agg[r,'gr_hi'] <- gr_hi[col_ind]
-            gr_agg[r,'gr_link'] <- gr_link[col_ind]
-            gr_agg[r,'se.gr_link'] <- se.gr_link[col_ind]
-            gr_agg[r,'gr_lo_link'] <- gr_lo_link[col_ind]
-            gr_agg[r,'gr_hi_link'] <- gr_hi_link[col_ind]
-            gr_agg[r,'dt']    <- doubling_time[col_ind]
-            gr_agg[r,'dt_lo'] <- doubling_time_lo[col_ind]
-            gr_agg[r,'dt_hi'] <- doubling_time_hi[col_ind]
-          } else {
+        #  if(unname(rowSums(agg_var_mat)[r]) == 1){
+        #    col_ind <- which(agg_var_mat[r,]>0)
+        #    gr_agg[r,'gr']    <- gr[col_ind]
+        #    gr_agg[r,'se.gr'] <- se.gr[col_ind]
+        #    gr_agg[r,'gr_lo'] <- gr_lo[col_ind]
+        #    gr_agg[r,'gr_hi'] <- gr_hi[col_ind]
+        #    gr_agg[r,'dt']    <- doubling_time[col_ind]
+        #    gr_agg[r,'dt_lo'] <- doubling_time_lo[col_ind]
+        #    gr_agg[r,'dt_hi'] <- doubling_time_hi[col_ind]
+        #  } else {
             # if there are component variants, then take the weighted mean to get the aggregated growth rate
-            col_ind <- unname(which(agg_var_mat[r,]>0))
-            # gr_agg[r,'gr']    <- sum(   gr[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-            # gr_agg[r,'gr_lo'] <- sum(gr_lo[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-            # gr_agg[r,'gr_hi'] <- sum(gr_hi[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-            gr_agg[r,'gr_link']    <- sum(gr_link[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-            gr_agg[r,'se.gr_link'] <- sum(se.gr_link[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-            gr_agg[r,'gr_lo_link'] <- gr_agg[r,'gr_link'] - 1.96 * gr_agg[r,'se.gr_link']
-            gr_agg[r,'gr_hi_link'] <- gr_agg[r,'gr_link'] + 1.96 * gr_agg[r,'se.gr_link']
+        #    col_ind <- unname(which(agg_var_mat[r,]>0))
+        #    gr_agg[r,'gr']    <- sum(   gr[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+        #    gr_agg[r,'gr_lo'] <- sum(gr_lo[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+        #    gr_agg[r,'gr_hi'] <- sum(gr_hi[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+        #    gr_agg[r,'dt']    <- sum(   doubling_time[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+        #    gr_agg[r,'dt_lo'] <- sum(doubling_time_lo[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+        #    gr_agg[r,'dt_hi'] <- sum(doubling_time_hi[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
+        #  }
+        #}
+        # format estimates into dataframe with relevant info
+        #ests = data.table::data.table(
+        #  USA_or_HHSRegion = rgn,
+        #  Fortnight_ending = as.Date(ftn, origin="1970-01-01"),
+        #  Variant = c(model_vars,
+        #              "Other",
+        #              row.names(ests$composite_variant$matrix)),
+        #  Share = ests$p_S, # c(ests$p_i, ests$composite_variant$p_i),
+        #  se.Share = ests$se.p_S, # c(ests$se.p_i, ests$composite_variant$se.p_i),
+        #  growth_rate    = 100 * exp(ests$g_S) - 100, # c(gr,    gr_agg$gr),
+        #  growth_rate_lo = 100 * exp(ests$g_S - 1.96 * ests$se.g_S) - 100, # c(gr_lo, gr_agg$gr_lo),
+        #  growth_rate_hi = 100 * exp(ests$g_S + 1.96 * ests$se.g_S) - 100, # c(gr_hi, gr_agg$gr_hi),
+        #  doubling_time    = log(2)/ests$g_S * 7, # c(doubling_time,    gr_agg$dt),
+        #  doubling_time_lo = log(2)/(ests$g_S - 1.96 * ests$se.g_S) * 7, # c(doubling_time_lo, gr_agg$dt_lo),
+        #  doubling_time_hi = log(2)/(ests$g_S - 1.96 * ests$se.g_S) * 7 # c(doubling_time_hi, gr_agg$dt_hi)
+        #)
 
-            gr_agg[r,'gr']    <- 100 * exp(gr_agg[r,'gr_link']) - 100
-            gr_agg[r,'gr_lo'] <- 100 * exp(gr_agg[r,'gr_lo_link']) - 100
-            gr_agg[r,'gr_hi'] <- 100 * exp(gr_agg[r,'gr_hi_link']) - 100
-            # gr_agg[r,'dt']    <- sum(   doubling_time[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-            # gr_agg[r,'dt_lo'] <- sum(doubling_time_lo[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-            # gr_agg[r,'dt_hi'] <- sum(doubling_time_hi[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-            gr_agg[r,'dt']    <- log(2) / gr_agg[r,'gr_link'] * 7
-            gr_agg[r,'dt_lo'] <- log(2) / gr_agg[r,'gr_lo_link'] * 7
-            gr_agg[r,'dt_hi'] <- log(2) / gr_agg[r,'gr_hi_link'] * 7
-          }
-        }
+        # format estimates into dataframe with relevant info
+        #ests = data.table::data.table(
+        #  USA_or_HHSRegion = rgn,
+        #  Fortnight_ending = as.Date(ftn, origin="1970-01-01"),
+        #  Variant = c(model_vars,
+        #              "Other",
+        #              row.names(ests$composite_variant$matrix)),
+        #  Share = c(ests$p_i,
+        #            ests$composite_variant$p_i),
+        #  se.Share = c(ests$se.p_i,
+        #               ests$composite_variant$se.p_i),
+        #  growth_rate    = c(gr,    gr_agg$gr),
+        #  growth_rate_lo = c(gr_lo, gr_agg$gr_lo),
+        #  growth_rate_hi = c(gr_hi, gr_agg$gr_hi),
+        #  doubling_time    = c(doubling_time,    gr_agg$dt),
+        #  doubling_time_lo = c(doubling_time_lo, gr_agg$dt_lo),
+        #  doubling_time_hi = c(doubling_time_hi, gr_agg$dt_hi)
+        #)
 
         # format estimates into dataframe with relevant info
         ests = data.table::data.table(
@@ -4577,16 +4593,14 @@ if ( grepl("Run2",tag) ){
           Variant = c(model_vars,
                       "Other",
                       row.names(ests$composite_variant$matrix)),
-          Share = c(ests$p_i,
-                    ests$composite_variant$p_i),
-          se.Share = c(ests$se.p_i,
-                       ests$composite_variant$se.p_i),
-          growth_rate    = c(gr,    gr_agg$gr),
-          growth_rate_lo = c(gr_lo, gr_agg$gr_lo),
-          growth_rate_hi = c(gr_hi, gr_agg$gr_hi),
-          doubling_time    = c(doubling_time,    gr_agg$dt),
-          doubling_time_lo = c(doubling_time_lo, gr_agg$dt_lo),
-          doubling_time_hi = c(doubling_time_hi, gr_agg$dt_hi)
+          Share = ests$p_S, # c(ests$p_i, ests$composite_variant$p_i),
+          se.Share = ests$se.p_S, # c(ests$se.p_i, ests$composite_variant$se.p_i),
+          growth_rate    = 100 * exp(ests$g_S) - 100, # c(gr,    gr_agg$gr),
+          growth_rate_lo = 100 * exp(ests$g_S - 1.96 * ests$se.g_S) - 100, # c(gr_lo, gr_agg$gr_lo),
+          growth_rate_hi = 100 * exp(ests$g_S + 1.96 * ests$se.g_S) - 100, # c(gr_hi, gr_agg$gr_hi),
+          doubling_time    = log(2)/ests$g_S * 7, # c(doubling_time,    gr_agg$dt),
+          doubling_time_lo = log(2)/(ests$g_S - 1.96 * ests$se.g_S) * 7, # c(doubling_time_lo, gr_agg$dt_lo),
+          doubling_time_hi = log(2)/(ests$g_S - 1.96 * ests$se.g_S) * 7 # c(doubling_time_hi, gr_agg$dt_hi)
         )
 
         # Get binomial CI from p_i and se.p_i
