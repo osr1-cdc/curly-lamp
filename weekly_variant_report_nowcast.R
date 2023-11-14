@@ -773,6 +773,14 @@ if (voc2_extra_preaggregation | (tolower(opts$voc_aggregation_method) == 'update
   # update the row names
   row.names(voc_lut) <- 1:nrow(voc_lut)
 
+  # manually modify XCH's parent lineage
+  if(TRUE){
+    # set XCH's parent lineage to be the same as XBB's parent lineage
+    voc_lut[voc_lut$variant == 'XCH','lineage_expanded'] <- 'XBB.XCH'
+    voc_lut[voc_lut$variant == 'XCH','parent_lineage_expanded'] <- voc_lut[voc_lut$variant == 'XBB', 'parent_lineage_expanded']
+    voc_lut[voc_lut$variant == 'XCH','parent_variant']          <- voc_lut[voc_lut$variant == 'XBB', 'parent_variant']
+  }
+  
   # save the voc aggregation look-up table to file
   write.csv(x = voc_lut,
             file = paste0(script.basename, output_folder, '/voc_aggregation_table_', data_date, tag, '.csv'),
