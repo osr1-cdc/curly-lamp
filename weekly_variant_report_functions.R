@@ -631,7 +631,7 @@ svymultinom = function(mod.dat,
 se.multinom = function(mlm, 
                       newdata_1row,
                       composite_variant=NA,
-                      dy_dt=data.frame(week=1)) { 
+                      dy_dt=data.frame(model_week=1)) { 
   # Arguments:
   #  ~  mlm:   model output, with Hessian;
   #  ~  newdata_1row:  1-row dataframe consistent with predictors in formula
@@ -643,6 +643,9 @@ se.multinom = function(mlm,
   #                        designates a variant comprising the first and fourth
   #                        lineages in the model estimates for composites will
   #                        be appended at end of p_i and se.p_i
+  # ~  dy_dt:  data.frame with a column sharing the same name as the time-based 
+  #            predictor variable (typically "model_week") and the number of 
+  #            time units to use for calculating growth rates.
 
   # If mlm is without Hessian, all se's are set to zero
   # mlm not geographically stratified for geoid="USA": ~ (week - current_week)
@@ -681,8 +684,8 @@ se.multinom = function(mlm,
   cf <- coefficients(mlm)
   # get the variance-covariance matrix
   if ("svyvcov" %in% names(mlm)) {
-    vc <- mlm$svyvcov}
-  else { 
+    vc <- mlm$svyvcov
+  } else { 
     if ("Hessian" %in% names(mlm)) {
       vc <- solve(mlm$Hessian)
       # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #

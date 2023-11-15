@@ -31,7 +31,8 @@ library(data.table) # package for speeding up calculation of simple adjusted wei
 #  - do not convert strings to factors (as was default in R < 4.0)
 options(survey.adjust.domain.lonely = T,
         survey.lonely.psu = "average",
-        stringsAsFactors = FALSE)
+        stringsAsFactors = FALSE,
+        warn = 1) # show warnings immediately. 
 
 # optionally calculate 99% confidence intervals (in addition to 95% intervals)
 calc_99_CI_weighted <- FALSE # these might add a lot of time
@@ -3558,7 +3559,10 @@ if ( grepl("Run2",tag) ){
     us.summary = se.multinom(mlm   = svymlm_us$mlm,
                              newdata_1row = data.frame(
                                model_week = data_week_df$model_week, # formerly "model_week_mid", but that doesn't always work
-                               HHS = "USA"))
+                               HHS = "USA"
+                             ),
+                             composite_variant = NULL,
+                             dy_dt = data.frame(model_week=1))
 
     # calculate the SE of the estimated growth rate
     se.gr = with(data = us.summary,
@@ -3894,7 +3898,8 @@ if ( grepl("Run2",tag) ){
                                   model_week = data_week_df$model_week, # model_week_mid,
                                   HHS = hhs
                                 ),
-                                composite_variant = NULL)
+                                composite_variant = NULL,
+                                dy_dt = data.frame(model_week=1))
 
       # calculate the SE of the growth rate
       se.gr = with(data = hhs.summary,
@@ -4888,7 +4893,8 @@ if ( grepl("Run2",tag) ){
                              model_week = wk,
                              HHS = geoid
                            ),
-                           composite_variant = agg_var_mat)
+                           composite_variant = agg_var_mat,
+                           dy_dt = data.frame(model_week=1))
 
         # calculate the SE of the growth rate
         se.gr = with(data = ests,
