@@ -37,7 +37,7 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 # data_date <- Sys.Date()
-data_date <- as.Date('2023-11-14')
+data_date <- as.Date('2023-11-21')
 # This needs to be a date on which data were frozen in the CDP database
 # Set specific date_frozen to read sequencing data; but read test data and voc list from the data_date backup files. This can be used to rerun modeling using later date backfilled data.
 # Default would be data_date
@@ -78,6 +78,7 @@ voc1 = c(# "AY.1", "AY.2",
          "BA.2",
          "BA.2.12.1",
          "BA.2.75",
+         'BA.2.86',
          "BA.2.75.2",
          "CH.1.1",
          "BF.7",
@@ -106,6 +107,7 @@ voc1 = c(# "AY.1", "AY.2",
          'GK.2',
          'HV.1',
          'XBB.1.9.2',
+         'JG.3',
          'HK.3',
          'EG.5',
          'EG.6.1',
@@ -151,6 +153,7 @@ voc2_additional = c(
                     'BA.2',
                     'BA.2.12.1',
                     'BA.2.75',
+                    'BA.2.86',
                     "CH.1.1",
                     'BF.7',
                     'BF.11',
@@ -177,6 +180,7 @@ voc2_additional = c(
                     'GK.2',
                     'HV.1',
                     'XBB.1.9.2',
+                    'JG.3',
                     'HK.3',
                     'EG.5',
                     'EG.6.1',

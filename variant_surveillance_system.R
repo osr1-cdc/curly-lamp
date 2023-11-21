@@ -532,10 +532,10 @@ FROM sc2_archive.nrevss_frozen H
 INNER JOIN
 (SELECT max(date_frozen) as max_frozen
     FROM sc2_archive.nrevss_frozen hf
-    WHERE to_date(hf.date_frozen) = ', date_frozen, '  OR to_date(date_add(hf.date_frozen,-1)) = ', date_frozen, '
+    WHERE to_date(hf.date_frozen) = ', date_frozen, '  OR to_date(date_add(hf.date_frozen,-1)) = ', date_frozen, ' OR to_date(date_add(hf.date_frozen,1)) = ', date_frozen, '
 ) as F
 ON H.date_frozen = F.max_frozen'
-)) #Added condition to accomandate situation that nrevss data is frozen on a Wednesday, so that would be one day after the frozen date for all other data
+)) #Added condition to accomandate situation that nrevss data is frozen on a Wednesday, so that would be one day before or after the frozen date for all other data
 
 # Get the vocs included in run 2
 # only if voc2_manual is not set
