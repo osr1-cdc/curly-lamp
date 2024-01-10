@@ -32,12 +32,12 @@
 #$ -m ea
 # 
 # Choose queue
-#$ -q all.q
+#$ -q short.q,all.q
 # -q covid.q
 #
 
 # Set the parallel_environment to "smp" and use xx cores (smp = Symmetric multiprocessing or shared-memory multiprocessing); MAKE SURE THIS IS >= p CORES!
-#$ -pe smp 24
+#$ -pe smp 4
 # Set the amount of RAM (per processor) to use (default is 32 GB)
 #$ -l h_vmem=360G
 # set the run-time <hh:mm:ss> (default is 72 hrs)
@@ -45,11 +45,13 @@
 
 source /etc/profile
 
-source  /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
+source   /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
 
 
 
-Rscript weekly_variant_report_nowcast.R -r 1 -c F -v F -t quantile_99 -s T -p 24 -w weighted -b population -d FALSE -e updated
+
+
+Rscript weekly_variant_report_nowcast.R -r 1 -c F -v F -t quantile_99 -s T -p 4 -w weighted -b population -d FALSE -e updated
 # -r = run number
 # -c = include custom lineages
 # -v = use reduced vocs
