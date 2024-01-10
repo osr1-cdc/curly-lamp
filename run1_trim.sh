@@ -32,7 +32,7 @@
 #$ -m ea
 # 
 # Choose queue
-#$ -q short.q,all.q
+#$ -q all.q
 # -q covid.q
 #
 
