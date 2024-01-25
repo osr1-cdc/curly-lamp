@@ -39,14 +39,10 @@
 # Set the amount of RAM (per processor) to use (default is 32 GB)
 #$ -l h_vmem=360G
 # set the run-time <hh:mm:ss> (default is 72 hrs)
-#$ -l h_rt=03:00:00
+#$ -l h_rt=72:00:00
 source /etc/profile
 
-source  /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
-
-
-
-
+source   /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
 
 
 
