@@ -524,7 +524,7 @@ tests <- bind_rows(tests_valid, tests_exclusion)
 # download NREVSS testing data
 tests_nrevss = DBI::dbGetQuery(
   conn = impala,
-  statement = paste0( # 'SELECT * FROM sc2_archive.nrevss_frozen'
+  statement = paste0( # 'SELECT * FROM sc2_archive.nrevss_frozen_v2'
 'SELECT
   H.*,
   to_date(to_timestamp(H.mmwrweek_end, "yyyy-mm-dd:HH:mm:ss.SSS")) as collection_week
