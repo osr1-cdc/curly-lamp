@@ -527,7 +527,7 @@ tests_nrevss = DBI::dbGetQuery(
   statement = paste0( # 'SELECT * FROM sc2_archive.nrevss_frozen'
 'SELECT
   H.*,
-  to_date(to_timestamp(H.mmwrweek_end, "ddMMMyyyy:HH:mm:ss.SSS")) as collection_week
+  to_date(to_timestamp(H.mmwrweek_end, "yyyy-mm-dd:HH:mm:ss.SSS")) as collection_week
 FROM sc2_archive.nrevss_frozen H
 INNER JOIN
 (SELECT max(date_frozen) as max_frozen
@@ -1210,7 +1210,7 @@ tests_nrevss <- data.table::as.data.table(tests_nrevss)
 tests_nrevss <- tests_nrevss[ level == 'State' & source == 'NREVSS']
 
 # convert to date format
-if(!('collection_week' %in% names(tests_nrevss))) tests_nrevss[, 'collection_week' := as.Date( as.POSIXct(mmwrweek_end, format = '%d%b%Y:%H:%M:%S') , format = '%Y-%m-%d')]
+if(!('collection_week' %in% names(tests_nrevss))) tests_nrevss[, 'collection_week' := as.Date( as.POSIXct(mmwrweek_end, format = '%Y-%m-%d:%H:%M:%S') , format = '%Y-%m-%d')]
 if( class(tests_nrevss$collection_week) == 'character' ) tests_nrevss[, 'collection_week' := as.Date(x = collection_week, format = "%Y-%m-%d")] # UPDATE format
 
 # exclude unreasonable dates
