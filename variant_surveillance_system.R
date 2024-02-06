@@ -527,8 +527,8 @@ tests_nrevss = DBI::dbGetQuery(
   statement = paste0( # 'SELECT * FROM sc2_archive.nrevss_frozen_v2'
 'SELECT
   H.*,
-  to_date(to_timestamp(H.mmwrweek_end, "yyyy-mm-dd:HH:mm:ss.SSS")) as collection_week
-FROM sc2_archive.nrevss_frozen H
+  to_date(H.mmwrweek_end) as collection_week
+FROM sc2_archive.nrevss_frozen_v2 H
 INNER JOIN
 (SELECT max(date_frozen) as max_frozen
     FROM sc2_archive.nrevss_frozen hf
