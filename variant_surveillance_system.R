@@ -524,14 +524,14 @@ tests <- bind_rows(tests_valid, tests_exclusion)
 # download NREVSS testing data
 tests_nrevss = DBI::dbGetQuery(
   conn = impala,
-  statement = paste0( # 'SELECT * FROM sc2_archive.nrevss_frozen_v2'
+  statement = paste0( # 'SELECT * FROM sc2_archive.nrevss_frozen'
 'SELECT
   H.*,
   to_date(H.mmwrweek_end) as collection_week
-FROM sc2_archive.nrevss_frozen_v2 H
+FROM sc2_archive.nrevss_frozen H
 INNER JOIN
 (SELECT max(date_frozen) as max_frozen
-    FROM sc2_archive.nrevss_frozen_v2 hf
+    FROM sc2_archive.nrevss_frozen hf
     WHERE to_date(hf.date_frozen) = ', date_frozen, '  OR to_date(date_add(hf.date_frozen,-1)) = ', date_frozen, ' OR to_date(date_add(hf.date_frozen,1)) = ', date_frozen, '
 ) as F
 ON H.date_frozen = F.max_frozen'
