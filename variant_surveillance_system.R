@@ -531,7 +531,7 @@ tests_nrevss = DBI::dbGetQuery(
 FROM sc2_archive.nrevss_frozen_v2 H
 INNER JOIN
 (SELECT max(date_frozen) as max_frozen
-    FROM sc2_archive.nrevss_frozen hf
+    FROM sc2_archive.nrevss_frozen_v2 hf
     WHERE to_date(hf.date_frozen) = ', date_frozen, '  OR to_date(date_add(hf.date_frozen,-1)) = ', date_frozen, ' OR to_date(date_add(hf.date_frozen,1)) = ', date_frozen, '
 ) as F
 ON H.date_frozen = F.max_frozen'
