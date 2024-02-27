@@ -288,19 +288,19 @@ FROM sc2_archive.analytics_metadata_frozen
 
 #throw an error if the data_date isn't in the
 #sc2_archive.analytics_metadata_frozen table.
-if( !((as.character(data_date) %in% unlist(valid_data_dates)) &
-      (as.character(data_date) %in% unlist(valid_tests_dates))) ){
-  errorCondition(paste0(
-    'The "data_date" provided (',
-    data_date,
-    ') is not in valid.\n
-    Valid options from sc2_archive.analytics_metadata_frozen.date_frozen include:\n',
-    paste(sort(valid_data_dates[,1]), collapse = '\n'),
-    '\nValid options from sc2_archive.hhs_protect_testing_frozen.date_frozen include:\n',
-    paste(sort(valid_tests_dates[,1]), collapse = '\n'),
-    '.'
-  ))
-}
+#if( !((as.character(data_date) %in% unlist(valid_data_dates)) &
+#      (as.character(data_date) %in% unlist(valid_tests_dates))) ){
+#  errorCondition(paste0(
+#    'The "data_date" provided (',
+#    data_date,
+#    ') is not in valid.\n
+#    Valid options from sc2_archive.analytics_metadata_frozen.date_frozen include:\n',
+#    paste(sort(valid_data_dates[,1]), collapse = '\n'),
+#    '\nValid options from sc2_archive.hhs_protect_testing_frozen.date_frozen include:\n',
+#    paste(sort(valid_tests_dates[,1]), collapse = '\n'),
+#    '.'
+#  ))
+#}
 
 
 # Get all field/column names from the table
@@ -2318,19 +2318,20 @@ svy.dat = merge(x = svy.dat,
 }
 
 # save aggregated testing data to file
-if(TRUE){
-  saveRDS(list('tests_daily'  = test_tallies_dly,
-               'tests_group'  = test_tallies_gp,
-               'tests_weekly' = test_tallies_wk,
-               'tests_weekly.HHS' = test_tallies_wk.HHS,
-               'tests_fortnight' = test_tallies_fn,
-               'tests_4weeks' = tests_state_bins_list),
-          file = paste0(script.basename,
-                        "/data/backup_",
-                        data_date, custom_tag, "/",
-                        data_date, "_tests_aggregated",
-                        custom_tag, ".RDS"))
-}
+#Commenedt out as CELR data is no longer needed
+#if(TRUE){
+  #saveRDS(list('tests_daily'  = test_tallies_dly,
+  #             'tests_group'  = test_tallies_gp,
+  #             'tests_weekly' = test_tallies_wk,
+  #             'tests_weekly.HHS' = test_tallies_wk.HHS,
+  #             'tests_fortnight' = test_tallies_fn,
+  #             'tests_4weeks' = tests_state_bins_list),
+  #        file = paste0(script.basename,
+  #                      "/data/backup_",
+  #                      data_date, custom_tag, "/",
+  #                      data_date, "_tests_aggregated",
+  #                      custom_tag, ".RDS"))
+#}
 
 # save aggregated NREVSS testing data to file
 if(TRUE){
