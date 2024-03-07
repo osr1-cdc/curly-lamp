@@ -377,7 +377,7 @@ time_start <- min(time_start_weights, time_end - model_weeks*7 + 1) # +1 to star
 # Option to calculate the number of confirmed cases attributable to each variant
 # This is done by simplying multiplying the proportions estimated in this script
 # by the number of confirmed positive cases from ICATT testing data.
-calc_confirmed_infections <- TRUE
+calc_confirmed_infections <- FALSE
 
 # Option to just fit the nowcast model and avoid the slower parts of the script
 # (this is only valid if the run number == 2)

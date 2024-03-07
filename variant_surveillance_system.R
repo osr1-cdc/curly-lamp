@@ -199,7 +199,7 @@ if(use_previously_imported_data & date_frozen_toread == data_date &
     file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_data", custom_tag, ".RDS")) &
     file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin", custom_tag, ".RDS")) &
     #file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline", custom_tag, ".RDS")) &
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS")) &
+    # file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS")) &
     file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS")) &
     file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests_nrevss", custom_tag, ".RDS"))){
 
@@ -207,7 +207,7 @@ if(use_previously_imported_data & date_frozen_toread == data_date &
   dat          <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_data",         custom_tag, ".RDS"))
   pangolin     <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin",     custom_tag, ".RDS"))
   #baseline    <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline",     custom_tag, ".RDS"))
-  tests        <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests",        custom_tag, ".RDS"))
+  # tests        <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests",        custom_tag, ".RDS"))
   tests_nrevss <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests_nrevss", custom_tag, ".RDS"))
   pops         <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops",         custom_tag, ".RDS"))
   #s1_groups <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_s1_groups", custom_tag, ".RDS"))
@@ -288,19 +288,19 @@ FROM sc2_archive.analytics_metadata_frozen
 
 #throw an error if the data_date isn't in the
 #sc2_archive.analytics_metadata_frozen table.
-#if( !((as.character(data_date) %in% unlist(valid_data_dates)) &
-#      (as.character(data_date) %in% unlist(valid_tests_dates))) ){
-#  errorCondition(paste0(
-#    'The "data_date" provided (',
-#    data_date,
-#    ') is not in valid.\n
-#    Valid options from sc2_archive.analytics_metadata_frozen.date_frozen include:\n',
-#    paste(sort(valid_data_dates[,1]), collapse = '\n'),
-#    '\nValid options from sc2_archive.hhs_protect_testing_frozen.date_frozen include:\n',
-#    paste(sort(valid_tests_dates[,1]), collapse = '\n'),
-#    '.'
-#  ))
-#}
+if( !((as.character(data_date) %in% unlist(valid_data_dates)) &
+      (as.character(data_date) %in% unlist(valid_tests_dates))) ){
+  errorCondition(paste0(
+    'The "data_date" provided (',
+    data_date,
+    ') is not in valid.\n
+    Valid options from sc2_archive.analytics_metadata_frozen.date_frozen include:\n',
+    paste(sort(valid_data_dates[,1]), collapse = '\n'),
+    '\nValid options from sc2_archive.hhs_protect_testing_frozen.date_frozen include:\n',
+    paste(sort(valid_tests_dates[,1]), collapse = '\n'),
+    '.'
+  ))
+}
 
 
 # Get all field/column names from the table
@@ -856,7 +856,7 @@ print('Finished reading in data.')
 dat          = distinct(dat.dt) # use the data.table version to speed up calculation of why sequences are being dropped
 pangolin     = distinct(pangolin)
 #baseline    = distinct(baseline)
-tests        = distinct(tests)
+# tests        = distinct(tests)
 tests_nrevss = distinct(tests_nrevss)
 pops         = distinct(pops)
 
@@ -1047,156 +1047,156 @@ us.dat = merge(x = us.dat,
 # Aggregate state testing data -------------------------------------------------
 # Test data are aggregated by week for weighting.
 
-## Testing data by state and date (HHS Protect) for weighting
-tests <- data.table::as.data.table(tests)
-
-# convert to date format
-# tests$collection_date = as.Date(x = tests$collection_date,
-#                                 format = "%Y-%m-%d")
-tests[, 'collection_date' := as.Date(x = collection_date,
-                                     format = "%Y-%m-%d")]
-
-# exclude unreasonable dates
-# tests = subset(x = tests,
-#                collection_date >= as.Date("2019-10-01") &
-#                  collection_date <= data_date) # Sys.Date()
-tests <- tests[collection_date >= as.Date("2019-10-01") &
-                 collection_date <= data_date,]
-
-# Add a column for the date of the first day of the week
-# tests$yr_wk = as.character(tests$collection_date - as.numeric(strftime(tests$collection_date, format="%w")))
-tests[,'yr_wk' := as.character(collection_date - as.numeric(strftime(collection_date, format="%w")))]
-
-# calculate the total number of tests
-tests$TOTAL = rowSums(tests[, c("INDETERMINATE", "INVALID", "NEGATIVE", "POSITIVE")],
-                      na.rm=TRUE)
-
-# Replace NAs with 0
-# tests$POSITIVE = ifelse(test = is.na(tests$POSITIVE),
-#                         yes = 0,
-#                         no = tests$POSITIVE)
-tests[is.na(POSITIVE), 'POSITIVE' := 0]
-
-# Aggregate tests by state & week for weighting
-# tests_wk = expand.grid(STUSAB = unique(tests$STUSAB),
-#                        yr_wk = unique(tests$yr_wk),
-#                        stringsAsFactors = FALSE)
-#
-# # calculate the number of positive tests & total tests for each week & state
-# for (cc in c("POSITIVE", "TOTAL")) {
-#   # calculate number of tests
-#   tests_wk = merge(x = tests_wk,
-#                    y = data.frame(xtabs(formula = tests[, cc] ~ STUSAB + yr_wk,
-#                                         data = tests,
-#                                         subset = TRUE)), # "subset" totally unnecessary, but it keeps Rstudio from complaining
-#                    all.x = TRUE)
-#
-#   # rename the newly created column
-#   names(tests_wk) = gsub(pattern = "[Ff]req",
-#                          replacement = cc,
-#                          x = names(tests_wk))
+# ## Testing data by state and date (HHS Protect) for weighting
+# tests <- data.table::as.data.table(tests)
+# 
+# # convert to date format
+# # tests$collection_date = as.Date(x = tests$collection_date,
+# #                                 format = "%Y-%m-%d")
+# tests[, 'collection_date' := as.Date(x = collection_date,
+#                                      format = "%Y-%m-%d")]
+# 
+# # exclude unreasonable dates
+# # tests = subset(x = tests,
+# #                collection_date >= as.Date("2019-10-01") &
+# #                  collection_date <= data_date) # Sys.Date()
+# tests <- tests[collection_date >= as.Date("2019-10-01") &
+#                  collection_date <= data_date,]
+# 
+# # Add a column for the date of the first day of the week
+# # tests$yr_wk = as.character(tests$collection_date - as.numeric(strftime(tests$collection_date, format="%w")))
+# tests[,'yr_wk' := as.character(collection_date - as.numeric(strftime(collection_date, format="%w")))]
+# 
+# # calculate the total number of tests
+# tests$TOTAL = rowSums(tests[, c("INDETERMINATE", "INVALID", "NEGATIVE", "POSITIVE")],
+#                       na.rm=TRUE)
+# 
+# # Replace NAs with 0
+# # tests$POSITIVE = ifelse(test = is.na(tests$POSITIVE),
+# #                         yes = 0,
+# #                         no = tests$POSITIVE)
+# tests[is.na(POSITIVE), 'POSITIVE' := 0]
+# 
+# # Aggregate tests by state & week for weighting
+# # tests_wk = expand.grid(STUSAB = unique(tests$STUSAB),
+# #                        yr_wk = unique(tests$yr_wk),
+# #                        stringsAsFactors = FALSE)
+# #
+# # # calculate the number of positive tests & total tests for each week & state
+# # for (cc in c("POSITIVE", "TOTAL")) {
+# #   # calculate number of tests
+# #   tests_wk = merge(x = tests_wk,
+# #                    y = data.frame(xtabs(formula = tests[, cc] ~ STUSAB + yr_wk,
+# #                                         data = tests,
+# #                                         subset = TRUE)), # "subset" totally unnecessary, but it keeps Rstudio from complaining
+# #                    all.x = TRUE)
+# #
+# #   # rename the newly created column
+# #   names(tests_wk) = gsub(pattern = "[Ff]req",
+# #                          replacement = cc,
+# #                          x = names(tests_wk))
+# # }
+# tests_wk <- tests[,
+#                   .(
+#                     'POSITIVE' = sum(POSITIVE, na.rm = T),
+#                     'TOTAL'    = sum(INDETERMINATE, INVALID, NEGATIVE, POSITIVE, na.rm = T)
+#                   ),
+#                   by = c('STUSAB', 'yr_wk')]
+# # update some of the column names
+# # data.table::setnames(x = tests_wk,
+# #                      old = c('TOTAL', 'POSITIVE'),
+# #                      new = c('TOTAL_weekly', 'POSITIVE_weekly'))
+# 
+# 
+# # Aggregate tests by state & group for alternate weighting
+# {
+#   # Aggregate most recent 3 weeks together
+#   # aggregegate 2 weeks before that
+#   # aggregate weekly before that
+# 
+#   # most recent 3 weeks:
+#   final_3_wks <- as.character((as.Date(time_end) - 20) + (0:2)*7)
+#   previous_2_wks <- as.character( min(as.Date(final_3_wks)) - (2:1)*7 )
+# 
+#   tests$group = tests$yr_wk
+#   tests$group[ tests$yr_wk %in% final_3_wks] <- final_3_wks[1]
+#   tests$group[ tests$yr_wk %in% previous_2_wks] <- previous_2_wks[1]
+# 
+#   # tests_group = expand.grid(STUSAB = unique(tests$STUSAB),
+#   #                           stringsAsFactors = FALSE)
+#   #
+#   # # calculate the number of positive tests & total tests for each fortnight & state
+#   # for (cc in c("POSITIVE", "TOTAL")) {
+#   #   # calculate number of tests
+#   #   tests_group = merge(x = tests_group,
+#   #                       y = data.frame(xtabs(formula = tests[, cc] ~ STUSAB + group,
+#   #                                            data = tests,
+#   #                                            subset = TRUE)), # "subset" totally unnecessary, but it keeps Rstudio from complaining
+#   #                       all.x = TRUE)
+#   #
+#   #   # rename the newly created column
+#   #   names(tests_group) = gsub(pattern = "[Ff]req",
+#   #                             replacement = cc,
+#   #                             x = names(tests_group))
+#   # }
+#   tests_group <- tests[,
+#                     .(
+#                       'POSITIVE' = sum(POSITIVE, na.rm = T),
+#                       'TOTAL'    = sum(INDETERMINATE, INVALID, NEGATIVE, POSITIVE, na.rm = T)
+#                     ),
+#                     by = c('STUSAB', 'group')]
+#   # update some of the column names
+#   # data.table::setnames(x = tests_group,
+#   #                      old = c('TOTAL', 'POSITIVE'),
+#   #                      new = c('TOTAL_group', 'POSITIVE_group'))
 # }
-tests_wk <- tests[,
-                  .(
-                    'POSITIVE' = sum(POSITIVE, na.rm = T),
-                    'TOTAL'    = sum(INDETERMINATE, INVALID, NEGATIVE, POSITIVE, na.rm = T)
-                  ),
-                  by = c('STUSAB', 'yr_wk')]
-# update some of the column names
-# data.table::setnames(x = tests_wk,
-#                      old = c('TOTAL', 'POSITIVE'),
-#                      new = c('TOTAL_weekly', 'POSITIVE_weekly'))
-
-
-# Aggregate tests by state & group for alternate weighting
-{
-  # Aggregate most recent 3 weeks together
-  # aggregegate 2 weeks before that
-  # aggregate weekly before that
-
-  # most recent 3 weeks:
-  final_3_wks <- as.character((as.Date(time_end) - 20) + (0:2)*7)
-  previous_2_wks <- as.character( min(as.Date(final_3_wks)) - (2:1)*7 )
-
-  tests$group = tests$yr_wk
-  tests$group[ tests$yr_wk %in% final_3_wks] <- final_3_wks[1]
-  tests$group[ tests$yr_wk %in% previous_2_wks] <- previous_2_wks[1]
-
-  # tests_group = expand.grid(STUSAB = unique(tests$STUSAB),
-  #                           stringsAsFactors = FALSE)
-  #
-  # # calculate the number of positive tests & total tests for each fortnight & state
-  # for (cc in c("POSITIVE", "TOTAL")) {
-  #   # calculate number of tests
-  #   tests_group = merge(x = tests_group,
-  #                       y = data.frame(xtabs(formula = tests[, cc] ~ STUSAB + group,
-  #                                            data = tests,
-  #                                            subset = TRUE)), # "subset" totally unnecessary, but it keeps Rstudio from complaining
-  #                       all.x = TRUE)
-  #
-  #   # rename the newly created column
-  #   names(tests_group) = gsub(pattern = "[Ff]req",
-  #                             replacement = cc,
-  #                             x = names(tests_group))
-  # }
-  tests_group <- tests[,
-                    .(
-                      'POSITIVE' = sum(POSITIVE, na.rm = T),
-                      'TOTAL'    = sum(INDETERMINATE, INVALID, NEGATIVE, POSITIVE, na.rm = T)
-                    ),
-                    by = c('STUSAB', 'group')]
-  # update some of the column names
-  # data.table::setnames(x = tests_group,
-  #                      old = c('TOTAL', 'POSITIVE'),
-  #                      new = c('TOTAL_group', 'POSITIVE_group'))
-}
-
-# aggregate tests by state & day
-# Note: daily aggregation is not for weighting. It's just for calculating the number
-#       of PCR confirmed infections are the results of each variant (by multiplying
-#       estimated proportions by the number of positive test results).
-tests_dy <- tests[,
-                  .(
-                    'POSITIVE' = sum(POSITIVE, na.rm = T),
-                    'TOTAL'    = sum(INDETERMINATE, INVALID, NEGATIVE, POSITIVE, na.rm = T)
-                  ),
-                  by = c('STUSAB', 'collection_date')]
-# change some column names
-data.table::setnames(x = tests_dy,
-                     old = c('collection_date', 'TOTAL', 'POSITIVE'),
-                     new = c('date', 'TOTAL_daily', 'POSITIVE_daily'))
-
-# aggregate tests by state & fortnight
-# Note: fortnightly aggregation is not for weighting. It's just for calculating the number
-#       of PCR confirmed infections are the results of each variant (by multiplying
-#       estimated proportions by the number of positive test results).
-tests[, 'week' := as.numeric(as.Date(yr_wk) - week0day1)/7]
-tests[, 'fortnight_end' := as.character(week0day1 + week %/% 2 * 14 + 13)]
-tests_fn <- tests[,
-                  .(
-                    'POSITIVE' = sum(POSITIVE, na.rm = T),
-                    'TOTAL'    = sum(INDETERMINATE, INVALID, NEGATIVE, POSITIVE, na.rm = T)
-                  ),
-                  by = c('STUSAB', 'fortnight_end')]
-
-# aggregate tests by state & 4-week period
-# Note: this aggregation is not for weighting. It's just for calculating the number
-#       of PCR confirmed infections are the results of each variant (by multiplying
-#       estimated state-level proportions (calculated in rolling 4-week bins) by
-#       the number of positive test results).
-
-tests_state_bins_list <- lapply(X = state_time_end, FUN = function(dd){
-  # filter the tests dataset to only include tests in the relevant bin
-  tests[ collection_date %in% (dd - 7*4):dd,
-         .(
-           'POSITIVE' = sum(POSITIVE, na.rm = T),
-           'TOTAL'    = sum(INDETERMINATE, INVALID, NEGATIVE, POSITIVE, na.rm = T)
-         ),
-         by = c('STUSAB')]
-})
-
-names(tests_state_bins_list) <- state_time_end
-
+# 
+# # aggregate tests by state & day
+# # Note: daily aggregation is not for weighting. It's just for calculating the number
+# #       of PCR confirmed infections are the results of each variant (by multiplying
+# #       estimated proportions by the number of positive test results).
+# tests_dy <- tests[,
+#                   .(
+#                     'POSITIVE' = sum(POSITIVE, na.rm = T),
+#                     'TOTAL'    = sum(INDETERMINATE, INVALID, NEGATIVE, POSITIVE, na.rm = T)
+#                   ),
+#                   by = c('STUSAB', 'collection_date')]
+# # change some column names
+# data.table::setnames(x = tests_dy,
+#                      old = c('collection_date', 'TOTAL', 'POSITIVE'),
+#                      new = c('date', 'TOTAL_daily', 'POSITIVE_daily'))
+# 
+# # aggregate tests by state & fortnight
+# # Note: fortnightly aggregation is not for weighting. It's just for calculating the number
+# #       of PCR confirmed infections are the results of each variant (by multiplying
+# #       estimated proportions by the number of positive test results).
+# tests[, 'week' := as.numeric(as.Date(yr_wk) - week0day1)/7]
+# tests[, 'fortnight_end' := as.character(week0day1 + week %/% 2 * 14 + 13)]
+# tests_fn <- tests[,
+#                   .(
+#                     'POSITIVE' = sum(POSITIVE, na.rm = T),
+#                     'TOTAL'    = sum(INDETERMINATE, INVALID, NEGATIVE, POSITIVE, na.rm = T)
+#                   ),
+#                   by = c('STUSAB', 'fortnight_end')]
+# 
+# # aggregate tests by state & 4-week period
+# # Note: this aggregation is not for weighting. It's just for calculating the number
+# #       of PCR confirmed infections are the results of each variant (by multiplying
+# #       estimated state-level proportions (calculated in rolling 4-week bins) by
+# #       the number of positive test results).
+# 
+# tests_state_bins_list <- lapply(X = state_time_end, FUN = function(dd){
+#   # filter the tests dataset to only include tests in the relevant bin
+#   tests[ collection_date %in% (dd - 7*4):dd,
+#          .(
+#            'POSITIVE' = sum(POSITIVE, na.rm = T),
+#            'TOTAL'    = sum(INDETERMINATE, INVALID, NEGATIVE, POSITIVE, na.rm = T)
+#          ),
+#          by = c('STUSAB')]
+# })
+# 
+# names(tests_state_bins_list) <- state_time_end
+# 
 
 
 
@@ -1284,197 +1284,197 @@ tests_nrevss_hhs_fn <- tests_nrevss[,
 
 
 # Weighting---------------------------------------------------------------------
-# (weights are calculated here & recalculated in weekly_variant_report_nowcast.R
-#  after data are subset.)
-
-#Weights are estimated by treating each source (contracting lab, or CDC surveillance) as a cluster
-#   nested with strata (states), calculated for each week (i.e., to ensure representation weekly).
-#Two sets of weights are estimated: the first, $w_p$, for representation among (PCR) test positive
-#   indivduals; and, second, $w_i$, for representation among all prevalent infections. Assumptions
-#   (modifiable as data become available) in estimating weights are:
-
-#  * Each positive (PCR) test is in the sampling frame of one of the source streams, so that for
-#    each state, week and source
-#$$w_p = \frac{\mbox{number of positive PCR test results}}{\mbox{number of sequences submitted}}$$
-#  * Oversampling of SGTF samples by one source results in a reduction in weights of SGTF sequences
-#   from that source by a factor that is estimated using a logistic regression model relating the
-#   odds of finding an "SGTF variant" by source, state and week.
-#   There is no reliable and precise method for this yet, so these weights are subject to
-#   considerable uncertainties. Here, a [strategy](https://www.medrxiv.org/content/10.1101/2020.10.07.20208504v2.full-text)
-#   based on test positivity is used (other [strategies](https://covid19-projections.com/estimating-true-infections-revisited/)
-#   are available, too):
-#  $$\frac{\mbox{number of prevalent infections}}{\mbox{number of test positives}} = \sqrt{\frac{\mbox{population of jurisdiction}}{\mbox{number of tests}}}$$
-#  If each source (lab) stream is assumed to sample from a base population with the same prevalence
-#   of infection as the jurisdiction (state), it can be shown that the weight specific to each source,
-#   based on the test positivity of each source, is:
-#  $$w_i = \frac{\mbox{number of prevalent infections in source}}{\mbox{number of source positives}}
-#= \frac{\mbox{number of source positives}}{\mbox{number of source tests}}
-#{\frac{\sqrt{\mbox{population of jurisdiction}\times\mbox{number of tests}}}{\mbox{number of positives}}}$$
-
-#  The "infection" weight for each sequence is $w_p\times w_i$, and depends on stratum (state), time (week of collection) and cluster (source).
-
-## Test tally denominator streams
-# merge state populations & HHS region into the tests per week dataset
-test_tallies_wk = merge(x = merge(x = tests_wk,
-                                  y = hhs,
-                                  all.x=TRUE),
-                        y = data.frame(STUSAB = toupper(pops$STUSAB),
-                                       state_population = pops$Total.),
-                        all.x = TRUE)
-# by grouping
-test_tallies_gp = merge(x = merge(x = tests_group,
-                                  y = hhs,
-                                  all.x=TRUE),
-                        y = data.frame(STUSAB = toupper(pops$STUSAB),
-                                       state_population = pops$Total.),
-                        all.x = TRUE)
-# by day
-test_tallies_dly = merge(x = merge(x = tests_dy,
-                                   y = hhs,
-                                   all.x = TRUE),
-                         y = data.frame(STUSAB = toupper(pops$STUSAB),
-                                        state_population = pops$Total.),
-                         all.x = TRUE)
-# by fortnight
-test_tallies_fn = merge(x = merge(x = tests_fn,
-                                   y = hhs,
-                                   all.x = TRUE),
-                         y = data.frame(STUSAB = toupper(pops$STUSAB),
-                                        state_population = pops$Total.),
-                         all.x = TRUE)
-
-# adjust populations based on the number of weeks in each group
-test_tallies_gp$group_population = test_tallies_gp$state_population
-test_tallies_gp[ test_tallies_gp$group %in% final_3_wks, 'group_population'] = test_tallies_gp[ test_tallies_gp$group %in% final_3_wks, 'state_population'] * length(final_3_wks)
-test_tallies_gp[ test_tallies_gp$group %in% previous_2_wks, 'group_population'] = test_tallies_gp[ test_tallies_gp$group %in% previous_2_wks, 'state_population'] * length(previous_2_wks)
-
-
-# estimates of infections based on: https://www.medrxiv.org/content/10.1101/2020.10.07.20208504v2.full-text
-# sqrt(state_population/TOTAL) this estimates the geometric mean of the total population versus the state population
-# to try to get around the bias of assuming either total or state population
-
-# Estimate the total number of infections based on test positivity rate
-test_tallies_wk = within(data = test_tallies_wk,
-                         expr = INFECTIONS <- ifelse(test = TOTAL > 0,
-                                                     yes = POSITIVE * sqrt(state_population/TOTAL),
-                                                     no = 0))
-
-test_tallies_gp = within(data = test_tallies_gp,
-                         expr = INFECTIONS <- ifelse(test = TOTAL > 0,
-                                                     yes = POSITIVE * sqrt(group_population/TOTAL),
-                                                     no = 0))
-# the daily test tallies aren't used for weights, so no need to calculate infections
-
-# Number of weeks since start date
-test_tallies_wk$week = as.numeric(as.Date(test_tallies_wk$yr_wk) - week0day1)%/%7
-test_tallies_gp$week = as.numeric(as.Date(test_tallies_gp$group) - week0day1)%/%7
-# Aggregate infections & populations by HHS region
-# incidence_by_region = merge(
-#   x = aggregate(formula = INFECTIONS ~ yr_wk + HHS,
-#                 data = test_tallies_wk,
-#                 FUN = sum),
-#   y = aggregate(formula = state_population ~ yr_wk + HHS,
-#                 data = test_tallies_wk,
-#                 FUN = sum)
-# )
-# incidence_by_region_gp = merge(
-#   x = aggregate(formula = INFECTIONS ~ group + HHS,
-#                 data = test_tallies_gp,
-#                 FUN = sum),
-#   y = aggregate(formula = group_population ~ group + HHS,
-#                 data = test_tallies_gp,
-#                 FUN = sum)
-# )
-# # calculate infection rate
-# incidence_by_region$HHS_INCIDENCE       = incidence_by_region$INFECTIONS    / incidence_by_region$state_population
-# incidence_by_region_gp$HHS_INCIDENCE_gp = incidence_by_region_gp$INFECTIONS / incidence_by_region_gp$group_population
-
+# # (weights are calculated here & recalculated in weekly_variant_report_nowcast.R
+# #  after data are subset.)
+# 
+# #Weights are estimated by treating each source (contracting lab, or CDC surveillance) as a cluster
+# #   nested with strata (states), calculated for each week (i.e., to ensure representation weekly).
+# #Two sets of weights are estimated: the first, $w_p$, for representation among (PCR) test positive
+# #   indivduals; and, second, $w_i$, for representation among all prevalent infections. Assumptions
+# #   (modifiable as data become available) in estimating weights are:
+# 
+# #  * Each positive (PCR) test is in the sampling frame of one of the source streams, so that for
+# #    each state, week and source
+# #$$w_p = \frac{\mbox{number of positive PCR test results}}{\mbox{number of sequences submitted}}$$
+# #  * Oversampling of SGTF samples by one source results in a reduction in weights of SGTF sequences
+# #   from that source by a factor that is estimated using a logistic regression model relating the
+# #   odds of finding an "SGTF variant" by source, state and week.
+# #   There is no reliable and precise method for this yet, so these weights are subject to
+# #   considerable uncertainties. Here, a [strategy](https://www.medrxiv.org/content/10.1101/2020.10.07.20208504v2.full-text)
+# #   based on test positivity is used (other [strategies](https://covid19-projections.com/estimating-true-infections-revisited/)
+# #   are available, too):
+# #  $$\frac{\mbox{number of prevalent infections}}{\mbox{number of test positives}} = \sqrt{\frac{\mbox{population of jurisdiction}}{\mbox{number of tests}}}$$
+# #  If each source (lab) stream is assumed to sample from a base population with the same prevalence
+# #   of infection as the jurisdiction (state), it can be shown that the weight specific to each source,
+# #   based on the test positivity of each source, is:
+# #  $$w_i = \frac{\mbox{number of prevalent infections in source}}{\mbox{number of source positives}}
+# #= \frac{\mbox{number of source positives}}{\mbox{number of source tests}}
+# #{\frac{\sqrt{\mbox{population of jurisdiction}\times\mbox{number of tests}}}{\mbox{number of positives}}}$$
+# 
+# #  The "infection" weight for each sequence is $w_p\times w_i$, and depends on stratum (state), time (week of collection) and cluster (source).
+# 
+# ## Test tally denominator streams
+# # merge state populations & HHS region into the tests per week dataset
+# test_tallies_wk = merge(x = merge(x = tests_wk,
+#                                   y = hhs,
+#                                   all.x=TRUE),
+#                         y = data.frame(STUSAB = toupper(pops$STUSAB),
+#                                        state_population = pops$Total.),
+#                         all.x = TRUE)
+# # by grouping
+# test_tallies_gp = merge(x = merge(x = tests_group,
+#                                   y = hhs,
+#                                   all.x=TRUE),
+#                         y = data.frame(STUSAB = toupper(pops$STUSAB),
+#                                        state_population = pops$Total.),
+#                         all.x = TRUE)
+# # by day
+# test_tallies_dly = merge(x = merge(x = tests_dy,
+#                                    y = hhs,
+#                                    all.x = TRUE),
+#                          y = data.frame(STUSAB = toupper(pops$STUSAB),
+#                                         state_population = pops$Total.),
+#                          all.x = TRUE)
+# # by fortnight
+# test_tallies_fn = merge(x = merge(x = tests_fn,
+#                                    y = hhs,
+#                                    all.x = TRUE),
+#                          y = data.frame(STUSAB = toupper(pops$STUSAB),
+#                                         state_population = pops$Total.),
+#                          all.x = TRUE)
+# 
+# # adjust populations based on the number of weeks in each group
+# test_tallies_gp$group_population = test_tallies_gp$state_population
+# test_tallies_gp[ test_tallies_gp$group %in% final_3_wks, 'group_population'] = test_tallies_gp[ test_tallies_gp$group %in% final_3_wks, 'state_population'] * length(final_3_wks)
+# test_tallies_gp[ test_tallies_gp$group %in% previous_2_wks, 'group_population'] = test_tallies_gp[ test_tallies_gp$group %in% previous_2_wks, 'state_population'] * length(previous_2_wks)
+# 
+# 
+# # estimates of infections based on: https://www.medrxiv.org/content/10.1101/2020.10.07.20208504v2.full-text
+# # sqrt(state_population/TOTAL) this estimates the geometric mean of the total population versus the state population
+# # to try to get around the bias of assuming either total or state population
+# 
+# # Estimate the total number of infections based on test positivity rate
+# test_tallies_wk = within(data = test_tallies_wk,
+#                          expr = INFECTIONS <- ifelse(test = TOTAL > 0,
+#                                                      yes = POSITIVE * sqrt(state_population/TOTAL),
+#                                                      no = 0))
+# 
+# test_tallies_gp = within(data = test_tallies_gp,
+#                          expr = INFECTIONS <- ifelse(test = TOTAL > 0,
+#                                                      yes = POSITIVE * sqrt(group_population/TOTAL),
+#                                                      no = 0))
+# # the daily test tallies aren't used for weights, so no need to calculate infections
+# 
+# # Number of weeks since start date
+# test_tallies_wk$week = as.numeric(as.Date(test_tallies_wk$yr_wk) - week0day1)%/%7
+# test_tallies_gp$week = as.numeric(as.Date(test_tallies_gp$group) - week0day1)%/%7
 # # Aggregate infections & populations by HHS region
-test_tallies_wk.HHS <- test_tallies_wk[
-  ,
-  .(POSITIVE.HHS = sum(POSITIVE),
-    TOTAL.HHS    = sum(TOTAL),
-    population_reporting.HHS = sum(state_population),
-    INFECTIONS.HHS = sum(INFECTIONS)),
-  by = c('HHS', 'yr_wk', 'week')]
-# NOTE! This is different than aggregating state populations by HHS region, merging to the testing data, and calculating totals and infections that way, because that method would count state populations for states that do NOT have testing, which would result in lower testing rates and generally higher infection estimates.
-test_tallies_wk.HHS[, 'HHS_INCIDENCE' := INFECTIONS.HHS / population_reporting.HHS]
-
-
-## SGTF over-sampling weights
-# (only correcting for the Helix upsampling; other labs were not specifically SGTF up-sampling)
-
-# # counts of lineages by contractor name
-# sgtf.1 = table(us.dat$lineage,
-#                paste(us.dat$contractor_vendor_name,
-#                      us.dat$contractor_targeted_sequencing))
-#
-# # Get the labs/columns with s-gene target failure oversampling
-# # (identified by having more "dropout" tests than "Illumina" tests)
-# sgtf.vars = rownames(sgtf.1)[
-#   sgtf.1[, grep(pattern = "dropout$", x = colnames(sgtf.1))] > sgtf.1[, grep(pattern = "Illumina $", x = colnames(sgtf.1))] ]
-# # might need to update this line based on the updated lab names? "Illumina $" doesn't match any, but "Illumina" does...
-# # but doesn't really matter since there's no known SGTF over-sampling being done in fall 2021.
-#
-# # Smoothed weights: use set of states and weeks where targeted samples were sequenced
-# sgtf.sub = unique(subset(x = us.dat,
-#                          contractor_targeted_sequencing %in% "Screened for S dropout")[, c("primary_state_abv", "yr_wk")])
-#
-# # If there are data with SGTF flag, run a binomial model to estimate probability
-# # of oversampling
-# if (nrow(sgtf.sub) > 0) {
-#
-#   #linear model that fits sgtf lineage weights
-#   sgtf.glm = glm(
-#     formula = I(lineage %in% sgtf.vars) ~ I(contractor_vendor_name %in% "Helix/Illumina") + primary_state_abv + yr_wk,
-#     family = "binomial",
-#     data = subset(x = us.dat,
-#                   yr_wk %in% sgtf.sub$yr_wk &
-#                     primary_state_abv %in% sgtf.sub$primary_state_abv))
-#
-#   # Define sgtf_weights as the relative probability of being in one of the
-#   # oversampled lineages if from the lab that did oversampling vs any other lab
-#   # (assumes that the samples tested by each lab had the same proportions of
-#   #  different variants)
-#   sgtf.sub$sgtf_weights =
-#     predict(object = sgtf.glm,
-#             newdata = cbind(contractor_vendor_name = c("Helix/Illumina"),
-#                             sgtf.sub),
-#             type = "response") /
-#     predict(object = sgtf.glm,
-#             newdata = cbind(contractor_vendor_name = c("Other"),
-#                             sgtf.sub),
-#             type = "response")
-# } else {
-#   # if there are no rows that had oversampling, then just set all the weights to 0
-#   sgtf.sub$sgtf_weights = numeric(0)
-# }
-#
-# # add the SGTF oversampling weights into the test_tallies
-# test_tallies_wk = merge(x = test_tallies_wk,
-#                         y = sgtf.sub,
-#                         by.x = c("STUSAB", "yr_wk"),
-#                         by.y = c("primary_state_abv", "yr_wk"),
-#                         all.x = TRUE)
-#
-# # FIX THIS IF WE EVER START USING SGTF WEIGHTING AGAIN!!
-# sgtf.sub$group = sgtf.sub$yr_wk
-# # sgtf.sub$group[ sgtf.sub$yr_wk %in% final_3_wks] <- final_3_wks[1]
-# # sgtf.sub$group[ sgtf.sub$yr_wk %in% previous_2_wks] <- previous_2_wks[1]
-#
-# test_tallies_gp = merge(x = test_tallies_gp,
-#                         y = sgtf.sub[,c('primary_state_abv', 'group', 'sgtf_weights')],
-#                         by.x = c("STUSAB", "group"),
-#                         by.y = c("primary_state_abv", "group"),
-#                         all.x = TRUE)
-#
-# # Set weights to 1 if weights are NA
-# test_tallies_wk$sgtf_weights = ifelse(test = is.na(test_tallies_wk$sgtf_weights),
-#                                       yes = 1,
-#                                       no = test_tallies_wk$sgtf_weights)
-# test_tallies_gp$sgtf_weights = ifelse(test = is.na(test_tallies_gp$sgtf_weights),
-#                                       yes = 1,
-#                                       no = test_tallies_gp$sgtf_weights)
+# # incidence_by_region = merge(
+# #   x = aggregate(formula = INFECTIONS ~ yr_wk + HHS,
+# #                 data = test_tallies_wk,
+# #                 FUN = sum),
+# #   y = aggregate(formula = state_population ~ yr_wk + HHS,
+# #                 data = test_tallies_wk,
+# #                 FUN = sum)
+# # )
+# # incidence_by_region_gp = merge(
+# #   x = aggregate(formula = INFECTIONS ~ group + HHS,
+# #                 data = test_tallies_gp,
+# #                 FUN = sum),
+# #   y = aggregate(formula = group_population ~ group + HHS,
+# #                 data = test_tallies_gp,
+# #                 FUN = sum)
+# # )
+# # # calculate infection rate
+# # incidence_by_region$HHS_INCIDENCE       = incidence_by_region$INFECTIONS    / incidence_by_region$state_population
+# # incidence_by_region_gp$HHS_INCIDENCE_gp = incidence_by_region_gp$INFECTIONS / incidence_by_region_gp$group_population
+# 
+# # # Aggregate infections & populations by HHS region
+# test_tallies_wk.HHS <- test_tallies_wk[
+#   ,
+#   .(POSITIVE.HHS = sum(POSITIVE),
+#     TOTAL.HHS    = sum(TOTAL),
+#     population_reporting.HHS = sum(state_population),
+#     INFECTIONS.HHS = sum(INFECTIONS)),
+#   by = c('HHS', 'yr_wk', 'week')]
+# # NOTE! This is different than aggregating state populations by HHS region, merging to the testing data, and calculating totals and infections that way, because that method would count state populations for states that do NOT have testing, which would result in lower testing rates and generally higher infection estimates.
+# test_tallies_wk.HHS[, 'HHS_INCIDENCE' := INFECTIONS.HHS / population_reporting.HHS]
+# 
+# 
+# ## SGTF over-sampling weights
+# # (only correcting for the Helix upsampling; other labs were not specifically SGTF up-sampling)
+# 
+# # # counts of lineages by contractor name
+# # sgtf.1 = table(us.dat$lineage,
+# #                paste(us.dat$contractor_vendor_name,
+# #                      us.dat$contractor_targeted_sequencing))
+# #
+# # # Get the labs/columns with s-gene target failure oversampling
+# # # (identified by having more "dropout" tests than "Illumina" tests)
+# # sgtf.vars = rownames(sgtf.1)[
+# #   sgtf.1[, grep(pattern = "dropout$", x = colnames(sgtf.1))] > sgtf.1[, grep(pattern = "Illumina $", x = colnames(sgtf.1))] ]
+# # # might need to update this line based on the updated lab names? "Illumina $" doesn't match any, but "Illumina" does...
+# # # but doesn't really matter since there's no known SGTF over-sampling being done in fall 2021.
+# #
+# # # Smoothed weights: use set of states and weeks where targeted samples were sequenced
+# # sgtf.sub = unique(subset(x = us.dat,
+# #                          contractor_targeted_sequencing %in% "Screened for S dropout")[, c("primary_state_abv", "yr_wk")])
+# #
+# # # If there are data with SGTF flag, run a binomial model to estimate probability
+# # # of oversampling
+# # if (nrow(sgtf.sub) > 0) {
+# #
+# #   #linear model that fits sgtf lineage weights
+# #   sgtf.glm = glm(
+# #     formula = I(lineage %in% sgtf.vars) ~ I(contractor_vendor_name %in% "Helix/Illumina") + primary_state_abv + yr_wk,
+# #     family = "binomial",
+# #     data = subset(x = us.dat,
+# #                   yr_wk %in% sgtf.sub$yr_wk &
+# #                     primary_state_abv %in% sgtf.sub$primary_state_abv))
+# #
+# #   # Define sgtf_weights as the relative probability of being in one of the
+# #   # oversampled lineages if from the lab that did oversampling vs any other lab
+# #   # (assumes that the samples tested by each lab had the same proportions of
+# #   #  different variants)
+# #   sgtf.sub$sgtf_weights =
+# #     predict(object = sgtf.glm,
+# #             newdata = cbind(contractor_vendor_name = c("Helix/Illumina"),
+# #                             sgtf.sub),
+# #             type = "response") /
+# #     predict(object = sgtf.glm,
+# #             newdata = cbind(contractor_vendor_name = c("Other"),
+# #                             sgtf.sub),
+# #             type = "response")
+# # } else {
+# #   # if there are no rows that had oversampling, then just set all the weights to 0
+# #   sgtf.sub$sgtf_weights = numeric(0)
+# # }
+# #
+# # # add the SGTF oversampling weights into the test_tallies
+# # test_tallies_wk = merge(x = test_tallies_wk,
+# #                         y = sgtf.sub,
+# #                         by.x = c("STUSAB", "yr_wk"),
+# #                         by.y = c("primary_state_abv", "yr_wk"),
+# #                         all.x = TRUE)
+# #
+# # # FIX THIS IF WE EVER START USING SGTF WEIGHTING AGAIN!!
+# # sgtf.sub$group = sgtf.sub$yr_wk
+# # # sgtf.sub$group[ sgtf.sub$yr_wk %in% final_3_wks] <- final_3_wks[1]
+# # # sgtf.sub$group[ sgtf.sub$yr_wk %in% previous_2_wks] <- previous_2_wks[1]
+# #
+# # test_tallies_gp = merge(x = test_tallies_gp,
+# #                         y = sgtf.sub[,c('primary_state_abv', 'group', 'sgtf_weights')],
+# #                         by.x = c("STUSAB", "group"),
+# #                         by.y = c("primary_state_abv", "group"),
+# #                         all.x = TRUE)
+# #
+# # # Set weights to 1 if weights are NA
+# # test_tallies_wk$sgtf_weights = ifelse(test = is.na(test_tallies_wk$sgtf_weights),
+# #                                       yes = 1,
+# #                                       no = test_tallies_wk$sgtf_weights)
+# # test_tallies_gp$sgtf_weights = ifelse(test = is.na(test_tallies_gp$sgtf_weights),
+# #                                       yes = 1,
+# #                                       no = test_tallies_gp$sgtf_weights)
 
 # create a column to group source by type (NS3, Contractor, or baseline tagged)
 us.dat[ source == 'NS3' , source_type := 'NS3']
@@ -2262,76 +2262,75 @@ write.csv(x = dropped_sequences,
 # table(svy.dat$VARIANT[ svy.dat$LAB2 != 'OTHER'][grep('(B\\.1\\.1\\.529)|(BA\\.[0-9])|(BC\\.[0-9])|(BD\\.[0-9])|(BE\\.[0-9])|(BF\\.[0-9])|(BG\\.[0-9])', x = svy.dat$VARIANT[ svy.dat$LAB2 != 'OTHER'])])
 
 # Create survey weights --------------------------------------------------------
-
-#Three separate survey designs are used in this analysis:
-
-# * Unweighted, to estimate variant prevalence among sequenced samples
-# * Weighted for estimation among test positives
-# * Weighted for estimation among infections, but using strategies of unproven reliability in this context
-
-
-## Weights
-# Infections to test-positive ratio
-# Geometric mean strategy: https://www.medrxiv.org/content/10.1101/2020.10.07.20208504v2.full-text
-#   infections/test positives = sqrt(population/number tested)
+# 
+# #Three separate survey designs are used in this analysis:
+# 
+# # * Unweighted, to estimate variant prevalence among sequenced samples
+# # * Weighted for estimation among test positives
+# # * Weighted for estimation among infections, but using strategies of unproven reliability in this context
+# 
+# 
+# ## Weights
+# # Infections to test-positive ratio
+# # Geometric mean strategy: https://www.medrxiv.org/content/10.1101/2020.10.07.20208504v2.full-text
+# #   infections/test positives = sqrt(population/number tested)
+# # svy.dat = merge(x = svy.dat,
+# #                 y = cbind(test_tallies_wk[, c("STUSAB", "yr_wk")],
+# #                           I_over_POSITIVE_unadj = sqrt(test_tallies_wk$state_population/test_tallies_wk$TOTAL)),
+# #                 all.x = TRUE) # using same bias correcting method as above get ratio of infections to positives
+# 
+# # State-week totals of total and positive test counts, and population, added in to enable alternate weighting (2021-03-18)
+# # sgtf_weights merged in to enable alternate weighting (2021-03-19)
 # svy.dat = merge(x = svy.dat,
-#                 y = cbind(test_tallies_wk[, c("STUSAB", "yr_wk")],
-#                           I_over_POSITIVE_unadj = sqrt(test_tallies_wk$state_population/test_tallies_wk$TOTAL)),
-#                 all.x = TRUE) # using same bias correcting method as above get ratio of infections to positives
-
-# State-week totals of total and positive test counts, and population, added in to enable alternate weighting (2021-03-18)
-# sgtf_weights merged in to enable alternate weighting (2021-03-19)
-svy.dat = merge(x = svy.dat,
-                y = test_tallies_wk[, c("STUSAB", "yr_wk", "POSITIVE", "TOTAL")],
-                all.x = TRUE,
-                by = c('STUSAB', 'yr_wk'))
-# Add in HHS region testing data
-# used for updated weighting methods
-svy.dat = merge(x = svy.dat,
-                y = test_tallies_wk.HHS[, c("HHS", "yr_wk", 'population_reporting.HHS', "POSITIVE.HHS", "TOTAL.HHS", 'INFECTIONS.HHS', 'HHS_INCIDENCE')], # HHS_INCIDENCE now comes from here instead of incidence_by_region
-                all.x = TRUE,
-                by = c("HHS", "yr_wk"))
-
-# add in grouped test tallies
-{
-  # test_tallies_gp$POSITIVE_gp     = test_tallies_gp$POSITIVE
-  # test_tallies_gp$TOTAL_gp        = test_tallies_gp$TOTAL
-  data.table::setnames(x = test_tallies_gp,
-                       old = c('TOTAL', 'POSITIVE'),
-                       new = c('TOTAL_gp', 'POSITIVE_gp'))
-
-  # svy.dat$group = svy.dat$yr_wk
-  # svy.dat$group[ svy.dat$yr_wk %in% final_3_wks] <- final_3_wks[1]
-  # svy.dat$group[ svy.dat$yr_wk %in% previous_2_wks] <- previous_2_wks[1]
-  svy.dat[, group := yr_wk]
-  svy.dat[ yr_wk %in% final_3_wks, group := final_3_wks[1]]
-  svy.dat[ yr_wk %in% previous_2_wks, group := previous_2_wks[1]]
-
-  svy.dat = merge(x = svy.dat,
-                  y = test_tallies_gp[, c("STUSAB",
-                                          "group",
-                                          "group_population",
-                                          "POSITIVE_gp",
-                                          "TOTAL_gp")],
-                  all.x = TRUE,
-                  by = c('STUSAB', 'group'))
-}
-
-# save aggregated testing data to file
-#Commenedt out as CELR data is no longer needed
-#if(TRUE){
-  #saveRDS(list('tests_daily'  = test_tallies_dly,
-  #             'tests_group'  = test_tallies_gp,
-  #             'tests_weekly' = test_tallies_wk,
-  #             'tests_weekly.HHS' = test_tallies_wk.HHS,
-  #             'tests_fortnight' = test_tallies_fn,
-  #             'tests_4weeks' = tests_state_bins_list),
-  #        file = paste0(script.basename,
-  #                      "/data/backup_",
-  #                      data_date, custom_tag, "/",
-  #                      data_date, "_tests_aggregated",
-  #                      custom_tag, ".RDS"))
-#}
+#                 y = test_tallies_wk[, c("STUSAB", "yr_wk", "POSITIVE", "TOTAL")],
+#                 all.x = TRUE,
+#                 by = c('STUSAB', 'yr_wk'))
+# # Add in HHS region testing data
+# # used for updated weighting methods
+# svy.dat = merge(x = svy.dat,
+#                 y = test_tallies_wk.HHS[, c("HHS", "yr_wk", 'population_reporting.HHS', "POSITIVE.HHS", "TOTAL.HHS", 'INFECTIONS.HHS', 'HHS_INCIDENCE')], # HHS_INCIDENCE now comes from here instead of incidence_by_region
+#                 all.x = TRUE,
+#                 by = c("HHS", "yr_wk"))
+# 
+# # add in grouped test tallies
+# {
+#   # test_tallies_gp$POSITIVE_gp     = test_tallies_gp$POSITIVE
+#   # test_tallies_gp$TOTAL_gp        = test_tallies_gp$TOTAL
+#   data.table::setnames(x = test_tallies_gp,
+#                        old = c('TOTAL', 'POSITIVE'),
+#                        new = c('TOTAL_gp', 'POSITIVE_gp'))
+# 
+#   # svy.dat$group = svy.dat$yr_wk
+#   # svy.dat$group[ svy.dat$yr_wk %in% final_3_wks] <- final_3_wks[1]
+#   # svy.dat$group[ svy.dat$yr_wk %in% previous_2_wks] <- previous_2_wks[1]
+#   svy.dat[, group := yr_wk]
+#   svy.dat[ yr_wk %in% final_3_wks, group := final_3_wks[1]]
+#   svy.dat[ yr_wk %in% previous_2_wks, group := previous_2_wks[1]]
+# 
+#   svy.dat = merge(x = svy.dat,
+#                   y = test_tallies_gp[, c("STUSAB",
+#                                           "group",
+#                                           "group_population",
+#                                           "POSITIVE_gp",
+#                                           "TOTAL_gp")],
+#                   all.x = TRUE,
+#                   by = c('STUSAB', 'group'))
+# }
+# 
+# # save aggregated testing data to file
+# if(TRUE){
+#   saveRDS(list('tests_daily'  = test_tallies_dly,
+#                'tests_group'  = test_tallies_gp,
+#                'tests_weekly' = test_tallies_wk,
+#                'tests_weekly.HHS' = test_tallies_wk.HHS,
+#                'tests_fortnight' = test_tallies_fn,
+#                'tests_4weeks' = tests_state_bins_list),
+#           file = paste0(script.basename,
+#                         "/data/backup_",
+#                         data_date, custom_tag, "/",
+#                         data_date, "_tests_aggregated",
+#                         custom_tag, ".RDS"))
+# }
 
 # save aggregated NREVSS testing data to file
 if(TRUE){
