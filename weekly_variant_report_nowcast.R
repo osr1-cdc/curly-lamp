@@ -82,7 +82,7 @@ calc_99_CI_nowcast  <- TRUE  # these should not add a lot of time
 
       # Get lineage definition from sc2_src.nextclade instead of the default sc2_src.pangolin
       optparse::make_option(
-        opt_str = c("-n", "--nextclade_pango"),
+          opt_str = c("-n", "--nextclade_pango"),
         type    = "character",
         default = "F",
         help    = "Whether or not to swith to get lineage defintion from sc2_src.nextclade instead of sc2_src.pangolin (character value of T or F)",
@@ -943,36 +943,42 @@ src.dat$sgtf_weights = 1
 # }
 
 ### survey weights -------------------------------------------------------------
-# calculate the "original" survey weights
-# Replacing for loop with faster data.table code
-# see: https://git.biotech.cdc.gov/sars2seq/sc2_proportion_modeling/-/issues/6#note_86543
-src.dat = data.table::data.table(src.dat)
-
-# calculate simple adjusted weights using formula from https://www.cdc.gov/mmwr/volumes/70/wr/mm7023a3.htm
-src.dat[, "SAW" := sqrt(state_population/TOTAL) * POSITIVE/sum(1/sgtf_weights)/sgtf_weights,
-        .(STUSAB, yr_wk)]
-# calculate simple adjusted weights for states that lack testing data
-# (use average values from HHS region)
-src.dat[, "SAW_ALT" := state_population*HHS_INCIDENCE / sum(1/sgtf_weights)/sgtf_weights,
-        .(STUSAB, yr_wk)]
-# use "SAW_ALT" when SAW is NA
-src.dat[, "SIMPLE_ADJ_WT0" := ifelse(is.na(SAW), SAW_ALT, SAW)]
-# remove "SAW" and "SAW_ALT" columns
-src.dat[, c("SAW", "SAW_ALT") := .(NULL, NULL)]
-
-# optionally use group weights (where some recent weeks are grouped together)
-if(use_group_weights){
-  # calculate simple adjusted weights using formula from https://www.cdc.gov/mmwr/volumes/70/wr/mm7023a3.htm
-  src.dat[, "SAW" := sqrt(group_population/TOTAL_gp) * POSITIVE_gp/sum(1/sgtf_weights_gp)/sgtf_weights_gp,
-          .(STUSAB, group)]
-  # calculate simple adjusted weights for states that lack testing data
-  # (use average values from HHS region)
-  src.dat[, "SAW_ALT" := group_population*HHS_INCIDENCE_gp / sum(1/sgtf_weights_gp)/sgtf_weights_gp,
-          .(STUSAB, group)]
-  # use "SAW_ALT" when SAW is NA
-  src.dat[, "SIMPLE_ADJ_WT0" := ifelse(is.na(SAW), SAW_ALT, SAW)]
-  # remove "SAW" and "SAW_ALT" columns
-  src.dat[, c("SAW", "SAW_ALT") := .(NULL, NULL)]
+if(opts$weight_type == "original"){
+  if(all(c("TOTAL", "POSITIVE") %in% names(src.dat))){
+    # calculate the "original" survey weights
+    # Replacing for loop with faster data.table code
+    # see: https://git.biotech.cdc.gov/sars2seq/sc2_proportion_modeling/-/issues/6#note_86543
+    src.dat = data.table::data.table(src.dat)
+    
+    # calculate simple adjusted weights using formula from https://www.cdc.gov/mmwr/volumes/70/wr/mm7023a3.htm
+    src.dat[, "SAW" := sqrt(state_population/TOTAL) * POSITIVE/sum(1/sgtf_weights)/sgtf_weights,
+            .(STUSAB, yr_wk)]
+    # calculate simple adjusted weights for states that lack testing data
+    # (use average values from HHS region)
+    src.dat[, "SAW_ALT" := state_population*HHS_INCIDENCE / sum(1/sgtf_weights)/sgtf_weights,
+            .(STUSAB, yr_wk)]
+    # use "SAW_ALT" when SAW is NA
+    src.dat[, "SIMPLE_ADJ_WT0" := ifelse(is.na(SAW), SAW_ALT, SAW)]
+    # remove "SAW" and "SAW_ALT" columns
+    src.dat[, c("SAW", "SAW_ALT") := .(NULL, NULL)]
+    
+    # optionally use group weights (where some recent weeks are grouped together)
+    if(use_group_weights){
+      # calculate simple adjusted weights using formula from https://www.cdc.gov/mmwr/volumes/70/wr/mm7023a3.htm
+      src.dat[, "SAW" := sqrt(group_population/TOTAL_gp) * POSITIVE_gp/sum(1/sgtf_weights_gp)/sgtf_weights_gp,
+              .(STUSAB, group)]
+      # calculate simple adjusted weights for states that lack testing data
+      # (use average values from HHS region)
+      src.dat[, "SAW_ALT" := group_population*HHS_INCIDENCE_gp / sum(1/sgtf_weights_gp)/sgtf_weights_gp,
+              .(STUSAB, group)]
+      # use "SAW_ALT" when SAW is NA
+      src.dat[, "SIMPLE_ADJ_WT0" := ifelse(is.na(SAW), SAW_ALT, SAW)]
+      # remove "SAW" and "SAW_ALT" columns
+      src.dat[, c("SAW", "SAW_ALT") := .(NULL, NULL)]
+    }    
+  } else {
+    stop("The \"original\" weight_type requires CELR testing data, but no CELR testing data is available. Use another weight_type." )
+  }
 }
 
 # population-based weighting
@@ -988,14 +994,21 @@ src.dat[, "population_weight" := state_population / sum(count), by = c('STUSAB',
 # TOTAL.HHS.nrevss    = number of total    tests reported to NREVSS in a given HHS region in a given week
 # POSITIVE.HHS        = number of positive tests reported to CLERS in a given HHS region in a given week
 # population_reporting.HHS.nrevss = total population of the states in a given HHS region that reported tests to NREVSS in a given week
-src.dat[
-  ,
-  "proxy_infections" := state_population * sqrt(POSITIVE.HHS.nrevss / TOTAL.HHS.nrevss) *
-    sqrt( POSITIVE.HHS / population_reporting.HHS )]
-# this formula is equivalent to calculating the regional infections as: sqrt(POSITIVE.HHS.nrevss / TOTAL.HHS.nrevss * population_reporting.HHS * POSITIVE.HHS) and then splitting it up among states in the region based on population (i.e. multiplying by): (state_population / population_reporting.HHS)
+if(opts$weight_type == "updated"){
+  if("POSITIVE.HHS" %in% names(svy.dat)){
+    src.dat[
+      ,
+      "proxy_infections" := state_population * sqrt(POSITIVE.HHS.nrevss / TOTAL.HHS.nrevss) *
+        sqrt( POSITIVE.HHS / population_reporting.HHS )]
+    # this formula is equivalent to calculating the regional infections as: sqrt(POSITIVE.HHS.nrevss / TOTAL.HHS.nrevss * population_reporting.HHS * POSITIVE.HHS) and then splitting it up among states in the region based on population (i.e. multiplying by): (state_population / population_reporting.HHS)
+    
+    # calculate the updated weight (number of infections represented by each sequence) based on "proxy_infections"
+    src.dat[, 'updated_weight' := proxy_infections / sum(count), by = c('STUSAB', 'yr_wk')] # this still works for states that are missing POSITIVE in a given week
+  } else {
+    stop("The \"updated\" weight_type requires CELR testing data (at the HHS region level), but no CELR testing data is available. Use another weight_type." )
+  }
+}
 
-# calculate the updated weight (number of infections represented by each sequence) based on "proxy_infections"
-src.dat[, 'updated_weight' := proxy_infections / sum(count), by = c('STUSAB', 'yr_wk')] # this still works for states that are missing POSITIVE in a given week
 # choose which weights to use
 src.dat$SIMPLE_ADJ_WT <- switch(
   EXPR = tolower(opts$weight_type),
@@ -3187,6 +3200,9 @@ if ( grepl("Run2",tag) ){
                            data = src.dat,
                            subset = src.dat$week >= current_week - n_recent_weeks)),
       decreasing = TRUE)
+    
+    # make sure that "Other" is not included
+    us_var <- us_var[!names(us_var)=="Other"]
 
     ## force-remove delta from the list of most abundant variants
     # (so that it is aggregated into "Other" and not automatically added into the
@@ -4092,16 +4108,18 @@ if ( grepl("Run2",tag) ){
       colnames(agg_var_mat) <- c(model_vars,"Other")
 
       # get the lineage_expanded for the model_vars
-      model_vars_expanded <- setNames(voc_lut$lineage_expanded, voc_lut$variant)[ model_vars ]
-
+      # model_vars_expanded <- c(setNames(voc_lut$lineage_expanded, voc_lut$variant)[ model_vars[model_vars!="Other"] ], "Other" = "Other")
+      model_vars_expanded <- setNames(voc_lut$lineage_expanded, voc_lut$variant)[ model_vars[model_vars!="Other"] ]
+  
       # potential parent variants are voc1_expanded
       voc1_expanded <- setNames(voc_lut$lineage_expanded, voc_lut$variant)[ voc1 ]
 
       # get the parent varients for the model_vars_expanded from the voc1_expanded
       model_var_parents_expanded <- nearest_parent( model_vars_expanded,  voc1_expanded )
       # get the short names for the parent variants of model_vars
-      model_var_parents <- setNames( voc_lut$variant, voc_lut$lineage_expanded )[ model_var_parents_expanded ]
-
+      #model_var_parents <- c(setNames( voc_lut$variant, voc_lut$lineage_expanded )[ model_var_parents_expanded[model_var_parents_expanded!="Other"] ], "Other" = "Other")
+      model_var_parents <- setNames( voc_lut$variant, voc_lut$lineage_expanded )[ model_var_parents_expanded[model_var_parents_expanded!="Other"] ]
+      
       # model_var look-up table
       model_var_lut <- data.frame(
         voc2_model_vars = model_vars,
@@ -4138,7 +4156,8 @@ if ( grepl("Run2",tag) ){
       # all the variants (not in voc1) AND (not aggregated into something else)
       # should be aggregated into "Other Aggregated"
       other_agg <- base::setdiff(colnames(agg_var_mat)[colSums(agg_var_mat) == 0],
-                                 voc1)
+                                 # voc1) # this assumes that everything in voc1 is included in model_vars
+                                 (voc1[voc1 %in% model_vars]))
       # add the new row onto the aggregation matrix
       agg_var_mat <- rbind(
         agg_var_mat,
@@ -4161,7 +4180,8 @@ if ( grepl("Run2",tag) ){
       # "Other Aggregated" row is the SAME for run1 output and run2 output, which
       # is important because they both use that row for output below.
       # this is a check to make sure that the assumption stated above is being met.
-      sub_mat <- agg_var_mat[row.names(agg_var_mat) != 'Other Aggregated',setdiff(voc, voc1), drop = FALSE]
+      # sub_mat <- agg_var_mat[row.names(agg_var_mat) != 'Other Aggregated', setdiff(voc, voc1), drop = FALSE] # this line assumes that everything in voc will be included in model_vars, which isn't always the case. If something is in voc, but not modeled (i.e. not in model_vars), then it will be grouped into "Other". If it's also not in voc1, then it will be grouped into "Other" there, too, so the Nowcast results will line up with the run1 weighted estimates. The Nowcast results will NOT line up with he run2 weighted estimates (b/c "Other" will have differing numbers of variants included)
+      sub_mat <- agg_var_mat[row.names(agg_var_mat) != 'Other Aggregated', setdiff(model_vars, voc1), drop = FALSE]
       if(!all(colSums(sub_mat) > 0)){
         problem_vocs <- colnames(sub_mat)[colSums(sub_mat) == 0]
         warning(message = paste0('Not all variants in "voc" are aggregated into something in "voc1". ',
