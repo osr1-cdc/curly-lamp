@@ -1753,7 +1753,7 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
   # - older than "time_end"
   dat2 <- subset(x = src.dat,
                  as.Date(FORTNIGHT_END) >= (time_start_weights - 7*((as.numeric(time_end+1 - time_start_weights)/7) %%2)) & # this is an ugly way to make sure the start date is a multiple of 2 weeks.
-                   as.Date(FORTNIGHT_END) <= time_end)
+                   as.xDate(FORTNIGHT_END) <= time_end)
 
   # get the relevant fortnights from the data
   # this should be sorted
@@ -1892,8 +1892,7 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
       } # end all_ftnt_ests_function definition
 
       # do the estimates in parallel
-      if(use_parallel){
-
+      if(use_parallel){        
         # use a tryCatch just in case the parallel operation fails
         ests <- tryCatch(expr = { # "expr" is what we want to run (not in a function form, unlike "error" and "warning")
           # choose the number of cores
@@ -2438,7 +2437,12 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
         all.ftnt3_hadoop[,18] = data_date
         all.ftnt3_hadoop[,19] = paste0(results_tag, '_Run', opts$run_number)
         all.ftnt3_hadoop[,20] = 1
-        all.ftnt3_hadoop[,21:24] = all.ftnt3[,c("cases", "cases_hi", "cases_lo")]
+        if (calc_confirmed_infections){
+          all.ftnt3_hadoop[,21:24] = all.ftnt3[,c("cases", "cases_hi", "cases_lo")]
+        }
+        
+        # The line above was used based on the calculation of confirmed infections
+        # according to CELR testing data, which was discontinued
         all.ftnt3_hadoop[is.na(all.ftnt3_hadoop)] = '\\N'
         # all.ftnt3_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', all.ftnt3_hadoop[,3])
         # all.ftnt3_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', all.ftnt3_hadoop[,3])
@@ -3133,7 +3137,9 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
           all.wkly3_hadoop[,18] = data_date
           all.wkly3_hadoop[,19] = paste0(results_tag, '_Run', opts$run_number)
           all.wkly3_hadoop[,20] = 1
-          all.wkly3_hadoop[,21:24] = all.wkly3[,c("cases", "cases_hi", "cases_lo")]
+          if (calc_confirmed_infections){
+            all.wkly3_hadoop[,21:24] = all.wkly3[,c("cases", "cases_hi", "cases_lo")]
+          }
           all.wkly3_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', all.wkly3_hadoop[,3])
           all.wkly3_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', all.wkly3_hadoop[,3])
           all.wkly3_hadoop[,3] = gsub(' Aggregated', '', all.wkly3_hadoop[,3])
@@ -4775,7 +4781,10 @@ if ( grepl("Run2",tag) ){
           run_1_hadoop[,18] = data_date
           run_1_hadoop[,19] = paste0(results_tag, '_Run1')
           run_1_hadoop[,20] = 1
-          run_1_hadoop[,21:24] = run_1[,14:17]
+          if (calc_confirmed_infections){
+            run_1_hadoop[,21:24] = run_1[,14:17]
+          }
+          
           run_1_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_1_hadoop[,3])
           run_1_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_1_hadoop[,3])
           run_1_hadoop[,3] = gsub(' Aggregated', '', run_1_hadoop[,3])
@@ -4843,7 +4852,9 @@ if ( grepl("Run2",tag) ){
         run_2_hadoop[,18] = data_date
         run_2_hadoop[,19] = paste0(results_tag, '_Run2')
         run_2_hadoop[,20] = 1
-        run_2_hadoop[,21:24] = run_2[,14:17]
+        if (calc_confirmed_infections){
+          run_2_hadoop[,21:24] = run_2[,14:17] 
+        }
         run_2_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_2_hadoop[,3])
         run_2_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_2_hadoop[,3])
         run_2_hadoop[,3] = gsub(' Aggregated', '', run_2_hadoop[,3])
@@ -5173,7 +5184,9 @@ if ( grepl("Run2",tag) ){
           run_1_weekly_hadoop[,18] = data_date
           run_1_weekly_hadoop[,19] = paste0(results_tag, '_Run1')
           run_1_weekly_hadoop[,20] = 1
-          run_1_weekly_hadoop[,21:24] = run_1_weekly[,17:20]
+          if (calc_confirmed_infections){
+            run_1_weekly_hadoop[,21:24] = run_1_weekly[,17:20] 
+          }
           run_1_weekly_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_1_weekly_hadoop[,3])
           run_1_weekly_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_1_weekly_hadoop[,3])
           run_1_weekly_hadoop[,3] = gsub(' Aggregated', '', run_1_weekly_hadoop[,3])
@@ -5275,7 +5288,9 @@ if ( grepl("Run2",tag) ){
         run_2_weekly_hadoop[,18] = data_date
         run_2_weekly_hadoop[,19] = paste0(results_tag, '_Run2')
         run_2_weekly_hadoop[,20] = 1
-        run_2_weekly_hadoop[,21:24] = run_2_weekly[,17:20]
+        if (calc_confirmed_infections){
+          run_2_weekly_hadoop[,21:24] = run_2_weekly[,17:20]
+        }
         run_2_weekly_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_2_weekly_hadoop[,3])
         run_2_weekly_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_2_weekly_hadoop[,3])
         run_2_weekly_hadoop[,3] = gsub(' Aggregated', '', run_2_weekly_hadoop[,3])
@@ -5689,10 +5704,12 @@ if ( grepl("Run3", tag) ){
                                                      "nchs_flag_wodf")])
   all.state.out_hadoop[,14] = data_date
   all.state.out_hadoop[,15] = ''
-  all.state.out_hadoop[,16:19] = all.state.out[,c("total_test_positives",
-                                                  "cases",
-                                                  "cases_lo",
-                                                  "cases_hi")]
+  if (calc_confirmed_infections){
+    all.state.out_hadoop[,16:19] = all.state.out[,c("total_test_positives",
+                                                    "cases",
+                                                    "cases_lo",
+                                                    "cases_hi")]
+  }
   all.state.out_hadoop[is.na(all.state.out_hadoop)] = '\\N'
   write.table(x = all.state.out_hadoop,
               file = paste0(script.basename,
