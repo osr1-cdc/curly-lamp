@@ -1,0 +1,404 @@
+username and password has to be provided.
+[2023-05-16 17:21:56] Modeling run started.
+[2023-05-16 17:23:57] Modeling run finished.
+[2023-05-16 17:25:44] Modeling run started.
+[2023-05-16 17:35:56] Data has been pulled in.
+[2023-05-16 17:36:25] Modeling run finished.
+[2023-05-16 19:42:45] Modeling run started.
+[2023-05-16 19:49:32] Data has been pulled in.
+[2023-05-16 19:53:01] Modeling run finished.
+[2023-05-16 20:49:57] Modeling run started.
+[2023-05-16 20:50:02] Data has been pulled in.
+[2023-05-16 20:51:26] Modeling run finished.
+[2023-05-19 13:04:33] Modeling run started.
+[2023-05-19 13:06:42] Modeling run started.
+[2023-05-19 13:19:32] Modeling run started.
+[2023-05-19 13:28:45] Data has been pulled in.
+[2023-05-19 14:57:32] Modeling run finished.
+username and password has to be provided.
+[2023-06-02 15:51:05] Modeling run started.
+[2023-06-02 15:51:13] Data pull failed.
+[2023-06-02 15:58:27] Modeling run started.
+[2023-06-02 15:58:36] Data pull failed.
+[2023-06-02 16:43:40] Modeling run started.
+[2023-06-02 16:43:48] Data pull failed. Check Run_var_sys.err
+[2023-06-02 16:51:49] Modeling run started.
+[2023-06-02 16:51:59] Data pull failed. Check Run_var_sys.err
+[2023-06-05 14:20:57] Modeling run started.
+[2023-06-05 14:21:04] Data pull failed. Check Run_var_sys.err
+[2023-06-05 14:22:25] Modeling run started.
+[2023-06-05 14:33:08] Data has been pulled in.
+[2023-06-05 14:33:14] Modeling run finished.
+[2023-06-05 14:50:08] Modeling run started.
+[2023-06-05 14:50:12] Data pull failed. Check Run_var_sys.err
+[2023-06-07 10:42:43] Modeling run started.
+[2023-06-07 10:53:13] Data has been pulled in.
+[2023-06-07 12:36:26] Modeling run finished.
+[2023-06-14  9:46:43] Modeling run started.
+[2023-06-14  9:57:30] Data has been pulled in.
+[2023-06-14  9:57:33] Modeling run finished.
+[2023-06-14 10:00:40] Modeling run started.
+[2023-06-14 10:11:25] Data has been pulled in.
+[2023-06-14 10:46:11] Modeling run finished.
+[2023-06-21  9:43:29] Modeling run started.
+[2023-06-21  9:53:17] Data has been pulled in.
+[2023-06-21 11:43:40] Modeling run finished.
+[2023-06-27 15:31:41] Modeling run started.
+[2023-06-27 15:45:57] Data has been pulled in.
+[2023-06-27 18:00:51] Modeling run finished.
+[2023-07-06  0:29:13] Modeling run started.
+[2023-07-06  0:39:07] Data has been pulled in.
+[2023-07-06  2:42:20] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-07-11 16:26:29] Modeling run started.
+[2023-07-11 16:39:34] Data has been pulled in.
+[2023-07-11 16:47:39] Modeling run finished.
+[2023-07-11 17:45:08] Modeling run started.
+[2023-07-11 17:56:56] Data has been pulled in.
+[2023-07-11 18:13:24] Modeling run finished.
+[2023-07-11 21:20:51] Modeling run started.
+[2023-07-11 21:31:28] Data has been pulled in.
+[2023-07-11 21:34:56] Modeling run finished.
+[2023-07-11 21:54:53] Modeling run started.
+[2023-07-11 22:06:32] Data has been pulled in.
+[2023-07-11 22:10:02] Modeling run finished.
+[2023-07-11 22:47:16] Modeling run started.
+[2023-07-11 22:58:58] Data has been pulled in.
+[2023-07-12  1:09:15] Modeling run finished.
+[2023-07-18 17:36:48] Modeling run started.
+[2023-07-18 17:48:40] Data has been pulled in.
+[2023-07-18 17:51:21] Modeling run finished.
+[2023-07-18 17:53:02] Modeling run started.
+[2023-07-18 18:05:00] Data has been pulled in.
+[2023-07-18 18:11:41] Modeling run finished.
+[2023-07-18 18:17:11] Modeling run started.
+[2023-07-18 18:29:18] Data has been pulled in.
+[2023-07-18 18:33:54] Modeling run finished.
+[2023-07-18 22:39:23] Modeling run started.
+[2023-07-18 22:51:21] Data has been pulled in.
+[2023-07-18 22:54:13] Modeling run finished.
+[2023-07-18 23:11:37] Modeling run started.
+[2023-07-18 23:23:24] Data has been pulled in.
+[2023-07-18 23:26:24] Modeling run finished.
+[2023-07-19  0:41:22] Modeling run started.
+[2023-07-19  0:51:56] Data has been pulled in.
+[2023-07-19  3:14:06] Modeling run finished.
+[2023-07-26  9:31:34] Modeling run started.
+[2023-07-26  9:31:40] Data pull failed. Check Run_var_sys.err
+[2023-07-26  9:34:23] Modeling run started.
+[2023-07-26  9:34:26] Data pull failed. Check Run_var_sys.err
+[2023-07-26  9:42:23] Modeling run started.
+[2023-07-26  9:42:28] Data pull failed. Check Run_var_sys.err
+[2023-07-26  9:51:28] Modeling run started.
+[2023-07-26 10:02:06] Data has been pulled in.
+[2023-07-26 12:28:52] Modeling run finished.
+[2023-08-01 16:56:44] Modeling run started.
+[2023-08-01 17:07:25] Data has been pulled in.
+[2023-08-01 17:27:12] Modeling run finished.
+[2023-08-01 17:46:18] Modeling run started.
+[2023-08-01 17:57:05] Data has been pulled in.
+[2023-08-01 18:23:12] Modeling run started.
+[2023-08-01 18:34:54] Data has been pulled in.
+[2023-08-01 18:46:41] Modeling run finished.
+[2023-08-01 19:37:41] Modeling run started.
+[2023-08-01 19:49:19] Data has been pulled in.
+[2023-08-01 19:50:56] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-08-02  9:26:29] Modeling run started.
+[2023-08-02  9:36:08] Data has been pulled in.
+[2023-08-02 10:22:47] Modeling run finished.
+[2023-08-02 13:41:00] Modeling run started.
+[2023-08-02 13:50:30] Data has been pulled in.
+[2023-08-02 16:13:55] Modeling run finished.
+[2023-08-09 10:18:38] Modeling run started.
+[2023-08-09 10:29:04] Data has been pulled in.
+[2023-08-09 12:55:33] Modeling run finished.
+[2023-08-15 15:52:48] Modeling run started.
+[2023-08-15 16:04:47] Data has been pulled in.
+[2023-08-15 16:06:28] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-08-15 16:45:05] Modeling run started.
+[2023-08-15 16:56:56] Data has been pulled in.
+[2023-08-15 16:58:37] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-08-15 23:59:11] Modeling run started.
+[2023-08-16  0:10:54] Data has been pulled in.
+[2023-08-16  2:39:11] Modeling run finished.
+[2023-08-22 15:44:00] Modeling run started.
+[2023-08-22 15:55:46] Data has been pulled in.
+[2023-08-22 15:57:31] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-08-22 23:59:12] Modeling run started.
+[2023-08-23  0:10:17] Data has been pulled in.
+[2023-08-23  1:23:04] Modeling run finished.
+[2023-08-29 17:44:55] Modeling run started.
+[2023-08-29 17:55:38] Data has been pulled in.
+[2023-08-29 17:57:26] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-08-29 18:05:44] Modeling run started.
+[2023-08-29 18:17:56] Data has been pulled in.
+[2023-08-29 18:19:48] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-08-29 23:59:14] Modeling run started.
+[2023-08-30  0:11:10] Data has been pulled in.
+[2023-08-30  0:12:54] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-08-30  8:22:11] Modeling run started.
+[2023-08-30  8:32:46] Data has been pulled in.
+[2023-08-30 10:55:35] Modeling run finished.
+[2023-08-30 15:46:47] Modeling run started.
+[2023-08-30 15:56:33] Data has been pulled in.
+[2023-08-30 16:55:31] Modeling run finished.
+[2023-09-05 16:58:07] Modeling run started.
+[2023-09-05 17:10:49] Data has been pulled in.
+[2023-09-05 17:12:24] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-09-05 23:59:08] Modeling run started.
+[2023-09-06  0:10:57] Data has been pulled in.
+[2023-09-06  1:33:59] Modeling run finished.
+[2023-09-12 11:44:57] Modeling run started.
+[2023-09-12 11:57:06] Data has been pulled in.
+[2023-09-12 23:59:09] Modeling run started.
+[2023-09-13  0:10:54] Data has been pulled in.
+[2023-09-13  1:39:15] Modeling run finished.
+[2023-09-19 10:37:07] Modeling run started.
+[2023-09-19 10:49:01] Data has been pulled in.
+[2023-09-19 10:50:38] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-09-19 14:22:38] Modeling run started.
+[2023-09-19 14:34:48] Data has been pulled in.
+[2023-09-19 14:36:21] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-09-19 23:59:01] Modeling run started.
+[2023-09-20  0:11:05] Data has been pulled in.
+[2023-09-20  0:12:33] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-09-20  9:48:43] Modeling run started.
+[2023-09-20  9:59:38] Data has been pulled in.
+[2023-09-20 10:01:18] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-09-20 13:27:43] Modeling run started.
+[2023-09-20 13:38:42] Data has been pulled in.
+[2023-09-20 15:03:37] Modeling run finished.
+Invalid option: -
+[2023-09-26 14:14:41] Modeling run started.
+[2023-09-26 14:26:48] Data has been pulled in.
+[2023-09-26 14:28:27] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-09-26 23:59:04] Modeling run started.
+[2023-09-27  0:16:54] Data has been pulled in.
+[2023-09-27  1:37:31] Modeling run finished.
+[2023-10-04 10:27:46] Modeling run started.
+[2023-10-04 10:28:03] Data pull failed. Check Run_var_sys.err
+[2023-10-04 10:30:53] Modeling run started.
+[2023-10-04 10:31:12] Data pull failed. Check Run_var_sys.err
+[2023-10-04 10:33:01] Modeling run started.
+[2023-10-04 10:41:21] Data has been pulled in.
+[2023-10-04 10:41:28] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-10-04 11:03:07] Modeling run started.
+[2023-10-04 11:15:31] Data has been pulled in.
+[2023-10-04 12:42:01] Modeling run finished.
+[2023-10-10 13:42:49] Modeling run started.
+[2023-10-10 13:55:05] Data has been pulled in.
+[2023-10-10 14:03:33] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-10-10 23:59:01] Modeling run started.
+[2023-10-11  0:09:51] Data has been pulled in.
+[2023-10-11  1:31:21] Modeling run finished.
+[2023-10-17 12:02:36] Modeling run started.
+[2023-10-17 12:15:16] Data has been pulled in.
+[2023-10-17 12:16:58] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-10-17 23:59:09] Modeling run started.
+[2023-10-18  0:11:27] Data has been pulled in.
+[2023-10-18  1:46:44] Modeling run finished.
+[2023-10-24 13:04:37] Modeling run started.
+[2023-10-24 13:16:53] Data has been pulled in.
+[2023-10-24 13:18:32] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-10-24 14:07:44] Modeling run started.
+[2023-10-24 14:19:12] Data has been pulled in.
+[2023-10-24 14:20:46] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-10-24 23:59:11] Modeling run started.
+[2023-10-25  0:10:01] Data has been pulled in.
+[2023-10-25  1:24:05] Modeling run finished.
+[2023-10-31 11:49:46] Modeling run started.
+[2023-10-31 12:01:39] Data has been pulled in.
+[2023-10-31 12:03:04] Modeling run finished.
+[2023-10-31 23:59:06] Modeling run started.
+[2023-11-01  0:11:08] Data has been pulled in.
+[2023-11-01  0:12:40] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-11-01 10:13:23] Modeling run started.
+[2023-11-01 10:13:34] Data pull failed. Check Run_var_sys.err
+[2023-11-01 10:20:11] Modeling run started.
+[2023-11-01 10:20:19] Data pull failed. Check Run_var_sys.err
+[2023-11-01 10:22:16] Modeling run started.
+[2023-11-01 10:33:37] Data has been pulled in.
+[2023-11-01 12:16:25] Modeling run finished.
+[2023-11-01 12:42:42] Modeling run started.
+[2023-11-01 12:54:23] Data has been pulled in.
+[2023-11-01 15:20:04] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-11-02  9:51:35] Modeling run started.
+[2023-11-02 10:03:37] Data has been pulled in.
+[2023-11-02 11:34:50] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-11-02 11:56:07] Modeling run started.
+[2023-11-02 12:15:21] Data has been pulled in.
+[2023-11-02 13:19:22] Modeling run started.
+[2023-11-02 13:29:45] Data has been pulled in.
+[2023-11-02 13:49:10] Modeling run finished.
+[2023-11-07 14:16:14] Modeling run started.
+[2023-11-07 14:30:34] Data has been pulled in.
+[2023-11-07 14:32:32] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-11-07 23:59:07] Modeling run started.
+[2023-11-08  0:11:20] Data has been pulled in.
+[2023-11-08  1:39:28] Modeling run finished.
+[2023-11-08 17:41:44] Modeling run started.
+[2023-11-08 17:52:59] Data has been pulled in.
+[2023-11-08 19:18:19] Modeling run finished.
+[2023-11-14 16:35:39] Modeling run started.
+[2023-11-14 16:47:53] Data has been pulled in.
+[2023-11-14 16:49:34] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-11-14 23:59:09] Modeling run started.
+[2023-11-15  0:11:17] Data has been pulled in.
+[2023-11-15  2:47:17] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-11-15  9:14:47] Modeling run started.
+[2023-11-15  9:26:12] Data has been pulled in.
+[2023-11-15  9:46:16] Modeling run finished.
+[2023-11-21  9:47:22] Modeling run started.
+[2023-11-21 10:01:06] Data has been pulled in.
+[2023-11-21 10:07:56] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-11-21 11:20:04] Modeling run started.
+[2023-11-21 11:23:52] Data pull failed. Check Run_var_sys.err
+[2023-11-21 11:30:23] Modeling run started.
+[2023-11-21 11:42:32] Data has been pulled in.
+[2023-11-21 14:43:11] Modeling run finished.
+[2023-11-28 11:25:17] Modeling run started.
+[2023-11-28 11:37:34] Data has been pulled in.
+[2023-11-28 11:39:12] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-11-28 23:59:14] Modeling run started.
+[2023-11-29  0:11:31] Data has been pulled in.
+[2023-11-29  0:13:13] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-11-29  8:45:55] Modeling run started.
+[2023-11-29  8:56:57] Data has been pulled in.
+[2023-11-29 10:26:57] Modeling run finished.
+[2023-12-05 11:37:45] Modeling run started.
+[2023-12-05 11:50:06] Data has been pulled in.
+[2023-12-05 11:51:46] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2023-12-05 23:59:08] Modeling run started.
+[2023-12-05 23:59:19] Data pull failed. Check Run_var_sys.err
+[2023-12-06  7:42:40] Modeling run started.
+[2023-12-06  7:42:49] Data pull failed. Check Run_var_sys.err
+[2023-12-06  7:45:38] Modeling run started.
+[2023-12-06  7:45:48] Data pull failed. Check Run_var_sys.err
+[2023-12-06  7:49:58] Modeling run started.
+[2023-12-06  7:50:07] Data pull failed. Check Run_var_sys.err
+[2023-12-06  7:53:42] Modeling run started.
+[2023-12-06  7:53:50] Data pull failed. Check Run_var_sys.err
+[2023-12-06  7:58:27] Modeling run started.
+[2023-12-06  8:09:31] Data has been pulled in.
+[2023-12-06  9:35:21] Modeling run finished.
+[2023-12-13 14:03:20] Modeling run started.
+[2023-12-13 14:15:06] Data has been pulled in.
+[2023-12-13 15:58:29] Modeling run finished.
+[2023-12-19 11:02:14] Modeling run started.
+[2023-12-19 11:14:52] Data has been pulled in.
+[2023-12-19 11:23:06] Modeling run finished.
+[2023-12-19 23:59:11] Modeling run started.
+[2023-12-20  0:11:37] Data has been pulled in.
+[2023-12-20  1:34:30] Modeling run finished.
+[2023-12-26 11:11:39] Modeling run started.
+[2023-12-26 11:24:12] Data has been pulled in.
+[2023-12-26 11:29:20] Modeling run finished.
+[2023-12-26 23:59:09] Modeling run started.
+[2023-12-27  0:11:35] Data has been pulled in.
+[2023-12-27  1:37:13] Modeling run finished.
+[2024-01-02 12:25:07] Modeling run started.
+[2024-01-02 12:25:23] Data pull failed. Check Run_var_sys.err
+[2024-01-02 12:37:02] Modeling run started.
+[2024-01-02 12:49:48] Data has been pulled in.
+[2024-01-02 13:02:40] Modeling run finished.
+[2024-01-02 23:59:14] Modeling run started.
+[2024-01-03  0:09:50] Data pull failed. Check Run_var_sys.err
+[2024-01-03  9:30:45] Modeling run started.
+[2024-01-03  9:40:18] Data pull failed. Check Run_var_sys.err
+[2024-01-03  9:45:47] Modeling run started.
+[2024-01-03  9:49:43] Data pull failed. Check Run_var_sys.err
+[2024-01-03 10:46:32] Modeling run started.
+[2024-01-03 10:57:05] Data pull failed. Check Run_var_sys.err
+[2024-01-03 12:34:19] Modeling run started.
+[2024-01-03 12:47:15] Data has been pulled in.
+[2024-01-03 14:15:42] Modeling run finished.
+[2024-01-09 14:07:52] Modeling run started.
+[2024-01-09 14:20:58] Data has been pulled in.
+[2024-01-09 14:26:46] Modeling run finished.
+[2024-01-09 14:27:11] Modeling run started.
+[2024-01-09 14:27:32] Data has been pulled in.
+[2024-01-09 23:59:01] Modeling run started.
+[2024-01-10  0:18:07] Data has been pulled in.
+[2024-01-10  9:44:46] Modeling run started.
+[2024-01-10  9:58:45] Data has been pulled in.
+[2024-01-10 10:06:59] Modeling run finished.
+[2024-01-16 13:09:37] Modeling run started.
+[2024-01-16 13:22:34] Data has been pulled in.
+[2024-01-16 13:31:08] Modeling run finished.
+[2024-01-16 23:59:03] Modeling run started.
+[2024-01-17  0:12:09] Data has been pulled in.
+[2024-01-17  2:49:09] Modeling run finished.
+[2024-01-24 13:20:50] Modeling run started.
+[2024-01-24 13:25:07] Data pull failed. Check Run_var_sys.err
+[2024-01-24 13:31:33] Modeling run started.
+[2024-01-24 13:44:02] Data has been pulled in.
+[2024-01-24 16:44:03] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2024-01-24 18:45:16] Modeling run started.
+[2024-01-24 18:51:43] Data has been pulled in.
+[2024-01-24 18:51:43] Modeling run finished.
+[2024-01-25  1:51:22] Modeling run started.
+[2024-01-25  1:51:57] Data has been pulled in.
+[2024-01-25  1:52:19] Modeling run finished.
+[2024-01-26  8:14:28] Modeling run started.
+[2024-01-26  8:26:04] Data has been pulled in.
+[2024-01-26 11:02:52] Modeling run finished.
+[2024-01-30 11:57:02] Modeling run started.
+[2024-01-30 12:09:54] Data has been pulled in.
+[2024-01-30 12:22:37] Modeling run finished.
+[2024-01-30 13:01:25] Modeling run started.
+[2024-01-30 13:01:48] Data has been pulled in.
+[2024-01-30 13:02:55] Modeling run finished.
+[2024-01-30 22:08:30] Modeling run started.
+[2024-01-30 22:21:30] Data has been pulled in.
+[2024-01-30 23:59:04] Modeling run started.
+[2024-01-31  0:12:24] Data has been pulled in.
+[2024-01-31  1:23:58] Modeling run finished.
+[2024-01-31  3:07:48] Modeling run finished.
+[2024-02-06 11:09:46] Modeling run started.
+[2024-02-06 11:23:24] Data has been pulled in.
+[2024-02-06 11:29:40] Modeling run finished.
+[2024-02-06 20:55:10] Modeling run started.
+[2024-02-06 21:08:16] Data has been pulled in.
+[2024-02-07  0:04:25] Modeling run finished.
+[2024-02-13 12:54:06] Modeling run started.
+[2024-02-13 13:07:33] Data has been pulled in.
+[2024-02-13 13:20:45] Modeling run finished.
+[2024-02-13 18:54:51] Modeling run started.
+[2024-02-13 19:05:38] Data pull failed. Check Run_var_sys.err
+[2024-02-13 19:42:53] Modeling run started.
+[2024-02-13 19:55:27] Data has been pulled in.
+[2024-02-13 21:47:35] Modeling run started.
+[2024-02-13 22:41:07] Modeling run finished.
+[2024-02-20 13:44:32] Modeling run started.
+[2024-02-20 13:57:38] Data has been pulled in.
+[2024-02-20 14:07:17] Modeling run finished.
+[2024-02-27 15:50:11] Modeling run started.
+[2024-02-27 16:03:22] Data has been pulled in.
+[2024-02-27 16:11:33] Modeling run finished.
+[2024-02-27 18:48:22] Modeling run started.
+[2024-02-27 18:48:31] Data pull failed. Check Run_var_sys.err
+[2024-02-27 18:50:11] Modeling run started.
+[2024-02-27 18:50:19] Data pull failed. Check Run_var_sys.err
+[2024-02-27 19:16:44] Modeling run started.
+[2024-02-27 19:16:52] Data pull failed. Check Run_var_sys.err
+[2024-02-27 23:59:06] Modeling run started.
+[2024-02-27 23:59:14] Data pull failed. Check Run_var_sys.err
+[2024-02-28 11:36:04] Modeling run started.
+[2024-02-28 11:36:14] Data pull failed. Check Run_var_sys.err
+[2024-02-28 11:40:12] Modeling run started.
+[2024-02-28 11:51:56] Data has been pulled in.
+[2024-02-28 14:47:28] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2024-03-05 13:52:52] Modeling run started.
+[2024-03-05 14:05:51] Data has been pulled in.
+[2024-03-05 14:11:25] Modeling run finished.
+[2024-03-05 18:07:09] Modeling run started.
+[2024-03-05 18:19:23] Data has been pulled in.
+[2024-03-05 21:12:54] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2024-03-10 19:42:13] Modeling run started.
+[2024-03-12 18:10:56] Modeling run started.
+[2024-03-12 18:11:05] Data pull failed. Check Run_var_sys.err
+[2024-03-12 18:11:58] Modeling run started.
+[2024-03-12 18:24:20] Data has been pulled in.
+[2024-03-12 21:12:22] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2024-03-13 10:24:23] Modeling run started.
+[2024-03-13 10:35:55] Data has been pulled in.
+[2024-03-13 13:25:47] Modeling run finished.

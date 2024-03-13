@@ -1,0 +1,34 @@
+/opt/sge/default/spool/node270/job_scripts/2886960: option requires an argument -- c
+The qmaster has gone down.  Waiting to reconnect.
+error: commlib error: got select error (poll() or select() error: Connection reset by peer)
+error: commlib error: got select error (poll() or select() error: Connection refused)
+error: unable to contact qmaster using port 6444 on host "scbs-sge-sched-prod-01.biotech.cdc.gov"
+Reconnected to qmaster.
+The qmaster has gone down.  Waiting to reconnect.
+error: commlib error: got select error (poll() or select() error: Connection reset by peer)
+error: commlib error: got select error (poll() or select() error: Connection refused)
+error: unable to contact qmaster using port 6444 on host "scbs-sge-sched-prod-01.biotech.cdc.gov"
+Reconnected to qmaster.
+commlib returns can't find connection
+
+error: COMMUNICATION ERROR: can't find connection
+The qmaster has become unreachable.  Attempting to reconnect.
+error: commlib error: got select error (poll() or select() error: Connection refused)
+error: unable to contact qmaster using port 6444 on host "scbs-sge-sched-prod-01.biotech.cdc.gov"
+error: commlib error: got select error (poll() or select() error: Connection refused)
+error: unable to contact qmaster using port 6444 on host "scbs-sge-sched-prod-01.biotech.cdc.gov"
+Reconnected to qmaster.
+The qmaster has gone down.  Waiting to reconnect.
+error: commlib error: got select error (poll() or select() error: Connection reset by peer)
+error: commlib error: got select error (poll() or select() error: Connection refused)
+error: unable to contact qmaster using port 6444 on host "scbs-sge-sched-prod-01.biotech.cdc.gov"
+Reconnected to qmaster.
+qsub: Unknown option 
+
+qsub: Unknown option 
+
+The qmaster has gone down.  Waiting to reconnect.
+error: commlib error: got select error (poll() or select() error: Connection reset by peer)
+error: unable to contact qmaster using port 6444 on host "scbs-sge-sched-prod-01.biotech.cdc.gov"
+error: commlib error: got select error (poll() or select() error: Connection refused)
+Reconnected to qmaster.
