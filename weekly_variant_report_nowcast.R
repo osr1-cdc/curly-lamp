@@ -1753,7 +1753,7 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
   # - older than "time_end"
   dat2 <- subset(x = src.dat,
                  as.Date(FORTNIGHT_END) >= (time_start_weights - 7*((as.numeric(time_end+1 - time_start_weights)/7) %%2)) & # this is an ugly way to make sure the start date is a multiple of 2 weeks.
-                   as.xDate(FORTNIGHT_END) <= time_end)
+                   as.Date(FORTNIGHT_END) <= time_end)
 
   # get the relevant fortnights from the data
   # this should be sorted
@@ -4124,7 +4124,8 @@ if ( grepl("Run2",tag) ){
       model_var_parents_expanded <- nearest_parent( model_vars_expanded,  voc1_expanded )
       # get the short names for the parent variants of model_vars
       #model_var_parents <- c(setNames( voc_lut$variant, voc_lut$lineage_expanded )[ model_var_parents_expanded[model_var_parents_expanded!="Other"] ], "Other" = "Other")
-      model_var_parents <- setNames( voc_lut$variant, voc_lut$lineage_expanded )[ model_var_parents_expanded[model_var_parents_expanded!="Other"] ]
+      #model_var_parents <- setNames( voc_lut$variant, voc_lut$lineage_expanded )[ model_var_parents_expanded[model_var_parents_expanded!="Other"] ]
+      model_var_parents <- setNames( voc_lut$variant, voc_lut$lineage_expanded )[ model_var_parents_expanded ]
       
       # model_var look-up table
       model_var_lut <- data.frame(
