@@ -37,7 +37,7 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 # data_date <- Sys.Date()
-data_date <- as.Date('2024-03-19')
+data_date <- as.Date('2024-03-26')
 # This needs to be a date on which data were frozen in the CDP database
 # Set specific date_frozen to read sequencing data; but read test data and voc list from the data_date backup files. This can be used to rerun modeling using later date backfilled data.
 # Default would be data_date

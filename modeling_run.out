@@ -453,3 +453,13 @@ Job 6505482 exited with exit code 0.
 Your job 6505881 ("run1_CDT") has been submitted
 Your job 6505882 ("run2_CDT") has been submitted
 Job 6505882 exited with exit code 0.
+Your job 6720239 ("variant_surveillance") has been submitted
+Job 6720239 exited with exit code 0.
+Your job 6720335 ("run1_CDT") has been submitted
+Your job 6720336 ("run2_CDT") has been submitted
+Unable to run job 6720336
+Your job 6726623 ("variant_surveillance") has been submitted
+Job 6726623 exited with exit code 0.
+Your job 6726768 ("run1_CDT") has been submitted
+Your job 6726769 ("run2_CDT") has been submitted
+Job 6726769 exited with exit code 0.
