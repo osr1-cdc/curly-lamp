@@ -4640,7 +4640,7 @@ if ( grepl("Run2",tag) ){
           growth_rate_hi = 100 * exp(ests$g_S + 1.96 * ests$se.g_S) - 100, # c(gr_hi, gr_agg$gr_hi),
           doubling_time    = log(2)/ests$g_S * 7, # c(doubling_time,    gr_agg$dt),
           doubling_time_lo = log(2)/(ests$g_S - 1.96 * ests$se.g_S) * 7, # c(doubling_time_lo, gr_agg$dt_lo),
-          doubling_time_hi = log(2)/(ests$g_S - 1.96 * ests$se.g_S) * 7 # c(doubling_time_hi, gr_agg$dt_hi)
+          doubling_time_hi = log(2)/(ests$g_S + 1.96 * ests$se.g_S) * 7 # c(doubling_time_hi, gr_agg$dt_hi)
         )
 
         # Get binomial CI from p_i and se.p_i
