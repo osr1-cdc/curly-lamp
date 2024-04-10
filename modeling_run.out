@@ -476,3 +476,13 @@ Job 7018903 exited with exit code 0.
 Your job 7019006 ("run1_CDT") has been submitted
 Your job 7019007 ("run2_CDT") has been submitted
 Job 7019007 exited with exit code 0.
+Your job 7392238 ("variant_surveillance") has been submitted
+Job 7392238 exited with exit code 0.
+Your job 7392452 ("run1_CDT") has been submitted
+Your job 7392453 ("run2_CDT") has been submitted
+Unable to run job 7392453
+Your job 7404170 ("variant_surveillance") has been submitted
+Job 7404170 exited with exit code 0.
+Your job 7404450 ("run1_CDT") has been submitted
+Your job 7404452 ("run2_CDT") has been submitted
+Job 7404452 exited with exit code 0.
