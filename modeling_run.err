@@ -32,3 +32,8 @@ error: commlib error: got select error (poll() or select() error: Connection res
 error: unable to contact qmaster using port 6444 on host "scbs-sge-sched-prod-01.biotech.cdc.gov"
 error: commlib error: got select error (poll() or select() error: Connection refused)
 Reconnected to qmaster.
+The qmaster has gone down.  Waiting to reconnect.
+error: commlib error: got select error (poll() or select() error: Connection reset by peer)
+error: commlib error: got select error (poll() or select() error: Connection refused)
+error: unable to contact qmaster using port 6444 on host "scbs-sge-sched-prod-01.biotech.cdc.gov"
+Reconnected to qmaster.

@@ -486,3 +486,13 @@ Job 7404170 exited with exit code 0.
 Your job 7404450 ("run1_CDT") has been submitted
 Your job 7404452 ("run2_CDT") has been submitted
 Job 7404452 exited with exit code 0.
+Your job 7725824 ("variant_surveillance") has been submitted
+Job 7725824 exited with exit code 0.
+Your job 7726155 ("run1_CDT") has been submitted
+Your job 7726156 ("run2_CDT") has been submitted
+Unable to run job 7726156
+Your job 7741086 ("variant_surveillance") has been submitted
+Job 7741086 exited with exit code 0.
+Your job 7741908 ("run1_CDT") has been submitted
+Your job 7741910 ("run2_CDT") has been submitted
+Job 7741910 exited with exit code 0.
