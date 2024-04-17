@@ -47,6 +47,8 @@ source /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicom
 
 
 
+
+
 Rscript weekly_variant_report_nowcast.R -r 2 -c F -v F -t quantile_99 -s T -p 4 -w weighted -b population -d FALSE -e updated
 # -r = run number
 # -c = include custom lineages
