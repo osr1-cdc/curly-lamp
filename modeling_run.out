@@ -530,3 +530,13 @@ Job 8069895 exited with exit code 0.
 Your job 8070179 ("run1_CDT") has been submitted
 Your job 8070180 ("run2_CDT") has been submitted
 Job 8070180 exited with exit code 0.
+Your job 8666254 ("variant_surveillance") has been submitted
+Job 8666254 exited with exit code 0.
+Your job 8666656 ("run1_CDT") has been submitted
+Your job 8666657 ("run2_CDT") has been submitted
+Unable to run job 8666657
+Your job 8684499 ("variant_surveillance") has been submitted
+Job 8684499 exited with exit code 0.
+Your job 8684855 ("run1_CDT") has been submitted
+Your job 8684856 ("run2_CDT") has been submitted
+Job 8684856 exited with exit code 0.
