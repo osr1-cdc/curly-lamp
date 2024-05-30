@@ -33,7 +33,7 @@
 # 
 # Choose queue
 #$ -q all.q
-# -q covid.q
+# -q covid.
 #
 
 # Set the parallel_environment to "smp" and use xx cores (smp = Symmetric multiprocessing or shared-memory multiprocessing); MAKE SURE THIS IS >= p CORES!
@@ -46,6 +46,7 @@
 source /etc/profile
 
 source   /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
+
 
 
 

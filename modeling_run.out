@@ -579,3 +579,13 @@ Job 9640631 exited with exit code 0.
 Your job 9642646 ("run1_CDT") has been submitted
 Your job 9642647 ("run2_CDT") has been submitted
 Job 9642647 exited with exit code 0.
+Your job 9786749 ("variant_surveillance") has been submitted
+Job 9786749 exited with exit code 0.
+Your job 9786795 ("run1_CDT") has been submitted
+Your job 9786796 ("run2_CDT") has been submitted
+Unable to run job 9786796
+Your job 9788842 ("variant_surveillance") has been submitted
+Job 9788842 exited with exit code 0.
+Your job 9788843 ("run1_CDT") has been submitted
+Your job 9788844 ("run2_CDT") has been submitted
+Job 9788844 exited with exit code 0.
