@@ -37,7 +37,7 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 # data_date <- Sys.Date()
-data_date <- as.Date('2024-06-04')
+data_date <- as.Date('2024-06-25')
 # This needs to be a date on which data were frozen in the CDP database
 # Set specific date_frozen to read sequencing data; but read test data and voc list from the data_date backup files. This can be used to rerun modeling using later date backfilled data.
 # Default would be data_date
@@ -148,7 +148,8 @@ voc1 = c(# "AY.1", "AY.2",
          'XDV.1',
          'B.1.617.2', # Delta
          'B.1.1.529',
-         'JN.1.4.3') # Omicron
+         'JN.1.4.3',
+         'KP.4.1') # Omicron
 # define an alternate set of vocs
 # (the reason for including two sets instead of just redefining the first set is
 #  to make it easier to run both sets simultaneously just changing an option
@@ -178,7 +179,7 @@ voc2_additional = c(
                     'BA.2.12.1',
                     'BA.2.75',
                     'BA.2.86',
-                    "CH.1.1",
+                    'CH.1.1',
                     'BF.7',
                     'BF.11',
                     'BA.4',
@@ -244,7 +245,8 @@ voc2_additional = c(
                     'JN.1.13.1',
                     'JN.1.11.1',
                     'JN.1.13',
-                    'JN.1.4.3' # Omicron
+                    'JN.1.4.3',
+                    'KP.4.1' # Omicron
                     )
 # voc2_custom = c(voc2,
 #                custom_lineage_names)
