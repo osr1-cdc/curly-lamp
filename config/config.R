@@ -37,7 +37,7 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 # data_date <- Sys.Date()
-data_date <- as.Date('2024-07-10')
+data_date <- as.Date('2024-07-16')
 # This needs to be a date on which data were frozen in the CDP database
 # Set specific date_frozen to read sequencing data; but read test data and voc list from the data_date backup files. This can be used to rerun modeling using later date backfilled data.
 # Default would be data_date
@@ -142,6 +142,9 @@ voc1 = c(# "AY.1", "AY.2",
          'KV.2',
          'KQ.1',
          'KP.2',
+         'KP.2.3',
+         'KP.3.1.1',
+         'LF.3.1',
          'KP.1.1',
          'KP.1.2',
          'XDP',
@@ -150,7 +153,9 @@ voc1 = c(# "AY.1", "AY.2",
          'B.1.617.2', # Delta
          'B.1.1.529',
          'JN.1.4.3',
-         'KP.4.1') # Omicron
+         'KP.4.1',
+         'KP.1.1.3',
+         'LP.1') # Omicron
 # define an alternate set of vocs
 # (the reason for including two sets instead of just redefining the first set is
 #  to make it easier to run both sets simultaneously just changing an option
@@ -230,6 +235,10 @@ voc2_additional = c(
                     'KP.1.1',
                     'KP.1.2',
                     'KP.2',
+                    'KP.2.3',
+                    'KP.3.1.1',
+                    'LF.3.1',
+                    'KS.1',
                     'JN.1',
                     'JN.1.7',
                     'JN.1.8.1',
@@ -238,7 +247,6 @@ voc2_additional = c(
                     'KP.3',
                     'JN.1.16.1',
                     'JN.1.32',
-                    'KS.1',
                     'KW.1.1',
                     'KV.2',
                     'XDP',
@@ -248,7 +256,9 @@ voc2_additional = c(
                     'JN.1.11.1',
                     'JN.1.13',
                     'JN.1.4.3',
-                    'KP.4.1' # Omicron
+                    'KP.4.1',
+                    'LP.1',
+                    'KP.1.1.3' # Omicron
                     )
 # voc2_custom = c(voc2,
 #                custom_lineage_names)

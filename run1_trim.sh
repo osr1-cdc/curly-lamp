@@ -47,8 +47,6 @@ source /etc/profile
 
 source   /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
 
-
-
 Rscript weekly_variant_report_nowcast.R -r 1 -c F -v F -t quantile_99 -s T -p 4 -w weighted -b population -d FALSE -e updated
 # -r = run number
 # -c = include custom lineages
