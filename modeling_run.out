@@ -642,3 +642,10 @@ Job 10568660 exited with exit code 0.
 Your job 10569260 ("run1_CDT") has been submitted
 Your job 10569261 ("run2_CDT") has been submitted
 Job 10569261 exited with exit code 0.
+Your job 10661903 ("variant_surveillance") has been submitted
+Job 10661903 exited with exit code 1.
+Your job 10662377 ("variant_surveillance") has been submitted
+Job 10662377 exited with exit code 0.
+Your job 10662504 ("run1_CDT") has been submitted
+Your job 10662505 ("run2_CDT") has been submitted
+Job 10662505 exited with exit code 0.
