@@ -3926,6 +3926,10 @@ if ( grepl("Run2",tag) ){
                                 composite_variant = NULL,
                                 dy_dt = data.frame(model_week=1))
 
+      #hhs.summary = hhs.summary %>%
+      #  filter(!(count > 0 & date == data_date & 
+      #        lag(count, 1) == 0 & lag(count, 2) == 0))
+
       # calculate the SE of the growth rate
       se.gr = with(data = hhs.summary,
                    expr = 100 * exp(sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2))) - 100)
