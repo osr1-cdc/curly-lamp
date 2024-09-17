@@ -3585,9 +3585,20 @@ if ( grepl("Run2",tag) ){
                              ),
                              composite_variant = NULL,
                              dy_dt = data.frame(model_week=1))
-    us.summary = us.summary %>%
-      filter(!(count > 0 & date == data_date & 
-             lag(count, 1) == 0 & lag(count, 2) == 0))
+    us.summary <- summary %>%
+            group_by(variant) %>%
+            arrange(date) %>%
+            mutate(prev_date_1 = lag(date, 1),
+                    prev_date_2 = lag(date, 2),
+                    prev_count_1 = lag(count, 1),
+                    prev_count_2 = lag(count, 2)) %>%
+            filter(!(count > 0 & date == current_date & 
+                  (prev_date_1 == current_date - 86400 & prev_count_1 == 0) & 
+                  (prev_date_2 == current_date - 2 * 86400 & prev_count_2 == 0))) %>%
+            select(-prev_date_1, -prev_date_2, -prev_count_1, -prev_count_2)                         
+    #us.summary = us.summary %>%
+    #  filter(!(count > 0 & date == data_date & 
+    #        lag(count, 1) == 0 & lag(count, 2) == 0))
 
     # calculate the SE of the estimated growth rate
     se.gr = with(data = us.summary,
