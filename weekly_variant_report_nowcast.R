@@ -809,6 +809,45 @@ if (remove_Quest){
                                 as.Date(yr_wk) > as.Date(remove_Quest_cutoff_end)+1 |
                                 as.Date(received_date) >= as.Date(received_Quest_cutoff)))
 }
+
+### filter high count vocs
+#Add it as an option
+
+recent_vocs <- svy.dat[ week > (current_week - 16) & week <= (current_week - 2) , .(yr_wk, FORTNIGHT_END, VARIANT, expanded_lineage, FORTNIGHT_END)]
+recent_fnt <- unique(recent_vocs$FORTNIGHT_END)
+recent_counts <- data.frame(fnt = c(), count = c(), var = c(), exp_lin = c())
+for (f in recent_fnt){
+  vars_count <- table(recent_vocs$VARIANT)
+  el_count <- table(recent_vocs$expanded_lineage)
+  loc_rc <- data.frame(fnt = f, var_count =vars_count, exp_count = )
+  recent_counts <- rbind(recent_counts, loc_rc)
+}
+
+recent_counts <- recent_counts %>% arrange(var, fnt)
+#recent_counts <- recent_counts %>% arrange(exp_lin, fnt)
+ids <- data %>%
+    group_by(var) %>%
+    filter(
+      any(count < 10) & 
+      any(count > 10) & 
+      any(count[count > 10] < lag(count) & count[count < 10] > lead(count))
+    ) %>%
+    distinct(var)
+  
+#ids <- data %>%
+#    group_by(exp_lin) %>%
+#    filter(
+#      any(count < 10) & 
+#     any(count > 10) & 
+#      any(count[count > 10] < lag(count) & count[count < 10] > lead(count))
+#    ) %>%
+#    distinct(var)
+#subset data
+svy.dat <- subset(svy.dat, !(svy.dat$VARIANT %in% ids))
+#svy.dat <- subset(svy.dat, !(svy.dat$expanded_lineage %in% ids))
+voc1 <- voc1[!(voc1 %in% ids)]
+
+
 ### subset data ----------------------------------------------------------------
 
 # Convert any factor to string
