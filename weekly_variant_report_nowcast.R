@@ -813,38 +813,58 @@ if (remove_Quest){
 ### filter high count vocs
 #Add it as an option
 
+find_spikes <- function(df) {
+  spikes <- df %>%
+    group_by(var) %>%
+    mutate(spike = lag(count) < 10 & count > 10 & lead(count) < 10) %>%
+    filter(spike) %>%
+    select(var) %>%
+    distinct()
+  
+  return(spikes)
+}
+
 recent_vocs <- svy.dat[ week > (current_week - 16) & week <= (current_week - 2) , .(yr_wk, FORTNIGHT_END, VARIANT, expanded_lineage, FORTNIGHT_END)]
 recent_fnt <- unique(recent_vocs$FORTNIGHT_END)
-recent_counts <- data.frame(fnt = c(), count = c(), var = c(), exp_lin = c())
+uniq_vars <- unique(recent_vocs[, VARIANT])
+uniq_el <- unique(recent_vocs[, expanded_lineage])
+recent_counts <- data.frame(fnt = c(), var = c(), count = c())
 for (f in recent_fnt){
-  vars_count <- table(recent_vocs$VARIANT)
-  el_count <- table(recent_vocs$expanded_lineage)
-  loc_rc <- data.frame(fnt = f, var_count =vars_count, exp_count = )
-  recent_counts <- rbind(recent_counts, loc_rc)
+  loc_voc <- recent_vocs[FORTNIGHT_END == f, ]
+  vars_count <- table(loc_voc[, VARIANT])
+  vars_table <- as.data.table(vars_count)
+  el_count <- table(loc_voc[, expanded_lineage])
+  el_table <- as.data.table(el_count)
+  for (v in  uniq_vars){
+    if (length(vars_table[V1 == v, N]) > 0){
+      loc_rc <- data.frame(fnt = f, var = v, count = vars_table[V1 == v, N])
+      recent_counts <- rbind(recent_counts, loc_rc)
+    } else {
+      loc_rc <- data.frame(fnt = f, var = v, count = 0)
+      recent_counts <- rbind(recent_counts, loc_rc)
+    }
+  }
+  #for (e in  uniq_el){
+  #  if (length(vars_table[V1 == v, N]) > 0){
+  #    loc_rc <- data.frame(fnt = f, var = e, count = vars_table[V1 == e, N])
+  #    recent_counts <- rbind(recent_counts, loc_rc)
+  #  } else {
+  #    loc_rc <- data.frame(fnt = f, var = e, count = 0)
+  #    recent_counts <- rbind(recent_counts, loc_rc)
+  #  }
+  #}
+  
 }
 
 recent_counts <- recent_counts %>% arrange(var, fnt)
 #recent_counts <- recent_counts %>% arrange(exp_lin, fnt)
-ids <- data %>%
-    group_by(var) %>%
-    filter(
-      any(count < 10) & 
-      any(count > 10) & 
-      any(count[count > 10] < lag(count) & count[count < 10] > lead(count))
-    ) %>%
-    distinct(var)
-  
-#ids <- data %>%
-#    group_by(exp_lin) %>%
-#    filter(
-#      any(count < 10) & 
-#     any(count > 10) & 
-#      any(count[count > 10] < lag(count) & count[count < 10] > lead(count))
-#    ) %>%
-#    distinct(var)
-#subset data
+spike_ids <- find_spikes(recent_counts)
+
+filtered_svy <- svy.dat %>%
+  filter(!VARIANT %in% spike_ids$var | !FORTNIGHT_END %in% recent_fnt)
+
 svy.dat <- subset(svy.dat, !(svy.dat$VARIANT %in% ids))
-#svy.dat <- subset(svy.dat, !(svy.dat$expanded_lineage %in% ids))
+
 voc1 <- voc1[!(voc1 %in% ids)]
 
 
