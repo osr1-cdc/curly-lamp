@@ -22,7 +22,7 @@ library(optparse)   # to get arguments from the command line
 library(survey)     # package with survey desgin functions
 library(nnet)       # package with multinomial regression for nowcast
 library(data.table) # package for speeding up calculation of simple adjusted weights
-
+library(dplyr)
 # set global options:
 #  - tell the survey package how to handle surveys where only a single primary
 #    sampling units has observations from a particular domain or subpopulation.
@@ -813,15 +813,39 @@ if (remove_Quest){
 ### filter high count vocs
 #Add it as an option
 
-find_spikes <- function(df) {
-  spikes <- df %>%
-    group_by(var) %>%
-    mutate(spike = lag(count) < 10 & count > 10 & lead(count) < 10) %>%
-    filter(spike) %>%
-    select(var) %>%
+find_peaks <- function(df) {
+  # Join df with voc_lut to get parent_variant for each var
+  #  PLEASE MAKE SURE THIS IS SENSIBLE
+  df_with_parents <- df %>%
+    left_join(voc_lut, by = c("var" = "variant"))
+  
+  # Group by fnt and parent_variant and sum counts
+  summed_counts <- df_with_parents %>%
+    group_by(fnt, parent_variant) %>%
+    summarise(total_count = sum(count)) %>%
+    ungroup()
+  
+  # Identify parent_variants that have any fnt with total_count > 0 
+  # AND do not have more than one consecutive fnts with total_count >= 10
+  # This approximates what jcb0 stated--it may not be the best way
+  flagged_parent_variants <- summed_counts %>%
+    arrange(parent_variant, fnt) %>%
+    group_by(parent_variant) %>%
+    mutate(consecutive_high = total_count >= 10 & lag(total_count, default = -Inf) >= 10,
+           has_positive_count = any(total_count > 0)) %>%
+    summarise(has_consecutive_peak = any(consecutive_high),
+              has_positive_count = first(has_positive_count)) %>%
+    filter(has_positive_count & !has_consecutive_peak) %>%
+    pull(parent_variant)
+  
+  # Get all original vars associated with flagged parent_variants 
+  final_df <- df_with_parents %>% 
+    filter(parent_variant %in% flagged_parent_variants) %>% 
+    select(var, parent_variant) %>% 
+    # select(var) %>% 
     distinct()
   
-  return(spikes)
+  return(final_df)
 }
 
 recent_vocs <- svy.dat[ week > (current_week - 16) & week <= (current_week - 2) , .(yr_wk, FORTNIGHT_END, VARIANT, expanded_lineage, FORTNIGHT_END)]
@@ -856,16 +880,24 @@ for (f in recent_fnt){
   
 }
 
+
+
 recent_counts <- recent_counts %>% arrange(var, fnt)
 #recent_counts <- recent_counts %>% arrange(exp_lin, fnt)
-spike_ids <- find_spikes(recent_counts)
+peak_ids <- find_peaks(recent_counts)
+
 
 filtered_svy <- svy.dat %>%
-  filter(!VARIANT %in% spike_ids$var | !FORTNIGHT_END %in% recent_fnt)
+  filter(!(VARIANT %in% peak_ids$var & FORTNIGHT_END %in% recent_fnt))
 
-svy.dat <- subset(svy.dat, !(svy.dat$VARIANT %in% ids))
+# Debug/sanity check
+#rows_in_svy_not_in_filtered_svy<- anti_join(svy.dat, filtered_svy, by = colnames(svy.dat))
 
-voc1 <- voc1[!(voc1 %in% ids)]
+# Commit
+svy.dat <- filtered_svy 
+# removes both the specific variant name as well as the aggregation target
+# Does this affect the Weighted results??
+voc1 <- voc1[!(voc1 %in% peak_ids$var | voc1 %in% peak_ids$parent_variant )] 
 
 
 ### subset data ----------------------------------------------------------------
