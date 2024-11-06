@@ -357,6 +357,10 @@ Load the following files:
 
 (Alternatively `*_hadoop.csv`)
 
+**Don't forget to refresh the table**: `REFRESH sc2_archive.proportion_modeling`
+
+From there you can extract the data into the Tableau workbooks on `creation_date`.
+
 Downstream tables must be updated in order to publish results properly. Please see https://git.biotech.cdc.gov/sars2seq/sc2_variant_proportion_socrata_update/-/blob/main/README.md for more information. 
 
 # Methods 
