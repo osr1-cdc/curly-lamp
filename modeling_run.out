@@ -805,3 +805,13 @@ Job 12664706 exited with exit code 0.
 Your job 12664730 ("run1_CDT") has been submitted
 Your job 12664731 ("run2_CDT") has been submitted
 Job 12664731 exited with exit code 0.
+Your job 12793694 ("variant_surveillance") has been submitted
+Job 12793694 exited with exit code 0.
+Your job 12794015 ("run1_CDT") has been submitted
+Your job 12794017 ("run2_CDT") has been submitted
+Unable to run job 12794017
+Your job 12809860 ("variant_surveillance") has been submitted
+Job 12809860 exited with exit code 0.
+Your job 12811498 ("run1_CDT") has been submitted
+Your job 12811500 ("run2_CDT") has been submitted
+Job 12811500 exited with exit code 0.
