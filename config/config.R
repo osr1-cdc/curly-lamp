@@ -164,6 +164,7 @@ voc1 = c(# "AY.1", "AY.2",
          'MC.10.1',
          'LP.8.1',
          'MC.19',
+         'XEK',
          'JN.1.18.6') # Omicron
 # define an alternate set of vocs
 # (the reason for including two sets instead of just redefining the first set is
@@ -274,6 +275,7 @@ voc2_additional = c(
                     'MC.10.1',
                     'LP.8.1',
                     'MC.19',
+                    'XEK',
                     'JN.1.18.6' # Omicron
                     )
 # voc2_custom = c(voc2,
