@@ -825,3 +825,13 @@ Job 13103906 exited with exit code 0.
 Your job 13104953 ("run1_CDT") has been submitted
 Your job 13104956 ("run2_CDT") has been submitted
 Job 13104956 exited with exit code 0.
+Your job 13510254 ("variant_surveillance") has been submitted
+Job 13510254 exited with exit code 0.
+Your job 13510660 ("run1_CDT") has been submitted
+Your job 13510662 ("run2_CDT") has been submitted
+Unable to run job 13510662
+Your job 13525635 ("variant_surveillance") has been submitted
+Job 13525635 exited with exit code 0.
+Your job 13526679 ("run1_CDT") has been submitted
+Your job 13526681 ("run2_CDT") has been submitted
+Job 13526681 exited with exit code 0.
