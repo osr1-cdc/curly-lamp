@@ -562,3 +562,101 @@ Invalid option: -
 [2024-08-13 18:01:20] Modeling run started.
 [2024-08-13 18:18:44] Data has been pulled in.
 [2024-08-13 22:17:54] Modeling run finished.
+[2024-08-21 11:19:58] Modeling run started.
+[2024-08-21 11:32:52] Data has been pulled in.
+[2024-08-21 15:50:45] Modeling run finished.
+[2024-08-27 15:27:44] Modeling run started.
+[2024-08-27 15:43:58] Data has been pulled in.
+[2024-08-27 15:49:05] Modeling run finished.
+[2024-08-27 18:16:47] Modeling run started.
+[2024-08-27 18:33:45] Data has been pulled in.
+[2024-09-03 13:20:38] Modeling run started.
+[2024-09-03 13:33:15] Data has been pulled in.
+[2024-09-03 13:41:29] Modeling run finished.
+[2024-09-03 18:01:14] Modeling run started.
+[2024-09-03 18:14:08] Data has been pulled in.
+[2024-09-03 22:43:39] Modeling run finished.
+[2024-09-10 11:40:58] Modeling run started.
+[2024-09-10 11:53:25] Data has been pulled in.
+[2024-09-10 11:55:11] Modeling run finished.
+[2024-09-10 18:01:02] Modeling run started.
+[2024-09-10 18:24:57] Data has been pulled in.
+[2024-09-10 23:06:09] Modeling run finished.
+[2024-09-17 13:17:31] Modeling run started.
+[2024-09-17 13:28:43] Data pull failed. Check Run_var_sys.err
+[2024-09-17 15:44:38] Modeling run started.
+[2024-09-17 15:59:08] Data has been pulled in.
+[2024-09-17 16:02:27] Modeling run finished.
+[2024-09-17 23:59:00] Modeling run started.
+[2024-09-18  0:12:15] Data has been pulled in.
+[2024-09-18  4:53:24] Modeling run finished.
+[2024-09-18 13:33:48] Modeling run started.
+[2024-09-18 13:36:55] Data pull failed. Check Run_var_sys.err
+[2024-09-18 14:39:12] Modeling run started.
+[2024-09-18 14:51:45] Data has been pulled in.
+[2024-09-18 14:52:33] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2024-09-18 15:05:27] Modeling run started.
+[2024-09-18 15:18:44] Data has been pulled in.
+[2024-09-18 15:19:36] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2024-09-18 15:26:09] Modeling run started.
+[2024-09-18 15:40:12] Data has been pulled in.
+[2024-09-18 20:07:17] Modeling run finished.
+[2024-09-24 11:09:10] Modeling run started.
+[2024-09-24 11:20:54] Data pull failed. Check Run_var_sys.err
+[2024-09-24 11:31:37] Modeling run started.
+[2024-09-24 11:44:30] Data has been pulled in.
+[2024-09-24 11:49:25] Modeling run finished.
+[2024-09-24 15:13:21] Modeling run started.
+[2024-09-24 15:26:03] Data has been pulled in.
+[2024-09-24 15:30:20] Modeling run finished.
+[2024-09-24 15:30:52] Modeling run started.
+[2024-09-24 15:31:13] Data has been pulled in.
+[2024-09-24 15:31:35] Modeling run finished.
+[2024-09-24 18:02:00] Modeling run started.
+[2024-09-24 18:15:07] Data has been pulled in.
+[2024-09-25  0:21:40] Modeling run finished.
+[2024-11-19 11:11:24] Modeling run started.
+[2024-11-19 11:24:37] Data has been pulled in.
+[2024-11-19 11:32:09] Modeling run finished.
+[2024-11-19 18:01:16] Modeling run started.
+[2024-11-19 18:14:17] Data has been pulled in.
+[2024-11-19 22:53:33] Modeling run finished.
+[2024-11-26 11:32:56] Modeling run started.
+[2024-11-26 11:46:07] Data has been pulled in.
+[2024-11-26 11:50:28] Modeling run finished.
+[2024-11-26 18:01:30] Modeling run started.
+[2024-11-26 18:14:26] Data has been pulled in.
+[2024-11-26 23:02:06] Modeling run finished.
+[2024-12-03 14:15:17] Modeling run started.
+[2024-12-03 14:28:31] Data has been pulled in.
+[2024-12-03 14:33:15] Modeling run finished.
+[2024-12-03 14:36:20] Modeling run started.
+[2024-12-03 14:38:54] Data has been pulled in.
+[2024-12-03 14:39:27] Modeling run finished.
+[2024-12-03 18:01:24] Modeling run started.
+[2024-12-03 18:14:43] Data has been pulled in.
+[2024-12-03 23:15:08] Modeling run finished.
+[2024-12-10 14:18:46] Modeling run started.
+[2024-12-10 14:31:39] Data has been pulled in.
+[2024-12-10 14:37:05] Modeling run finished.
+[2024-12-10 18:01:18] Modeling run started.
+[2024-12-10 18:14:18] Data has been pulled in.
+[2024-12-10 23:18:43] Modeling run finished.
+[2024-12-17 11:10:34] Modeling run started.
+[2024-12-17 11:23:21] Data has been pulled in.
+[2024-12-17 11:29:12] Modeling run finished.
+[2024-12-17 18:01:27] Modeling run started.
+[2024-12-17 18:14:08] Data has been pulled in.
+[2024-12-17 23:21:36] Modeling run finished.
+[2024-12-24 11:09:01] Modeling run started.
+[2024-12-24 11:22:04] Data has been pulled in.
+[2024-12-24 11:28:05] Modeling run finished.
+[2024-12-24 18:01:37] Modeling run started.
+[2024-12-24 18:14:25] Data has been pulled in.
+[2024-12-24 23:33:52] Modeling run finished.
+[2024-12-31 12:02:07] Modeling run started.
+[2024-12-31 12:14:48] Data has been pulled in.
+[2024-12-31 12:20:26] Modeling run finished.
+[2024-12-31 18:01:30] Modeling run started.
+[2024-12-31 18:14:20] Data has been pulled in.
+[2024-12-31 23:20:22] Modeling run finished.

@@ -19,12 +19,11 @@
 #$ -cwd
 #
 # Set up mail address for script
-# -M ncy6@cdc.gov,fep2@cdc.gov,nyy7@cdc.gov,qiu5@cdc.gov,rsv4@cdc.gov,oow9@cdc.gov
-#$ -M ukc2@cdc.gov,qiu5@cdc.gov
+# -M ncy6@cdc.gov,fep2@cdc.gov,nyy7@cdc.gov,rsv4@cdc.gov,oow9@cdc.gov
+#$ -M ukc2@cdc.gov
 # ncy6 = Norman Hassell
 # fep2 = Clinton Paden
 # nyy7 = Sandra Seby
-# qiu5 = Sherry (Xiaoyu) Zheng
 # rsv4 = Philip Shirk
 # oow9 = Roopa Nagilla
 #
@@ -46,6 +45,8 @@
 source /etc/profile
 
 source /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
+
+
 
 
 Rscript weekly_variant_report_nowcast.R -r 1 -c F -v F -t quantile_99 -s T -p 4 -w weighted -b population -d FALSE -e updated

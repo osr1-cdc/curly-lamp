@@ -19,6 +19,8 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
    - [Lab Aggregation](#lab-aggregation)  
    - [Column Descriptions for Run1 and Run2 proportion modeling output](#column-descriptions-for-run1-and-run2-proportion-modeling-output-sc2_archivestate_proportion_modeling)
    - [Column Descriptions for Run3 state proportion modeling output](#column-descriptions-for-run3-state-proportionmodeling-output-sc2_archivestate_proportion_modeling)
+   - [Loading data into database](#load-hadoop)
+- [Methods](#methods)
    - [Weights](#weights)
    - [Lineage Aggregation](#lineage-aggregation)
    - [Multinomial Logistic Regression prediction intervals](#multinomial-logistic-regression-prediction-intervals)
@@ -341,6 +343,27 @@ For example, the below two labs should be combined.\
 
 
 <br>
+
+
+# Load hadoop
+
+Once data is available, load the CSV files into the [sc2_archive.proportion_modeling](https://cdp-01.biotech.cdc.gov:8889/hue/filebrowser/view=%2Fwarehouse%2Ftablespace%2Fexternal%2Fhive%2Fsc2_archive.db%2Fproportion_modeling) at [hdfs:///warehouse/tablespace/external/hive/sc2_archive.db/proportion_modeling](https://cdp-01.biotech.cdc.gov:8889/hue/filebrowser/view=%2Fwarehouse%2Ftablespace%2Fexternal%2Fhive%2Fsc2_archive.db%2Fproportion_modeling) on CDP. You may use Hue or hput to do so.
+
+Load the following files:
+- updated_nowcast_fortnightly_2024-11-05_state_tag_included_Run1_CDT_hadoop.csv
+- updated_nowcast_fortnightly_2024-11-05_state_tag_included_Run2_CDT_hadoop.csv 
+- variant_share_weighted_KGCI_svyNEW_2024-11-05_state_tag_included_Run1_CDT_hadoop.csv
+- variant_share_weighted_KGCI_svyNEW_2024-11-05_state_tag_included_Run2_CDT_hadoop.csv
+
+(Alternatively `*_hadoop.csv`)
+
+**Don't forget to refresh the table**: `REFRESH sc2_archive.proportion_modeling`
+
+From there you can extract the data into the Tableau workbooks on `creation_date`.
+
+Downstream tables must be updated in order to publish results properly. Please see https://git.biotech.cdc.gov/sars2seq/sc2_variant_proportion_socrata_update/-/blob/main/README.md for more information. 
+
+# Methods 
 
 ## Weights
 

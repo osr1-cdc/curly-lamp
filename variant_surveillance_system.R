@@ -1770,14 +1770,14 @@ labnames_df_wf <- data.frame(old_name = WF_labs_to_agg,
                              new_name = "WAKE FOREST SCHOOL OF MEDICINE, INTERNAL MEDICINE")
 svy.dat[LAB %in% WF_labs_to_agg, 'LAB2' := labnames_df_wf$new_name[1]]
 
-# aggregate Michigan DoHHS
-MI_labs_to_agg <- grep(pattern = 'MICHIGAN DEPARTMENT of health',
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_mi <- data.frame(old_name = MI_labs_to_agg,
-                             new_name = "MICHIGAN DEPARTMENT OF HEALTH AND HUMAN SERVICES")
-svy.dat[LAB %in% MI_labs_to_agg, 'LAB2' := labnames_df_mi$new_name[1]]
+# # aggregate Michigan DoHHS
+# MI_labs_to_agg <- grep(pattern = 'MICHIGAN DEPARTMENT of health',
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_mi <- data.frame(old_name = MI_labs_to_agg,
+#                              new_name = "MICHIGAN DEPARTMENT OF HEALTH AND HUMAN SERVICES")
+# svy.dat[LAB %in% MI_labs_to_agg, 'LAB2' := labnames_df_mi$new_name[1]]
 
 # added 2022-05-12 (Connecticut)
 # Aggregate Connecticut names
@@ -2014,7 +2014,7 @@ labnames_df <- rbind(
   labnames_df_bva,
   labnames_df_in,
   labnames_df_wf,
-  labnames_df_mi,
+  # labnames_df_mi,
   labnames_df_ct,
   labnames_df_bu,
   labnames_df_de,
