@@ -865,3 +865,13 @@ Job 14017640 exited with exit code 0.
 Your job 14018110 ("run1_CDT") has been submitted
 Your job 14018112 ("run2_CDT") has been submitted
 Job 14018112 exited with exit code 0.
+Your job 14226428 ("variant_surveillance") has been submitted
+Job 14226428 exited with exit code 0.
+Your job 14228375 ("run1_CDT") has been submitted
+Your job 14228378 ("run2_CDT") has been submitted
+Unable to run job 14228378
+Your job 14235267 ("variant_surveillance") has been submitted
+Job 14235267 exited with exit code 0.
+Your job 14235292 ("run1_CDT") has been submitted
+Your job 14235293 ("run2_CDT") has been submitted
+Job 14235293 exited with exit code 0.
