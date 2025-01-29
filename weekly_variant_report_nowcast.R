@@ -22,7 +22,7 @@ library(optparse)   # to get arguments from the command line
 library(survey)     # package with survey desgin functions
 library(nnet)       # package with multinomial regression for nowcast
 library(data.table) # package for speeding up calculation of simple adjusted weights
-
+library(dplyr)
 # set global options:
 #  - tell the survey package how to handle surveys where only a single primary
 #    sampling units has observations from a particular domain or subpopulation.
@@ -809,6 +809,97 @@ if (remove_Quest){
                                 as.Date(yr_wk) > as.Date(remove_Quest_cutoff_end)+1 |
                                 as.Date(received_date) >= as.Date(received_Quest_cutoff)))
 }
+
+### filter high count vocs
+#Add it as an option
+
+find_peaks <- function(df) {
+  # Join df with voc_lut to get parent_variant for each var
+  #  PLEASE MAKE SURE THIS IS SENSIBLE
+  df_with_parents <- df %>%
+    left_join(voc_lut, by = c("var" = "variant"))
+  
+  # Group by fnt and parent_variant and sum counts
+  summed_counts <- df_with_parents %>%
+    group_by(fnt, parent_variant) %>%
+    summarise(total_count = sum(count)) %>%
+    ungroup()
+  
+  # Identify parent_variants that have any fnt with total_count > 0 
+  # AND do not have more than one consecutive fnts with total_count >= 10
+  # This approximates what jcb0 stated--it may not be the best way
+  flagged_parent_variants <- summed_counts %>%
+    arrange(parent_variant, fnt) %>%
+    group_by(parent_variant) %>%
+    mutate(consecutive_high = total_count >= 10 & lag(total_count, default = -Inf) >= 10,
+           has_positive_count = any(total_count > 0)) %>%
+    summarise(has_consecutive_peak = any(consecutive_high),
+              has_positive_count = first(has_positive_count)) %>%
+    filter(has_positive_count & !has_consecutive_peak) %>%
+    pull(parent_variant)
+  
+  # Get all original vars associated with flagged parent_variants 
+  final_df <- df_with_parents %>% 
+    filter(parent_variant %in% flagged_parent_variants) %>% 
+    select(var, parent_variant) %>% 
+    # select(var) %>% 
+    distinct()
+  
+  return(final_df)
+}
+
+recent_vocs <- svy.dat[ week > (current_week - 16) & week <= (current_week - 2) , .(yr_wk, FORTNIGHT_END, VARIANT, expanded_lineage, FORTNIGHT_END)]
+recent_fnt <- unique(recent_vocs$FORTNIGHT_END)
+uniq_vars <- unique(recent_vocs[, VARIANT])
+uniq_el <- unique(recent_vocs[, expanded_lineage])
+recent_counts <- data.frame(fnt = c(), var = c(), count = c())
+for (f in recent_fnt){
+  loc_voc <- recent_vocs[FORTNIGHT_END == f, ]
+  vars_count <- table(loc_voc[, VARIANT])
+  vars_table <- as.data.table(vars_count)
+  el_count <- table(loc_voc[, expanded_lineage])
+  el_table <- as.data.table(el_count)
+  for (v in  uniq_vars){
+    if (length(vars_table[V1 == v, N]) > 0){
+      loc_rc <- data.frame(fnt = f, var = v, count = vars_table[V1 == v, N])
+      recent_counts <- rbind(recent_counts, loc_rc)
+    } else {
+      loc_rc <- data.frame(fnt = f, var = v, count = 0)
+      recent_counts <- rbind(recent_counts, loc_rc)
+    }
+  }
+  #for (e in  uniq_el){
+  #  if (length(vars_table[V1 == v, N]) > 0){
+  #    loc_rc <- data.frame(fnt = f, var = e, count = vars_table[V1 == e, N])
+  #    recent_counts <- rbind(recent_counts, loc_rc)
+  #  } else {
+  #    loc_rc <- data.frame(fnt = f, var = e, count = 0)
+  #    recent_counts <- rbind(recent_counts, loc_rc)
+  #  }
+  #}
+  
+}
+
+
+
+recent_counts <- recent_counts %>% arrange(var, fnt)
+#recent_counts <- recent_counts %>% arrange(exp_lin, fnt)
+peak_ids <- find_peaks(recent_counts)
+
+
+filtered_svy <- svy.dat %>%
+  filter(!(VARIANT %in% peak_ids$var & FORTNIGHT_END %in% recent_fnt))
+
+# Debug/sanity check
+#rows_in_svy_not_in_filtered_svy<- anti_join(svy.dat, filtered_svy, by = colnames(svy.dat))
+
+# Commit
+svy.dat <- filtered_svy 
+# removes both the specific variant name as well as the aggregation target
+# Does this affect the Weighted results??
+voc1 <- voc1[!(voc1 %in% peak_ids$var | voc1 %in% peak_ids$parent_variant )] 
+
+
 ### subset data ----------------------------------------------------------------
 
 # Convert any factor to string
@@ -3585,6 +3676,20 @@ if ( grepl("Run2",tag) ){
                              ),
                              composite_variant = NULL,
                              dy_dt = data.frame(model_week=1))
+    us.summary <- us.summary %>%
+            group_by(variant) %>%
+            arrange(date) %>%
+            mutate(prev_date_1 = lag(date, 1),
+                    prev_date_2 = lag(date, 2),
+                    prev_count_1 = lag(count, 1),
+                    prev_count_2 = lag(count, 2)) %>%
+            filter(!(count > 0 & date == data_date & 
+                  (prev_date_1 == datat_date - 86400 & prev_count_1 == 0) & 
+                  (prev_date_2 == data_date - 2 * 86400 & prev_count_2 == 0))) %>%
+            select(-prev_date_1, -prev_date_2, -prev_count_1, -prev_count_2)                         
+    #us.summary = us.summary %>%
+    #  filter(!(count > 0 & date == data_date & 
+    #        lag(count, 1) == 0 & lag(count, 2) == 0))
 
     # calculate the SE of the estimated growth rate
     se.gr = with(data = us.summary,
@@ -3922,6 +4027,10 @@ if ( grepl("Run2",tag) ){
                                 ),
                                 composite_variant = NULL,
                                 dy_dt = data.frame(model_week=1))
+
+      #hhs.summary = hhs.summary %>%
+      #  filter(!(count > 0 & date == data_date & 
+      #        lag(count, 1) == 0 & lag(count, 2) == 0))
 
       # calculate the SE of the growth rate
       se.gr = with(data = hhs.summary,
