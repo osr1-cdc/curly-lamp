@@ -6,7 +6,8 @@
 # Updates:
 #   ~ weight trimming to avoid overly-influential sequences when samples are small
 #   ~ Error handling added to multinomial model fitting to handle non-invertible
-#     Hessian
+#     
+
 #   ~ Multinomial model run on aggregated data to speed up model fitting
 #   ~ Survey design updated to have PSU=Source and strata=week and state
 #   ~ Less reliable CIs are now flagged based on NCHS data presentation
@@ -22,6 +23,7 @@ library(optparse)   # to get arguments from the command line
 library(survey)     # package with survey desgin functions
 library(nnet)       # package with multinomial regression for nowcast
 library(data.table) # package for speeding up calculation of simple adjusted weights
+
 library(dplyr)
 # set global options:
 #  - tell the survey package how to handle surveys where only a single primary
@@ -810,15 +812,13 @@ if (remove_Quest){
                                 as.Date(received_date) >= as.Date(received_Quest_cutoff)))
 }
 
-### filter high count vocs
-#Add it as an option
 
 find_peaks <- function(df) {
   # Join df with voc_lut to get parent_variant for each var
   #  PLEASE MAKE SURE THIS IS SENSIBLE
   df_with_parents <- df %>%
     left_join(voc_lut, by = c("var" = "variant"))
-  
+     
   # Group by fnt and parent_variant and sum counts
   summed_counts <- df_with_parents %>%
     group_by(fnt, parent_variant) %>%
@@ -3676,20 +3676,6 @@ if ( grepl("Run2",tag) ){
                              ),
                              composite_variant = NULL,
                              dy_dt = data.frame(model_week=1))
-    us.summary <- us.summary %>%
-            group_by(variant) %>%
-            arrange(date) %>%
-            mutate(prev_date_1 = lag(date, 1),
-                    prev_date_2 = lag(date, 2),
-                    prev_count_1 = lag(count, 1),
-                    prev_count_2 = lag(count, 2)) %>%
-            filter(!(count > 0 & date == data_date & 
-                  (prev_date_1 == datat_date - 86400 & prev_count_1 == 0) & 
-                  (prev_date_2 == data_date - 2 * 86400 & prev_count_2 == 0))) %>%
-            select(-prev_date_1, -prev_date_2, -prev_count_1, -prev_count_2)                         
-    #us.summary = us.summary %>%
-    #  filter(!(count > 0 & date == data_date & 
-    #        lag(count, 1) == 0 & lag(count, 2) == 0))
 
     # calculate the SE of the estimated growth rate
     se.gr = with(data = us.summary,
@@ -4027,10 +4013,6 @@ if ( grepl("Run2",tag) ){
                                 ),
                                 composite_variant = NULL,
                                 dy_dt = data.frame(model_week=1))
-
-      #hhs.summary = hhs.summary %>%
-      #  filter(!(count > 0 & date == data_date & 
-      #        lag(count, 1) == 0 & lag(count, 2) == 0))
 
       # calculate the SE of the growth rate
       se.gr = with(data = hhs.summary,
