@@ -929,3 +929,16 @@ Job 40207 exited with exit code 0.
 Your job 40219 ("run1_CDT") has been submitted
 Your job 40220 ("run2_CDT") has been submitted
 Job 40220 exited with exit code 0.
+Your job 112302 ("variant_surveillance") has been submitted
+Job 112302 exited with exit code 0.
+Your job 112400 ("run1_CDT") has been submitted
+Your job 112401 ("run2_CDT") has been submitted
+Unable to run job 112401
+Your job 117312 ("variant_surveillance") has been submitted
+Job 117312 exited with exit code 0.
+Your job 117629 ("run1_CDT") has been submitted
+Your job 117630 ("run2_CDT") has been submitted
+Unable to run job 117630
+Your job 118639 ("variant_surveillance") has been submitted
+Unable to run job 118639
+Your job 118642 ("run1_CDT") has been submitted
