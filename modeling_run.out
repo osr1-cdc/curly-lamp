@@ -942,3 +942,13 @@ Unable to run job 117630
 Your job 118639 ("variant_surveillance") has been submitted
 Unable to run job 118639
 Your job 118642 ("run1_CDT") has been submitted
+Your job 209315 ("variant_surveillance") has been submitted
+Job 209315 exited with exit code 0.
+Your job 209888 ("run1_CDT") has been submitted
+Your job 209889 ("run2_CDT") has been submitted
+Unable to run job 209889
+Your job 221833 ("variant_surveillance") has been submitted
+Job 221833 exited with exit code 0.
+Your job 221981 ("run1_CDT") has been submitted
+Your job 221983 ("run2_CDT") has been submitted
+Job 221983 exited with exit code 0.
