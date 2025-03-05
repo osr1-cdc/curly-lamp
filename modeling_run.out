@@ -952,3 +952,16 @@ Job 221833 exited with exit code 0.
 Your job 221981 ("run1_CDT") has been submitted
 Your job 221983 ("run2_CDT") has been submitted
 Job 221983 exited with exit code 0.
+Your job 549693 ("variant_surveillance") has been submitted
+Job 549693 exited with exit code 0.
+Your job 549847 ("run1_CDT") has been submitted
+Your job 549849 ("run2_CDT") has been submitted
+Unable to run job 549849
+Your job 568480 ("variant_surveillance") has been submitted
+Job 568480 exited with exit code 0.
+Your job 568659 ("run1_CDT") has been submitted
+Your job 568661 ("run2_CDT") has been submitted
+Job 568661 exited with exit code 0.
+Your job 590363 ("variant_surveillance") has been submitted
+Job 590363 exited with exit code 0.
+Your job 590933 ("run1_CDT") has been submitted
