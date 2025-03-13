@@ -7,7 +7,7 @@
 # save the standard output text to this file instead of the the default jobID.o file
 #$ -o Run_var_sys.out
 #
-# save the standard error text to this file instead of the the default jobID.e file
+# save the standard error text to this file instead of the the default jobID.e fil
 #$ -e Run_var_sys.err
 # 
 # Rename the job to be this string instead of the default which is the name of the script
