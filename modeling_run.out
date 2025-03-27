@@ -990,3 +990,26 @@ Job 907089 exited with exit code 0.
 Your job 907189 ("run1_CDT") has been submitted
 Your job 907190 ("run2_CDT") has been submitted
 Job 907190 exited with exit code 0.
+Your job 1189555 ("variant_surveillance") has been submitted
+Job 1189555 exited with exit code 0.
+Your job 1189747 ("run1_CDT") has been submitted
+Your job 1189748 ("run2_CDT") has been submitted
+Unable to run job 1189748
+Your job 1207094 ("variant_surveillance") has been submitted
+Job 1207094 exited with exit code 0.
+Your job 1207596 ("run1_CDT") has been submitted
+Your job 1207597 ("run2_CDT") has been submitted
+Job 1207597 exited with exit code 0.
+Your job 1214609 ("variant_surveillance") has been submitted
+Unable to run job 1214609
+Your job 1214624 ("run1_CDT") has been submitted
+Your job 1224921 ("variant_surveillance") has been submitted
+Job 1224921 exited with exit code 0.
+Your job 1227614 ("run1_CDT") has been submitted
+Your job 1227616 ("run2_CDT") has been submitted
+Job 1227616 exited with exit code 1.
+Your job 1242204 ("variant_surveillance") has been submitted
+Job 1242204 exited with exit code 0.
+Your job 1243282 ("run1_CDT") has been submitted
+Your job 1243285 ("run2_CDT") has been submitted
+Job 1243285 exited with exit code 0.
