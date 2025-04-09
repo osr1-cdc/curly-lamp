@@ -37,7 +37,7 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 # data_date <- Sys.Date()
-data_date <- as.Date('2025-04-01')
+data_date <- as.Date('2025-04-08')
 # This needs to be a date on which data were frozen in the CDP database
 # Set specific date_frozen to read sequencing data; but read test data and voc list from the data_date backup files. This can be used to rerun modeling using later date backfilled data.
 # Default would be data_date
@@ -74,7 +74,7 @@ custom_lineage_names <- NULL #Save nextclade_pango lineage as _custom dataset. N
 #       pangolin sql query (lines 305-320) in variant_surveillance_system.R to match!
 
 voc1 = c(# "AY.1", "AY.2",
-         "BA.1.1",
+         #"BA.1.1",
          "BA.2",
          "BA.2.12.1",
          "BA.2.75",
@@ -85,7 +85,7 @@ voc1 = c(# "AY.1", "AY.2",
          "BF.11",
          'BA.4',
          'BA.4.6',
-         'BA.5',
+         #'BA.5',
          'BA.5.2.6',
          "BQ.1",
          "BQ.1.1",
@@ -168,6 +168,7 @@ voc1 = c(# "AY.1", "AY.2",
          'XEQ',
          'MC.28.1',
          'XEC.4',
+         'LF.7.2.1',
          'JN.1.18.6') # Omicron
 # define an alternate set of vocs
 # (the reason for including two sets instead of just redefining the first set is
@@ -193,7 +194,7 @@ voc2_additional = c(
                     'BA.2.75.2',
                     'BQ.1',
                     'BQ.1.1',
-                    'BA.1.1',
+                    #'BA.1.1',
                     'BA.2',
                     'BA.2.12.1',
                     'BA.2.75',
@@ -203,7 +204,7 @@ voc2_additional = c(
                     'BF.11',
                     'BA.4',
                     'BA.4.6',
-                    'BA.5',
+                    #'BA.5',
                     'BA.5.2.6',
                     'BN.1',
                     'XBB',
@@ -282,6 +283,7 @@ voc2_additional = c(
                     'MC.28.1',
                     'XEQ',
                     'XEC.4',
+                    'LF.7.2.1',
                     'JN.1.18.6' # Omicron
                     )
 # voc2_custom = c(voc2,

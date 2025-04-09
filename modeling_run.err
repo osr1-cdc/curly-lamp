@@ -38,3 +38,10 @@ error: commlib error: got select error (poll() or select() error: Connection ref
 error: unable to contact qmaster using port 6444 on host "scbs-sge-sched-prod-01.biotech.cdc.gov"
 Reconnected to qmaster.
 /opt/sge/default/spool/node253/job_scripts/10817655: illegal option -- a
+commlib returns can't find connection
+
+error: COMMUNICATION ERROR: can't find connection
+The qmaster has become unreachable.  Attempting to reconnect.
+error: commlib error: got select error (poll() or select() error: Connection refused)
+error: unable to contact qmaster using port 6444 on host "scbs-rosalind-sched-prod-01.biotech.cdc.gov"
+Reconnected to qmaster.
