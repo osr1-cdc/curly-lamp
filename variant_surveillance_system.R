@@ -1,4 +1,4 @@
-# Background -------------------------------------------------------------------
+  # Background -------------------------------------------------------------------
 
 #Emerging variants of SARS-CoV-2 with increasing share among cases are of potential public health concern.
 # A survey design to track variants, based on the sequencing data residing at CDC and weighted to adjust
@@ -205,6 +205,15 @@ if(use_previously_imported_data & date_frozen_toread == data_date &
 
   print('Reading in previously pulled data')
   dat          <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_data",         custom_tag, ".RDS"))
+  data <- subset(dat, !(dat$covv_accession_id %in% c("EPI_ISL_19791260",
+                                                   "EPI_ISL_19791262",
+                                                   "EPI_ISL_19791263",
+                                                   "EPI_ISL_19791264",
+                                                   "EPI_ISL_19791265",
+                                                   "EPI_ISL_19791266",
+                                                   "EPI_ISL_19791267",
+                                                   "EPI_ISL_19791268")))
+
   pangolin     <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin",     custom_tag, ".RDS"))
   #baseline    <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline",     custom_tag, ".RDS"))
   # tests        <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests",        custom_tag, ".RDS"))
@@ -373,6 +382,15 @@ query = paste(
 # pull the data from the CDP database to an R data.frame
 dat = DBI::dbGetQuery(conn = impala,
                       statement = query)
+data <- subset(dat, !(dat$covv_accession_id %in% c("EPI_ISL_19791260",
+                                                   "EPI_ISL_19791262",
+                                                   "EPI_ISL_19791263",
+                                                   "EPI_ISL_19791264",
+                                                   "EPI_ISL_19791265",
+                                                   "EPI_ISL_19791266",
+                                                   "EPI_ISL_19791267",
+                                                   "EPI_ISL_19791268")))
+
 
 # Get the Pango lineages (at the time of the data) from the choosen source
 # (get lineages separately to allow for custom lineages)
@@ -854,6 +872,15 @@ print('Finished reading in data.')
 
 ## exclude duplicates from each table
 dat          = distinct(dat.dt) # use the data.table version to speed up calculation of why sequences are being dropped
+data <- subset(dat, !(dat$covv_accession_id %in% c("EPI_ISL_19791260",
+                                                   "EPI_ISL_19791262",
+                                                   "EPI_ISL_19791263",
+                                                   "EPI_ISL_19791264",
+                                                   "EPI_ISL_19791265",
+                                                   "EPI_ISL_19791266",
+                                                   "EPI_ISL_19791267",
+                                                   "EPI_ISL_19791268")))
+
 pangolin     = distinct(pangolin)
 #baseline    = distinct(baseline)
 # tests        = distinct(tests)
