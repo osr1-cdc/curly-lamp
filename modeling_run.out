@@ -1042,3 +1042,13 @@ Job 1541700 exited with exit code 0.
 Your job 1541997 ("run1_CDT") has been submitted
 Your job 1541999 ("run2_CDT") has been submitted
 Job 1541999 exited with exit code 0.
+Your job 1728626 ("variant_surveillance") has been submitted
+Job 1728626 exited with exit code 0.
+Your job 1730244 ("run1_CDT") has been submitted
+Your job 1730246 ("run2_CDT") has been submitted
+Unable to run job 1730246
+Your job 1752698 ("variant_surveillance") has been submitted
+Job 1752698 exited with exit code 0.
+Your job 1752953 ("run1_CDT") has been submitted
+Your job 1752954 ("run2_CDT") has been submitted
+Job 1752954 exited with exit code 0.
