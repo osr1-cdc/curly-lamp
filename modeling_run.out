@@ -1082,3 +1082,13 @@ Job 2291708 exited with exit code 0.
 Your job 2292194 ("run1_CDT") has been submitted
 Your job 2292195 ("run2_CDT") has been submitted
 Job 2292195 exited with exit code 0.
+Your job 2468070 ("variant_surveillance") has been submitted
+Job 2468070 exited with exit code 0.
+Your job 2468486 ("run1_CDT") has been submitted
+Your job 2468487 ("run2_CDT") has been submitted
+Unable to run job 2468487
+Your job 2537635 ("variant_surveillance") has been submitted
+Job 2537635 exited with exit code 0.
+Your job 2538209 ("run1_CDT") has been submitted
+Your job 2538210 ("run2_CDT") has been submitted
+Job 2538210 exited with exit code 0.
