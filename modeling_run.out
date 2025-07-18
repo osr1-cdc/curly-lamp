@@ -1127,3 +1127,48 @@ Job 3896989 exited with exit code 0.
 Your job 3897801 ("run1_CDT") has been submitted
 Your job 3897802 ("run2_CDT") has been submitted
 Job 3897802 exited with exit code 0.
+Your job 4556704 ("variant_surveillance") has been submitted
+Unable to run job 4556704
+Your job 4556908 ("run1_CDT") has been submitted
+Your job 4556909 ("run2_CDT") has been submitted
+Job 4556909 exited with exit code 1.
+Your job 4557328 ("variant_surveillance") has been submitted
+Job 4557328 exited with exit code 0.
+Your job 4560399 ("run1_CDT") has been submitted
+Your job 4560400 ("run2_CDT") has been submitted
+Job 4560400 exited with exit code 1.
+Your job 5186237 ("variant_surveillance") has been submitted
+Job 5186237 exited with exit code 0.
+Your job 5186567 ("run1_CDT") has been submitted
+Your job 5186568 ("run2_CDT") has been submitted
+Job 5186568 exited with exit code 0.
+Your job 5512689 ("variant_surveillance") has been submitted
+Job 5512689 exited with exit code 0.
+Your job 5513866 ("run1_CDT") has been submitted
+Your job 5513867 ("run2_CDT") has been submitted
+Unable to run job 5513867
+Your job 5545789 ("variant_surveillance") has been submitted
+Job 5545789 exited with exit code 0.
+Your job 5546628 ("run1_CDT") has been submitted
+Your job 5546629 ("run2_CDT") has been submitted
+Job 5546629 exited with exit code 0.
+Your job 5721115 ("variant_surveillance") has been submitted
+Job 5721115 exited with exit code 0.
+Your job 5721169 ("run1_CDT") has been submitted
+Your job 5721170 ("run2_CDT") has been submitted
+Unable to run job 5721170
+Your job 5729899 ("variant_surveillance") has been submitted
+Job 5729899 exited with exit code 0.
+Your job 5729910 ("run1_CDT") has been submitted
+Your job 5729911 ("run2_CDT") has been submitted
+Job 5729911 exited with exit code 1.
+Your job 5953343 ("variant_surveillance") has been submitted
+Job 5953343 exited with exit code 0.
+Your job 5954536 ("run1_CDT") has been submitted
+Your job 5954537 ("run2_CDT") has been submitted
+Unable to run job 5954537
+Your job 5990888 ("variant_surveillance") has been submitted
+Job 5990888 exited with exit code 0.
+Your job 5991404 ("run1_CDT") has been submitted
+Your job 5991405 ("run2_CDT") has been submitted
+Job 5991405 exited with exit code 1.
