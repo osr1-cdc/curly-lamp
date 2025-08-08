@@ -41,7 +41,7 @@
 #$ -l h_rt=72:00:00
 source /etc/profile
 
-source    /scicomp/home-pure/ukc2/miniconda3/bin/activate /scicomp/home-pure/ukc2/miniconda3/envs/prop_model_pure
+source    /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
 
 
 Rscript weekly_variant_report_nowcast.R -r 2 -c F -v F -t quantile_99 -s T -p 4 -w weighted -b population -d FALSE -e updated
