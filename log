@@ -874,3 +874,9 @@ Invalid option: -
 [2025-08-05 18:14:26] Modeling run started.
 [2025-08-05 18:27:29] Data has been pulled in.
 [2025-08-06  0:42:21] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
+[2025-08-12 11:30:19] Modeling run started.
+[2025-08-12 11:42:46] Data has been pulled in.
+[2025-08-12 11:50:05] Modeling run finished.
+[2025-08-12 18:09:16] Modeling run started.
+[2025-08-12 18:22:35] Data has been pulled in.
+[2025-08-13  0:03:25] Weekly_variant_report_nowcast.R errored out. Check the .err files for Run 1 and Run 2.
