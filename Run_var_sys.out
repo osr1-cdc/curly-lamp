@@ -6790,3 +6790,15 @@ WARNING: sun.reflect.Reflection.getCallerClass is not supported. This will impac
 [1] "Removing 0 sequences from \"Broad Institute's Genomic Center For Infectious Diseases (GCID)\" collected since 2023-01-01"
 NULL
 [1] "\nNo newly added labs."
+[1] "Pulling data from CDP"
+WARNING: sun.reflect.Reflection.getCallerClass is not supported. This will impact performance.
+[1] "Finished reading in data."
+[1] "Removing 0 sequences from \"Broad Institute's Genomic Center For Infectious Diseases (GCID)\" collected since 2023-01-01"
+NULL
+[1] "\nNo newly added labs."
+[1] "Pulling data from CDP"
+WARNING: sun.reflect.Reflection.getCallerClass is not supported. This will impact performance.
+[1] "Finished reading in data."
+[1] "Removing 0 sequences from \"Broad Institute's Genomic Center For Infectious Diseases (GCID)\" collected since 2023-01-01"
+NULL
+[1] "\nNo newly added labs."
