@@ -375,7 +375,8 @@ query = paste(
   ),
   ' WHERE A.primary_country in ("United States", "USA")
   AND A.primary_host = "Human"
-  AND ( A.contractor_vendor_name IS NOT NULL OR A.eventid_all LIKE "%1771%" OR A.primary_sampling_strategy = "Baseline_Surveillance" )'
+  AND ( A.contractor_vendor_name IS NOT NULL OR A.eventid_all LIKE "%1771%" OR A.primary_sampling_strategy = "Baseline_Surveillance" )
+  AND A.lineage != "Unassigned" AND A.lineage IS NOT NULL'
   # AND A.primary_submitter IS NOT NULL'
 ) # if unavailable, use test_deduplication_cdcncbigisaid_auto for testing
 

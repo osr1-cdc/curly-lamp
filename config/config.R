@@ -479,7 +479,7 @@ calc_confirmed_infections <- FALSE
 # Option to just fit the nowcast model and avoid the slower parts of the script
 # (this is only valid if the run number == 2)
 # this can be removed eventually. It's here to make it easier to make updates to the Nowcast model.
-nowcast_only = FALSE
+nowcast_only = TRUE
 
 # This is an option that probably won't be used, but I don't want to delete it yet
 # so it's hiding here just in case I want to use it again.
