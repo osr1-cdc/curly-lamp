@@ -37,7 +37,7 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 # data_date <- Sys.Date()
-data_date <- as.Date('2025-08-19')
+data_date <- as.Date('2025-09-02')
 # This needs to be a date on which data were frozen in the CDP database
 # Set specific date_frozen to read sequencing data; but read test data and voc list from the data_date backup files. This can be used to rerun modeling using later date backfilled data.
 # Default would be data_date
@@ -479,7 +479,7 @@ calc_confirmed_infections <- FALSE
 # Option to just fit the nowcast model and avoid the slower parts of the script
 # (this is only valid if the run number == 2)
 # this can be removed eventually. It's here to make it easier to make updates to the Nowcast model.
-nowcast_only = TRUE
+nowcast_only = FALSE
 
 # This is an option that probably won't be used, but I don't want to delete it yet
 # so it's hiding here just in case I want to use it again.
