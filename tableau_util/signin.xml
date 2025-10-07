@@ -1,5 +1,5 @@
 <tsRequest>
- <credentials name="tlz5" password="***REMOVED***" >
+ <credentials name="cdcuser" password="cdcpassword" >
    <site contentUrl="" />
  </credentials>
 </tsRequest>
