@@ -205,7 +205,7 @@ if(use_previously_imported_data & date_frozen_toread == data_date &
 
   print('Reading in previously pulled data')
   dat          <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_data",         custom_tag, ".RDS"))
-  data <- subset(dat, !(dat$covv_accession_id %in% c("EPI_ISL_19791260",
+  dat <- subset(dat, !(dat$covv_accession_id %in% c("EPI_ISL_19791260",
                                                    "EPI_ISL_19791262",
                                                    "EPI_ISL_19791263",
                                                    "EPI_ISL_19791264",
@@ -213,6 +213,7 @@ if(use_previously_imported_data & date_frozen_toread == data_date &
                                                    "EPI_ISL_19791266",
                                                    "EPI_ISL_19791267",
                                                    "EPI_ISL_19791268")))
+  dat <- as.data.table(dat)                                                 
 
   pangolin     <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin",     custom_tag, ".RDS"))
   #baseline    <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline",     custom_tag, ".RDS"))
@@ -383,7 +384,7 @@ query = paste(
 # pull the data from the CDP database to an R data.frame
 dat = DBI::dbGetQuery(conn = impala,
                       statement = query)
-data <- subset(dat, !(dat$covv_accession_id %in% c("EPI_ISL_19791260",
+dat <- subset(dat, !(dat$covv_accession_id %in% c("EPI_ISL_19791260",
                                                    "EPI_ISL_19791262",
                                                    "EPI_ISL_19791263",
                                                    "EPI_ISL_19791264",
@@ -391,7 +392,7 @@ data <- subset(dat, !(dat$covv_accession_id %in% c("EPI_ISL_19791260",
                                                    "EPI_ISL_19791266",
                                                    "EPI_ISL_19791267",
                                                    "EPI_ISL_19791268")))
-
+dat <- as.data.table(dat)
 
 # Get the Pango lineages (at the time of the data) from the choosen source
 # (get lineages separately to allow for custom lineages)
@@ -873,7 +874,7 @@ print('Finished reading in data.')
 
 ## exclude duplicates from each table
 dat          = distinct(dat.dt) # use the data.table version to speed up calculation of why sequences are being dropped
-data <- subset(dat, !(dat$covv_accession_id %in% c("EPI_ISL_19791260",
+dat <- subset(dat, !(dat$covv_accession_id %in% c("EPI_ISL_19791260",
                                                    "EPI_ISL_19791262",
                                                    "EPI_ISL_19791263",
                                                    "EPI_ISL_19791264",
@@ -881,6 +882,7 @@ data <- subset(dat, !(dat$covv_accession_id %in% c("EPI_ISL_19791260",
                                                    "EPI_ISL_19791266",
                                                    "EPI_ISL_19791267",
                                                    "EPI_ISL_19791268")))
+dat <- as.data.table(dat)
 
 pangolin     = distinct(pangolin)
 #baseline    = distinct(baseline)
@@ -2434,6 +2436,19 @@ svy.dat[, 'count' := 1]
 # calculate final date of 2-week bins for each observation
 # svy.dat$FORTNIGHT_END = as.character(week0day1 + svy.dat$week%/%2 * 14 + 13)
 svy.dat[, 'FORTNIGHT_END' := as.character(week0day1 + week %/% 2 * 14 + 13)]
+#svy.dat[, 'MONTH_END' := as.character(week0day1 + week %/% 4 * 28 + 13)]
+
+svy.dat[, MONTH_END := as.character(
+  week0day1 + ((week %/% 2L) + ((week %/% 2L) %% 2L)) * 14L + 13L
+)]
+
+
+#svy.dat <- svy.dat %>%
+#  mutate(group = (row_number() - 1) %/% 2) %>%  # Create a grouping variable for every 2 rows
+#  group_by(group) %>%                           # Group by the new variable
+#  mutate(MONTH_END = max(FORTNIGHT_END)) %>%  # Get the max date for each group
+#  ungroup() %>%                                 # Ungroup the data
+#  select(-group)
 
 # add the current week to the source data
 #svy.dat$current_week = current_week

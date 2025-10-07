@@ -14,3 +14,10 @@ weights_comparison.R
 variant_surveillance_system_sherry
 variant_surveillance_system_sherry.R
 tableau_util/signin.xml
+*.err
+*.out
+.env
+log
+.RData
+.DS_Store
+*.rds
