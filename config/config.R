@@ -575,3 +575,7 @@ exclude_testing_data_portion <- TRUE
 exclusion_states <- c("TX")
 testing_exclusion_cutoff <- "2022-06-26"
 testing_exclusion_cutoff_end <- "2022-07-02"
+
+# Location of JDBC Driver 
+
+jdbc_driver <- '/scicomp/groups-pure/OID/NCIRD/CORVD/CRVLB/MIST/apps/jdbc/ClouderaImpalaJDBC-2.6.20.1024/ClouderaImpalaJDBC41-2.6.20.1024/'

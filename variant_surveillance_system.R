@@ -162,8 +162,8 @@ dir.create(path = paste0(script.basename,"/data"),
 # load in config/config.R variables
 source(paste0(script.basename, "/config/config.R"))
 
-# path to the jdbc driver
-jdbc_driver = paste0(script.basename, "/jdbc/ClouderaImpalaJDBC-2.6.20.1024/ClouderaImpalaJDBC41-2.6.20.1024/")
+# path to the jdbc driver --> now from the config.R file
+# jdbc_driver = paste0(script.basename, "/jdbc/ClouderaImpalaJDBC-2.6.20.1024/ClouderaImpalaJDBC41-2.6.20.1024/")
 
 # variable identifying which Hadoop table to read in. Options are:
 # ~ "deduplication_cdcncbigisaid_auto": this data table is updated regularly but may be subject to cleaning issues
