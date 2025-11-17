@@ -37,7 +37,7 @@
 # set date for data creation
 # (generally set to current date to allow more portability)
 # data_date <- Sys.Date()
-data_date <- as.Date('2025-09-09')
+data_date <- as.Date('2025-10-02')
 # This needs to be a date on which data were frozen in the CDP database
 # Set specific date_frozen to read sequencing data; but read test data and voc list from the data_date backup files. This can be used to rerun modeling using later date backfilled data.
 # Default would be data_date
@@ -289,6 +289,7 @@ voc2_additional = c(
                     'MC.19',
                     'XEK',
                     'XEQ',
+                    'XEQ',
                     'MC.28.1',
                     'XEC.4',
                     'XFC',
@@ -342,6 +343,7 @@ voc3 = c("B.1.1.7",   # Alpha  # and Q.1 to 8*
          'FD.2',
          'XBB.1.9.2',
          'XBB.1.16',
+	      'XBB.1.16.1',
 	      'XBB.1.16.1',
          'XBB.2.3',
          "BQ.1",
@@ -569,3 +571,7 @@ exclude_testing_data_portion <- TRUE
 exclusion_states <- c("TX")
 testing_exclusion_cutoff <- "2022-06-26"
 testing_exclusion_cutoff_end <- "2022-07-02"
+
+# Location of JDBC Driver 
+
+jdbc_driver <- '/scicomp/groups-pure/OID/NCIRD/CORVD/CRVLB/MIST/apps/jdbc/ClouderaImpalaJDBC-2.6.20.1024/ClouderaImpalaJDBC41-2.6.20.1024/'
