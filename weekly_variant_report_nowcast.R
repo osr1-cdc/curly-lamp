@@ -4881,9 +4881,9 @@ if ( grepl("Run2",tag) ){
                       row.names(ests$composite_variant$matrix)),
           Share = ests$p_S, # c(ests$p_i, ests$composite_variant$p_i),
           se.Share = ests$se.p_S, # c(ests$se.p_i, ests$composite_variant$se.p_i),
-          growth_rate    = 0.25 * (100 * exp(ests$g_S) - 100), # c(gr,    gr_agg$gr),
-          growth_rate_lo = 0.25 * (100 * exp(ests$g_S - 1.96 * ests$se.g_S) - 100), # c(gr_lo, gr_agg$gr_lo),
-          growth_rate_hi = 0.25 * (100 * exp(ests$g_S + 1.96 * ests$se.g_S) - 100), # c(gr_hi, gr_agg$gr_hi),
+          growth_rate    = 100 * exp(ests$g_S) - 100, # c(gr,    gr_agg$gr),
+          growth_rate_lo = 100 * exp(ests$g_S - 1.96 * ests$se.g_S) - 100, # c(gr_lo, gr_agg$gr_lo),
+          growth_rate_hi = 100 * exp(ests$g_S + 1.96 * ests$se.g_S) - 100, # c(gr_hi, gr_agg$gr_hi),
           doubling_time    = log(2)/ests$g_S * 7, # c(doubling_time,    gr_agg$dt),
           doubling_time_lo = log(2)/(ests$g_S - 1.96 * ests$se.g_S) * 7, # c(doubling_time_lo, gr_agg$dt_lo),
           doubling_time_hi = log(2)/(ests$g_S + 1.96 * ests$se.g_S) * 7 # c(doubling_time_hi, gr_agg$dt_hi)
