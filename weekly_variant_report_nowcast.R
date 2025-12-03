@@ -3426,8 +3426,6 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
 if ( grepl("Run2",tag) ){
   remove_fortnights <- tail(sort(unique(src.dat$FORTNIGHT_END)),2)[1]
   src.dat <- subset(src.dat, src.dat$FORTNIGHT_END < remove_fortnights)
-  last_two_fortnights <- tail(sort(unique(src.dat$FORTNIGHT_END)), 2)
-  src.dat <- src.dat[!(VARIANT == "JN.1.16.1" & FORTNIGHT_END %in% last_two_fortnights)]
   src.dat <- as.data.table(src.dat)
   
   ## Data prep for nowcast model ----
