@@ -1781,157 +1781,157 @@ labnames_df_bva <- data.frame(old_name = BVA_labs_to_agg,
                                new_name = 'BOISE VA MEDICAL CENTER')
 svy.dat[LAB %in% BVA_labs_to_agg, 'LAB2' := labnames_df_bva$new_name[1]]
 
-# Aggregate Indiana State DoH
-IN_labs_to_agg <- grep(pattern = 'IN.*STATE DEPARTMENT OF HEALTH LABORATORY SERVICES',
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_in <- data.frame(old_name = IN_labs_to_agg,
-                             new_name = 'INDIANA STATE DEPARTMENT OF HEALTH LABORATORY SERVICES')
-svy.dat[LAB %in% IN_labs_to_agg, 'LAB2' := labnames_df_in$new_name[1]]
-
-# added 2022-04-28 (Wake Forest & Michigan)
-# Aggregate Wake Forest names
-WF_labs_to_agg <- grep(pattern = 'WAKE FOREST school of medicine',
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_wf <- data.frame(old_name = WF_labs_to_agg,
-                             new_name = "WAKE FOREST SCHOOL OF MEDICINE, INTERNAL MEDICINE")
-svy.dat[LAB %in% WF_labs_to_agg, 'LAB2' := labnames_df_wf$new_name[1]]
-
-# # aggregate Michigan DoHHS
-# MI_labs_to_agg <- grep(pattern = 'MICHIGAN DEPARTMENT of health',
+# # Aggregate Indiana State DoH
+# IN_labs_to_agg <- grep(pattern = 'IN.*STATE DEPARTMENT OF HEALTH LABORATORY SERVICES',
 #                          x = unique_labs,
 #                          ignore.case = T,
 #                          value = T)
-# labnames_df_mi <- data.frame(old_name = MI_labs_to_agg,
-#                              new_name = "MICHIGAN DEPARTMENT OF HEALTH AND HUMAN SERVICES")
-# svy.dat[LAB %in% MI_labs_to_agg, 'LAB2' := labnames_df_mi$new_name[1]]
+# labnames_df_in <- data.frame(old_name = IN_labs_to_agg,
+#                              new_name = 'INDIANA STATE DEPARTMENT OF HEALTH LABORATORY SERVICES')
+# svy.dat[LAB %in% IN_labs_to_agg, 'LAB2' := labnames_df_in$new_name[1]]
 
-# added 2022-05-12 (Connecticut)
-# Aggregate Connecticut names
-CT_labs_to_agg <- grep(pattern = '(CT department of public health)|(Connecticut department of public health)',
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_ct <- data.frame(old_name = CT_labs_to_agg,
-                             new_name = "CT DPH")
-svy.dat[LAB %in% CT_labs_to_agg, 'LAB2' := labnames_df_ct$new_name[1]]
+# # added 2022-04-28 (Wake Forest & Michigan)
+# # Aggregate Wake Forest names
+# WF_labs_to_agg <- grep(pattern = 'WAKE FOREST school of medicine',
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_wf <- data.frame(old_name = WF_labs_to_agg,
+#                              new_name = "WAKE FOREST SCHOOL OF MEDICINE, INTERNAL MEDICINE")
+# svy.dat[LAB %in% WF_labs_to_agg, 'LAB2' := labnames_df_wf$new_name[1]]
 
-# added 2022-05-19 (Bushman)
-# Aggregate Bushman lab
-# "THE BUSHMAN LAB, SCHOOL OF MEDICINE, UNIVERSITY OF PENNSYLVANIA"
-# "BUSHMAN"
-BU_labs_to_agg <- grep(pattern = '(^BUSHMAN$)|(THE BUSHMAN LAB)',
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_bu <- data.frame(old_name = BU_labs_to_agg,
-                             new_name = "THE BUSHMAN LAB, UPENN")
-svy.dat[LAB %in% BU_labs_to_agg, 'LAB2' := labnames_df_bu$new_name[1]]
+# # # aggregate Michigan DoHHS
+# # MI_labs_to_agg <- grep(pattern = 'MICHIGAN DEPARTMENT of health',
+# #                          x = unique_labs,
+# #                          ignore.case = T,
+# #                          value = T)
+# # labnames_df_mi <- data.frame(old_name = MI_labs_to_agg,
+# #                              new_name = "MICHIGAN DEPARTMENT OF HEALTH AND HUMAN SERVICES")
+# # svy.dat[LAB %in% MI_labs_to_agg, 'LAB2' := labnames_df_mi$new_name[1]]
 
-# added 2022-05-26 (Delaware PHL)
-# DELAWARE PUBLIC HEALTH LABORATORY
-# DELAWARE PUBLIC HEALTH LAB
-DE_labs_to_agg <- grep(pattern = 'DELAWARE PUBLIC HEALTH LAB',
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_de <- data.frame(old_name = DE_labs_to_agg,
-                             new_name = "DELAWARE PHL")
-svy.dat[LAB %in% DE_labs_to_agg, 'LAB2' := labnames_df_de$new_name[1]]
+# # added 2022-05-12 (Connecticut)
+# # Aggregate Connecticut names
+# CT_labs_to_agg <- grep(pattern = '(CT department of public health)|(Connecticut department of public health)',
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_ct <- data.frame(old_name = CT_labs_to_agg,
+#                              new_name = "CT DPH")
+# svy.dat[LAB %in% CT_labs_to_agg, 'LAB2' := labnames_df_ct$new_name[1]]
 
-# "KANSAS HEALTH AND ENVIRONMENTAL LAB"
-# "KANSAS HEALTH AND ENVIRONMENTAL LABORATORIES"
-KS_labs_to_agg <- grep(pattern = 'KANSAS HEALTH AND ENVIRONMENTAL',
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_ks <- data.frame(old_name = KS_labs_to_agg,
-                             new_name = "KANSAS HEALTH AND ENVIRONMENTAL LAB")
-svy.dat[LAB %in% KS_labs_to_agg, 'LAB2' := labnames_df_ks$new_name[1]]
+# # added 2022-05-19 (Bushman)
+# # Aggregate Bushman lab
+# # "THE BUSHMAN LAB, SCHOOL OF MEDICINE, UNIVERSITY OF PENNSYLVANIA"
+# # "BUSHMAN"
+# BU_labs_to_agg <- grep(pattern = '(^BUSHMAN$)|(THE BUSHMAN LAB)',
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_bu <- data.frame(old_name = BU_labs_to_agg,
+#                              new_name = "THE BUSHMAN LAB, UPENN")
+# svy.dat[LAB %in% BU_labs_to_agg, 'LAB2' := labnames_df_bu$new_name[1]]
 
-# "MISSISSIPPI PUBLIC HEALTH LABORATORY"
-# MS PHL
-MS_labs_to_agg <- grep(pattern = '(MISSISSIPPI PUBLIC HEALTH LABORATORY)|(MS PHL)',
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_ms <- data.frame(old_name = MS_labs_to_agg,
-                             new_name = "MISSISSIPPI PHL")
-svy.dat[LAB %in% MS_labs_to_agg, 'LAB2' := labnames_df_ms$new_name[1]]
+# # added 2022-05-26 (Delaware PHL)
+# # DELAWARE PUBLIC HEALTH LABORATORY
+# # DELAWARE PUBLIC HEALTH LAB
+# DE_labs_to_agg <- grep(pattern = 'DELAWARE PUBLIC HEALTH LAB',
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_de <- data.frame(old_name = DE_labs_to_agg,
+#                              new_name = "DELAWARE PHL")
+# svy.dat[LAB %in% DE_labs_to_agg, 'LAB2' := labnames_df_de$new_name[1]]
 
-# "HOUSTON HEALTH DEPARTMENT"
-# "HOUSTON HEALTH DEPT."
-HHD_labs_to_agg <- grep(pattern = 'HOUSTON HEALTH DEP',
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_hhd <- data.frame(old_name = HHD_labs_to_agg,
-                             new_name = "HOUSTON HEALTH DEPT")
-svy.dat[LAB %in% HHD_labs_to_agg, 'LAB2' := labnames_df_hhd$new_name[1]]
+# # "KANSAS HEALTH AND ENVIRONMENTAL LAB"
+# # "KANSAS HEALTH AND ENVIRONMENTAL LABORATORIES"
+# KS_labs_to_agg <- grep(pattern = 'KANSAS HEALTH AND ENVIRONMENTAL',
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_ks <- data.frame(old_name = KS_labs_to_agg,
+#                              new_name = "KANSAS HEALTH AND ENVIRONMENTAL LAB")
+# svy.dat[LAB %in% KS_labs_to_agg, 'LAB2' := labnames_df_ks$new_name[1]]
 
-# GEORGIA DEPARTMENT OF PUBLIC HEALTH
-# GA DEPARTMENT OF PUBLIC HEALTH
-GA_labs_to_agg <- grep(pattern = '(^GEORGIA DEPARTMENT OF PUBLIC HEALTH$)|(^GA DEPARTMENT OF PUBLIC HEALTH$)',
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_ga <- data.frame(old_name = GA_labs_to_agg,
-                             new_name = "GA DEPARTMENT OF PUBLIC HEALTH")
-svy.dat[LAB %in% GA_labs_to_agg, 'LAB2' := labnames_df_ga$new_name[1]]
+# # "MISSISSIPPI PUBLIC HEALTH LABORATORY"
+# # MS PHL
+# MS_labs_to_agg <- grep(pattern = '(MISSISSIPPI PUBLIC HEALTH LABORATORY)|(MS PHL)',
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_ms <- data.frame(old_name = MS_labs_to_agg,
+#                              new_name = "MISSISSIPPI PHL")
+# svy.dat[LAB %in% MS_labs_to_agg, 'LAB2' := labnames_df_ms$new_name[1]]
 
-# added 2022-06-30
-# "BUREAU OF LABORATORIES, PENNSYLVANIA DEPARTMENT OF HEALTH"
-# "PENNSYLVANIA DEPARTMENT OF HEALTH BUREAU OF LABORATORIES"
-PA_labs_to_agg <- grep(pattern = 'PENNSYLVANIA DEPARTMENT OF HEALTH',
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_pa <- data.frame(old_name = PA_labs_to_agg,
-                             new_name = "PENNSYLVANIA DEPARTMENT OF HEALTH BUREAU OF LABORATORIES")
-svy.dat[LAB %in% PA_labs_to_agg, 'LAB2' := labnames_df_pa$new_name[1]]
+# # "HOUSTON HEALTH DEPARTMENT"
+# # "HOUSTON HEALTH DEPT."
+# HHD_labs_to_agg <- grep(pattern = 'HOUSTON HEALTH DEP',
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_hhd <- data.frame(old_name = HHD_labs_to_agg,
+#                              new_name = "HOUSTON HEALTH DEPT")
+# svy.dat[LAB %in% HHD_labs_to_agg, 'LAB2' := labnames_df_hhd$new_name[1]]
 
-# added 2023-01-24
-# "DC PUBLIC HEALTH LAB/ DEPT. OF FORENSIC SCIENCES"
-# "DC PUBLIC HEALTH LABORATORY, DEPARTMENT OF FORENSIC SCIENCES"
-# "DEPARTMENT OF FORENSIC SCIENCES, DISTRICT OF COLOMBIA PUBLIC HEALTH LABORATORY"
-# "DISTRICT OF COLUMBIA DEPARTMENT OF FORENSIC SCIENCES"
-# "PUBLIC HEALTH LABORATORY DIVISION, DISTRICT OF COLOMBIA DEPARTMENT OF FORENSIC SCIENCES"
-FS_labs_to_agg <- grep(pattern = "(FORENSIC SCIENCES.*DC)|(DC.+FORENSIC SCIENCES)|(DISTRICT OF COLUMBIA.+FORENSIC SCIENCES)|(FORENSIC SCIENCES.+DISTRICT OF COLOMBIA)",
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_fs <- data.frame(old_name = FS_labs_to_agg,
-                             new_name = "DEPARTMENT OF FORENSIC SCIENCES, DISTRICT OF COLOMBIA PUBLIC HEALTH LABORATORY")
-svy.dat[LAB %in% FS_labs_to_agg, 'LAB2' := labnames_df_fs$new_name[1]]
+# # GEORGIA DEPARTMENT OF PUBLIC HEALTH
+# # GA DEPARTMENT OF PUBLIC HEALTH
+# GA_labs_to_agg <- grep(pattern = '(^GEORGIA DEPARTMENT OF PUBLIC HEALTH$)|(^GA DEPARTMENT OF PUBLIC HEALTH$)',
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_ga <- data.frame(old_name = GA_labs_to_agg,
+#                              new_name = "GA DEPARTMENT OF PUBLIC HEALTH")
+# svy.dat[LAB %in% GA_labs_to_agg, 'LAB2' := labnames_df_ga$new_name[1]]
 
-# "LOS ANGELES COUNTY PUBLIC HEALTH LABORATORIES"
-# "LOS ANGELES COUNTY PUBLIC HEALTH LABORATORY"
-LA_labs_to_agg <- grep(pattern = "LOS ANGELES COUNTY PUBLIC HEALTH LAB",
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_la <- data.frame(old_name = LA_labs_to_agg,
-                             new_name = "LOS ANGELES COUNTY PUBLIC HEALTH LABORATORY")
-svy.dat[LAB %in% LA_labs_to_agg, 'LAB2' := labnames_df_la$new_name[1]]
+# # added 2022-06-30
+# # "BUREAU OF LABORATORIES, PENNSYLVANIA DEPARTMENT OF HEALTH"
+# # "PENNSYLVANIA DEPARTMENT OF HEALTH BUREAU OF LABORATORIES"
+# PA_labs_to_agg <- grep(pattern = 'PENNSYLVANIA DEPARTMENT OF HEALTH',
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_pa <- data.frame(old_name = PA_labs_to_agg,
+#                              new_name = "PENNSYLVANIA DEPARTMENT OF HEALTH BUREAU OF LABORATORIES")
+# svy.dat[LAB %in% PA_labs_to_agg, 'LAB2' := labnames_df_pa$new_name[1]]
 
-SP_labs_to_agg <- grep(pattern = "(SPRINGFIELD LAB.+ILLINOIS DEPARTMENT OF PUBLIC HEALTH)",
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_sp <- data.frame(old_name = SP_labs_to_agg,
-                             new_name = "SPRINGFIELD LAB, ILLINOIS DEPARTMENT OF PUBLIC HEALTH")
-svy.dat[LAB %in% SP_labs_to_agg, 'LAB2' := labnames_df_sp$new_name[1]]
+# # added 2023-01-24
+# # "DC PUBLIC HEALTH LAB/ DEPT. OF FORENSIC SCIENCES"
+# # "DC PUBLIC HEALTH LABORATORY, DEPARTMENT OF FORENSIC SCIENCES"
+# # "DEPARTMENT OF FORENSIC SCIENCES, DISTRICT OF COLOMBIA PUBLIC HEALTH LABORATORY"
+# # "DISTRICT OF COLUMBIA DEPARTMENT OF FORENSIC SCIENCES"
+# # "PUBLIC HEALTH LABORATORY DIVISION, DISTRICT OF COLOMBIA DEPARTMENT OF FORENSIC SCIENCES"
+# FS_labs_to_agg <- grep(pattern = "(FORENSIC SCIENCES.*DC)|(DC.+FORENSIC SCIENCES)|(DISTRICT OF COLUMBIA.+FORENSIC SCIENCES)|(FORENSIC SCIENCES.+DISTRICT OF COLOMBIA)",
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_fs <- data.frame(old_name = FS_labs_to_agg,
+#                              new_name = "DEPARTMENT OF FORENSIC SCIENCES, DISTRICT OF COLOMBIA PUBLIC HEALTH LABORATORY")
+# svy.dat[LAB %in% FS_labs_to_agg, 'LAB2' := labnames_df_fs$new_name[1]]
 
-PI_labs_to_agg <- grep(pattern = "(THE PIANTADOSI LAB.+EMORY)",
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_pi <- data.frame(old_name = PI_labs_to_agg,
-                             new_name = "THE PIANTADOSI LAB,  DEPARTMENT OF PATHOLOGY AND LABORATORY MEDICINE, EMORY UNIVERSITY SCHOOL OF MEDICINE")
-svy.dat[LAB %in% PI_labs_to_agg, 'LAB2' := labnames_df_pi$new_name[1]]
+# # "LOS ANGELES COUNTY PUBLIC HEALTH LABORATORIES"
+# # "LOS ANGELES COUNTY PUBLIC HEALTH LABORATORY"
+# LA_labs_to_agg <- grep(pattern = "LOS ANGELES COUNTY PUBLIC HEALTH LAB",
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_la <- data.frame(old_name = LA_labs_to_agg,
+#                              new_name = "LOS ANGELES COUNTY PUBLIC HEALTH LABORATORY")
+# svy.dat[LAB %in% LA_labs_to_agg, 'LAB2' := labnames_df_la$new_name[1]]
+
+# SP_labs_to_agg <- grep(pattern = "(SPRINGFIELD LAB.+ILLINOIS DEPARTMENT OF PUBLIC HEALTH)",
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_sp <- data.frame(old_name = SP_labs_to_agg,
+#                              new_name = "SPRINGFIELD LAB, ILLINOIS DEPARTMENT OF PUBLIC HEALTH")
+# svy.dat[LAB %in% SP_labs_to_agg, 'LAB2' := labnames_df_sp$new_name[1]]
+
+# PI_labs_to_agg <- grep(pattern = "(THE PIANTADOSI LAB.+EMORY)",
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_pi <- data.frame(old_name = PI_labs_to_agg,
+#                              new_name = "THE PIANTADOSI LAB,  DEPARTMENT OF PATHOLOGY AND LABORATORY MEDICINE, EMORY UNIVERSITY SCHOOL OF MEDICINE")
+# svy.dat[LAB %in% PI_labs_to_agg, 'LAB2' := labnames_df_pi$new_name[1]]
 
 
 # added 2023-05-24: remove sequences from "Broad Institute's Genomic Center For Infectious Diseases (GCID)" that were collected in 2023
@@ -1942,55 +1942,55 @@ print(paste('Removing',
 svy.dat <- svy.dat[ !(LAB == toupper("Broad Institute's Genomic Center For Infectious Diseases (GCID)") & date >= '2023-01-01') ]
 
 
-broad_labs_to_agg <- grep(pattern = "BROAD INSTITUTE",
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_broad <- data.frame(old_name = broad_labs_to_agg,
-                             new_name = "BROAD INSTITUTE")
-svy.dat[LAB %in% broad_labs_to_agg, 'LAB2' := labnames_df_broad$new_name[1]]
+# broad_labs_to_agg <- grep(pattern = "BROAD INSTITUTE",
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_broad <- data.frame(old_name = broad_labs_to_agg,
+#                              new_name = "BROAD INSTITUTE")
+# svy.dat[LAB %in% broad_labs_to_agg, 'LAB2' := labnames_df_broad$new_name[1]]
 
-# Added 2023-02-07
-UM_labs_to_agg <- grep(pattern = "MOLECULAR AND GENOMICS CORE FACILITY, UNIVERSITY OF MISSISSIPPI MEDICAL CENTER",
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_um <- data.frame(old_name = UM_labs_to_agg,
-                             new_name = "MOLECULAR AND GENOMICS CORE FACILITY, UNIVERSITY OF MISSISSIPPI MEDICAL CENTER")
-svy.dat[LAB %in% UM_labs_to_agg, 'LAB2' := labnames_df_um$new_name[1]]
+# # Added 2023-02-07
+# UM_labs_to_agg <- grep(pattern = "MOLECULAR AND GENOMICS CORE FACILITY, UNIVERSITY OF MISSISSIPPI MEDICAL CENTER",
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_um <- data.frame(old_name = UM_labs_to_agg,
+#                              new_name = "MOLECULAR AND GENOMICS CORE FACILITY, UNIVERSITY OF MISSISSIPPI MEDICAL CENTER")
+# svy.dat[LAB %in% UM_labs_to_agg, 'LAB2' := labnames_df_um$new_name[1]]
 
-sflu_labs_to_agg <- grep(pattern = "SEATTLE FLU STUDY",
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_sflu <- data.frame(old_name = sflu_labs_to_agg,
-                             new_name = "SEATTLE FLU STUDY, UNIVERSITY OF WASHINGTON MEDICAL CENTER")
-svy.dat[LAB %in% sflu_labs_to_agg, 'LAB2' := labnames_df_sflu$new_name[1]]
+# sflu_labs_to_agg <- grep(pattern = "SEATTLE FLU STUDY",
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_sflu <- data.frame(old_name = sflu_labs_to_agg,
+#                              new_name = "SEATTLE FLU STUDY, UNIVERSITY OF WASHINGTON MEDICAL CENTER")
+# svy.dat[LAB %in% sflu_labs_to_agg, 'LAB2' := labnames_df_sflu$new_name[1]]
 
-# Added 2023-04-04
-prcvsi_labs_to_agg <- grep(pattern = "(PUERTO RICO SCIENCE)|(PRCVSI)",
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_prcvsi <- data.frame(old_name = prcvsi_labs_to_agg,
-                             new_name = "PUERTO RICO SCIENCE, TECHNOLOGY & RESEARCH TRUST - PRCVSI")
-svy.dat[LAB %in% prcvsi_labs_to_agg, 'LAB2' := labnames_df_prcvsi$new_name[1]]
+# # Added 2023-04-04
+# prcvsi_labs_to_agg <- grep(pattern = "(PUERTO RICO SCIENCE)|(PRCVSI)",
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_prcvsi <- data.frame(old_name = prcvsi_labs_to_agg,
+#                              new_name = "PUERTO RICO SCIENCE, TECHNOLOGY & RESEARCH TRUST - PRCVSI")
+# svy.dat[LAB %in% prcvsi_labs_to_agg, 'LAB2' := labnames_df_prcvsi$new_name[1]]
 
-unm_labs_to_agg <- grep(pattern = "CENTER FOR GLOBAL HEALTH",
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_unm <- data.frame(old_name = unm_labs_to_agg,
-                             new_name = "CENTER FOR GLOBAL HEALTH, UNIVERSITY OF NEW MEXICO HEALTH SCIENCES CENTER")
-svy.dat[LAB %in% labnames_df_unm$old_name, 'LAB2' := labnames_df_unm$new_name[1]]
+# unm_labs_to_agg <- grep(pattern = "CENTER FOR GLOBAL HEALTH",
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_unm <- data.frame(old_name = unm_labs_to_agg,
+#                              new_name = "CENTER FOR GLOBAL HEALTH, UNIVERSITY OF NEW MEXICO HEALTH SCIENCES CENTER")
+# svy.dat[LAB %in% labnames_df_unm$old_name, 'LAB2' := labnames_df_unm$new_name[1]]
 
-ummc_labs_to_agg <- grep(pattern = "UNIVERSITY OF MISSISSIPPI",
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_ummc <- data.frame(old_name = ummc_labs_to_agg,
-                             new_name = "UNIVERSITY OF MISSISSIPPI MEDICAL CENTER, MOLECULAR AND GENOMICS CORE FACILITY")
-svy.dat[LAB %in% labnames_df_ummc$old_name, 'LAB2' := labnames_df_ummc$new_name[1]]
+# ummc_labs_to_agg <- grep(pattern = "UNIVERSITY OF MISSISSIPPI",
+#                          x = unique_labs,
+#                          ignore.case = T,
+#                          value = T)
+# labnames_df_ummc <- data.frame(old_name = ummc_labs_to_agg,
+#                              new_name = "UNIVERSITY OF MISSISSIPPI MEDICAL CENTER, MOLECULAR AND GENOMICS CORE FACILITY")
+# svy.dat[LAB %in% labnames_df_ummc$old_name, 'LAB2' := labnames_df_ummc$new_name[1]]
 
 
 
@@ -2041,28 +2041,28 @@ labnames_df <- rbind(
   labnames_df_slo,
   labnames_df_sj,
   labnames_df_sdl,
-  labnames_df_bva,
-  labnames_df_in,
-  labnames_df_wf,
-  # labnames_df_mi,
-  labnames_df_ct,
-  labnames_df_bu,
-  labnames_df_de,
-  labnames_df_ks,
-  labnames_df_ms,
-  labnames_df_hhd,
-  labnames_df_ga,
-  labnames_df_pa,
-  labnames_df_fs,
-  labnames_df_la,
-  labnames_df_sp,
-  labnames_df_pi,
-  labnames_df_broad,
-  labnames_df_um,
-  labnames_df_sflu,
-  labnames_df_prcvsi,
-  labnames_df_unm,
-  labnames_df_ummc
+  labnames_df_bva
+  # labnames_df_in,
+  # labnames_df_wf,
+  # # labnames_df_mi,
+  # labnames_df_ct,
+  # labnames_df_bu,
+  # labnames_df_de,
+  # labnames_df_ks,
+  # labnames_df_ms,
+  # labnames_df_hhd,
+  # labnames_df_ga,
+  # labnames_df_pa,
+  # labnames_df_fs,
+  # labnames_df_la,
+  # labnames_df_sp,
+  # labnames_df_pi,
+  # labnames_df_broad,
+  # labnames_df_um,
+  # labnames_df_sflu,
+  # labnames_df_prcvsi,
+  # labnames_df_unm,
+  # labnames_df_ummc
 )
 
 # print the list of lab names that were changed to the console
