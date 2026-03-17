@@ -1,20 +1,15 @@
 #!/bin/bash
-
-# Title: proportion_modeling_run.sh
-# Usage: proportion_modeling_run.sh -u <username> -p <password>
-# Version: v1.3
-# Description: Thin HPC wrapper around pipeline.R submit-all.
-
-# Embedded Grid Engine parameters
+#
+# Generic Grid Engine wrapper for pipeline.R subcommands.
 
 # save the standard output text to this file instead of the the default jobID.o file
-#$ -o modeling_run.out
+#$ -o pipeline_job.out
 
 # save the standard error text to this file instead of the the default jobID.e file
-#$ -e modeling_run.err
+#$ -e pipeline_job.err
 
 # Rename the job to be this string instead of the default which is the name of the script
-#$ -N modeling_run
+#$ -N pipeline_job
 
 # Refer all file reference to work the current working directory which is the directory from which the script was qsubbed
 #$ -cwd
@@ -24,20 +19,14 @@
 
 # Mail options (b = beginning; e = end; a = aborted)
 #$ -m ea
-# 
+
 # Choose queue
 #$ -q all.q
 
-# Set the parallel_environment to "smp" and use xx cores (smp = Symmetric multiprocessing or shared-memory multiprocessing); MAKE SURE THIS IS >= p CORES!
-#$ -pe smp 1
-# Set the amount of RAM (per processor) to use (default is 32 GB)
-#$ -l h_vmem=32G
-# set the run-time <hh:mm:ss> (default is 72 hrs)
-#$ -l h_rt=08:00:00
-
 source /etc/profile
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${script_dir}/config/conda_env.sh"
 activate_prop_model_env || exit 1
 
-Rscript pipeline.R submit-all "$@"
+Rscript pipeline.R "$@"

@@ -1,0 +1,25 @@
+name: prop_model
+channels:
+  - conda-forge
+dependencies:
+  - r-base
+  - r-optparse
+  - r-survey
+  - r-nnet
+  - r-data.table
+  - r-zoo
+  - r-dplyr
+  - r-implyr
+  - r-odbc
+  - r-rjdbc
+  - openjdk
+  - unixodbc
+  - r-networkd3
+  - r-ape
+  - r-data.tree
+  - r-tidytree
+  - r-tidyr
+  - r-purrr
+  - r-stringr
+  - r-htmlwidgets
+  - r-webshot

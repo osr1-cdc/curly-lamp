@@ -1,114 +1,161 @@
-  # Background -------------------------------------------------------------------
+load_variant_surveillance_packages <- function() {
+  library(implyr)
+  library(odbc)
+  library(dplyr)
+  library(RJDBC)
+  library(optparse)
+  library(data.table)
+}
 
-#Emerging variants of SARS-CoV-2 with increasing share among cases are of potential public health concern.
-# A survey design to track variants, based on the sequencing data residing at CDC and weighted to adjust
-# for multiplicity of sources as well as variations in sequencing rates, is discussed here.
+configure_variant_surveillance_options <- function() {
+  options(
+    java.parameters = "-Xmx8000m",
+    stringsAsFactors = FALSE
+  )
+}
 
-# Data and methods
+get_variant_pipeline_context <- function() {
+  list(
+    pipeline_root = Sys.getenv("SC2_PIPELINE_ROOT", unset = ""),
+    pipeline_mode = nzchar(Sys.getenv("SC2_PIPELINE_ROOT", unset = "")),
+    config_path = Sys.getenv("SC2_CONFIG_PATH", unset = ""),
+    data_dir = Sys.getenv("SC2_DATA_DIR", unset = ""),
+    resources_dir = Sys.getenv("SC2_RESOURCES_DIR", unset = "")
+  )
+}
 
-#An event recorded in the surveillance system is the collection of a sample for (PCR) testing (labelled by
-# date and place of collection) that results in a positive test and is selected for sequencing and
-# submission to the system. Prevalence of variants is estimated from sequence data from multiple sources,
-# weighted to adjust for variations in sequencing and testing rates over time, source and jurisdiction,
-# using a design-based approach. In this analysis:
-# * The event time is date of collection of sample for testing
-# * The event location is currently set to the state reporting the test result
-# * The protocol for selection of positive test samples for sequencing is assumed to be random, as the
-#   commercial laboratories are unable to report their selection protocol, and the NS3 instructions neglect
-#   to specify any
-# * The strata are U.S. states and territories.
-# * The clusters are the data streams: CDC NS3 surveillance, and (currently) three contractors -- Laboratory
-#   Corporation of America, Quest Diagnostics, and Helix.
-# * Inverse-probability-of-selection weights are generated for estimates of prevalence among those sequenced
-#   (unweighted), among test positives, as well as among all infections.
+parse_variant_surveillance_options <- function(pipeline_mode) {
+  if (pipeline_mode) {
+    return(list(
+      user = Sys.getenv("SC2_CDP_USER", unset = ""),
+      password = Sys.getenv("SC2_CDP_PASSWORD", unset = ""),
+      nextclade_pango = Sys.getenv("SC2_NEXTCLADE_PANGO", unset = "FALSE")
+    ))
+  }
 
-## Current data streams and workflow
+  option_list <- list(
+    optparse::make_option(opt_str = c("-u", "--user"), type = "character", default = "", help = "User Name", metavar = "character"),
+    optparse::make_option(opt_str = c("-p", "--password"), type = "character", default = "", help = "Password", metavar = "character"),
+    optparse::make_option(opt_str = c("-n", "--nextclade_pango"), type = "character", default = "FALSE", help = "Whether to use nextclade_pango instead of pangolin lineage", metavar = "character")
+  )
 
-#The current workflow is a provisional implementation of the methods. It begins with tapping the current
-# data streams:
-# * Survey sample data: Genomic data (lineage and S gene mutation list), by collection date, reporting
-#   state, data source (lab, NS3, etc.) and any known sampling bias (targeted oversampling of "S gene
-#   target failure" specimens, etc.), from a server internal to CDC. Other variables available that may
-#   be used for stratified analysis or more careful weighting, but not used currently, are demographic
-#   information (limited completeness) on the individual tested, and ZIP code of specimen collection.
-# * Supplementary sample data: Pangolin lineage data table, from the CDC internal server, for current
-#   lineage information
-# * Weighting data: Two tables, updated on or close to the date of analysis, are downloaded from HHS Protect:
-#   count of PCR tests results (positive, negative, etc.), aggregated by collection date and reporting state,
-#   and count of PCR tests results (positive, negative, etc.) from selected labs (currently lab names that
-#   contain substrings "labcorp", "laboratory corporation", "helix", "illumina", "quest"), aggregated by
-#   collection date, reporting state and lab name.
-# * Supplementary weighting data: state population estimates (ACS 2018 5 year set)
+  optparse::parse_args(optparse::OptionParser(option_list = option_list))
+}
+
+resolve_variant_script_basename <- function(pipeline_mode, pipeline_root) {
+  if (pipeline_mode) {
+    return(pipeline_root)
+  }
+
+  initial.options <- commandArgs(trailingOnly = FALSE)
+  file.arg.name <- "--file="
+  script.name <- sub(pattern = file.arg.name, replacement = "", x = initial.options[grep(pattern = file.arg.name, x = initial.options)])
+  script.basename <- dirname(script.name)
+  if (length(script.basename) == 0) {
+    script.basename <- "."
+  }
+  script.basename
+}
+
+resolve_variant_paths <- function(script.basename, context) {
+  list(
+    config_path = if (nzchar(context$config_path)) context$config_path else file.path(script.basename, "config", "config.R"),
+    data_dir = if (nzchar(context$data_dir)) context$data_dir else file.path(script.basename, "data"),
+    resources_dir = if (nzchar(context$resources_dir)) context$resources_dir else file.path(script.basename, "resources")
+  )
+}
+
+get_variant_custom_settings <- function() {
+  list(
+    custom_lineages = toupper(Sys.getenv("SC2_CUSTOM_LINEAGES", unset = "FALSE")) %in% c("T", "TRUE", "Y", "YES"),
+    custom_tag = Sys.getenv("SC2_CUSTOM_TAG", unset = "")
+  )
+}
+
+initialize_variant_data_dir <- function(data_dir) {
+  dir.create(path = data_dir, showWarnings = FALSE)
+}
+
+backup_dir_path <- function(data_dir, backup_date, custom_tag) {
+  file.path(data_dir, paste0("backup_", backup_date, custom_tag))
+}
+
+backup_rds_path <- function(data_dir, backup_date, object_date, object_name, custom_tag) {
+  file.path(
+    backup_dir_path(data_dir, backup_date, custom_tag),
+    paste0(object_date, "_", object_name, custom_tag, ".RDS")
+  )
+}
+
+backup_files_exist <- function(data_dir, backup_date, object_dates, object_names, custom_tag) {
+  all(vapply(
+    object_names,
+    FUN.VALUE = logical(1),
+    FUN = function(object_name) {
+      file.exists(backup_rds_path(
+        data_dir = data_dir,
+        backup_date = backup_date,
+        object_date = object_dates[[object_name]],
+        object_name = object_name,
+        custom_tag = custom_tag
+      ))
+    }
+  ))
+}
+
+read_backup_rds <- function(data_dir, backup_date, object_date, object_name, custom_tag) {
+  readRDS(file = backup_rds_path(
+    data_dir = data_dir,
+    backup_date = backup_date,
+    object_date = object_date,
+    object_name = object_name,
+    custom_tag = custom_tag
+  ))
+}
+
+save_backup_rds <- function(object, data_dir, backup_date, object_date, object_name, custom_tag) {
+  saveRDS(
+    object = object,
+    file = backup_rds_path(
+      data_dir = data_dir,
+      backup_date = backup_date,
+      object_date = object_date,
+      object_name = object_name,
+      custom_tag = custom_tag
+    )
+  )
+}
+
+variant_surveillance_system_main <- function() {
 
 # Setup ------------------------------------------------------------------------
-library(implyr)   # for connecting to impala database
-library(odbc)     # for connecting to databases
-library(dplyr)    # for general data wrangling
-library(RJDBC)    # for connecting to a database via JDBC driver
-library(optparse) # for importing command-line arguments into code
-library(data.table) # for speeding up some of the calculations
+load_variant_surveillance_packages()
+configure_variant_surveillance_options()
 
-# set global options
-options(
-  # set the java virtual machine memory to 8000 MB
-  java.parameters = "-Xmx8000m",
-  # do not treat strings as factors by default
-  stringsAsFactors = FALSE
-)
-
-# optparse option list (get command-line arguments)
-option_list <- list(
-  # CDP user ID
-  optparse::make_option(
-    opt_str = c("-u", "--user"),
-    type    = "character",
-    default = '',
-    help    = "User Name",
-    metavar = "character"
-  ),
-  # CDP password
-  optparse::make_option(
-    opt_str = c("-p", "--password"),
-    type    = "character",
-    default = '',
-    help    = "Password",
-    metavar = "character"
-  )
-)
-
-# parse options list (put the command line arguments into an R list)
-opts <- optparse::parse_args(optparse::OptionParser(option_list = option_list))
+context <- get_variant_pipeline_context()
+opts <- parse_variant_surveillance_options(context$pipeline_mode)
 
 # If running code interactively, fill in opts values here
 # opts$user = ""
 # opts$password = ""
 
 
-# Standard production: always use standard Pangolin lineages
-custom_lineages = FALSE
-custom_tag = ""
+custom_settings <- get_variant_custom_settings()
+custom_lineages <- custom_settings$custom_lineages
+custom_tag <- custom_settings$custom_tag
 
 ## get base directory and driver location
-# get command-line arguments
-initial.options = commandArgs(trailingOnly = FALSE)
-# get the name of this R script from the command-line arguments
-file.arg.name = "--file="
-script.name = sub(pattern = file.arg.name,
-                  replacement = "",
-                  x = initial.options[grep(pattern = file.arg.name, x = initial.options)])
-# get the directory name of this R script
-script.basename = dirname(script.name)
-# correction for if running from base repo interactively
-if(length(script.basename) == 0) {
-  script.basename = "."
-}
+script.basename <- resolve_variant_script_basename(context$pipeline_mode, context$pipeline_root)
 
 # create data directory
-dir.create(path = paste0(script.basename,"/data"),
-           showWarnings = FALSE)
+paths <- resolve_variant_paths(script.basename, context)
+config_path <- paths$config_path
+data_dir <- paths$data_dir
+resources_dir <- paths$resources_dir
+initialize_variant_data_dir(data_dir)
 
 # load in config/config.R variables
-source(paste0(script.basename, "/config/config.R"))
+source(config_path)
 
 # path to the jdbc driver --> now from the config.R file
 # jdbc_driver = paste0(script.basename, "/jdbc/ClouderaImpalaJDBC-2.6.20.1024/ClouderaImpalaJDBC41-2.6.20.1024/")
@@ -143,16 +190,32 @@ if(toupper(opts$nextclade_pango) %in% c('T', 'TRUE', 'Y', 'YES')){
 # script after changing which labs get aggregated.
 
 # use previously pulled data if it exists
+same_day_backup_dates <- c(
+  data = data_date,
+  pangolin = data_date,
+  pops = data_date,
+  tests_nrevss = data_date
+)
+
+frozen_backup_dates <- c(
+  data = date_frozen_toread,
+  pangolin = date_frozen_toread,
+  tests = data_date,
+  tests_nrevss = data_date,
+  pops = data_date
+)
+
 if(use_previously_imported_data & date_frozen_toread == data_date &
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_data", custom_tag, ".RDS")) &
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin", custom_tag, ".RDS")) &
-    #file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline", custom_tag, ".RDS")) &
-    # file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS")) &
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS")) &
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests_nrevss", custom_tag, ".RDS"))){
+    backup_files_exist(
+      data_dir = data_dir,
+      backup_date = data_date,
+      object_dates = same_day_backup_dates,
+      object_names = c("data", "pangolin", "pops", "tests_nrevss"),
+      custom_tag = custom_tag
+    )){
 
   print('Reading in previously pulled data')
-  dat          <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_data",         custom_tag, ".RDS"))
+  dat <- read_backup_rds(data_dir, data_date, data_date, "data", custom_tag)
   dat <- subset(dat, !(dat$covv_accession_id %in% c("EPI_ISL_19791260",
                                                    "EPI_ISL_19791262",
                                                    "EPI_ISL_19791263",
@@ -163,29 +226,29 @@ if(use_previously_imported_data & date_frozen_toread == data_date &
                                                    "EPI_ISL_19791268")))
   dat <- as.data.table(dat)                                                 
 
-  pangolin     <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin",     custom_tag, ".RDS"))
+  pangolin <- read_backup_rds(data_dir, data_date, data_date, "pangolin", custom_tag)
   #baseline    <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline",     custom_tag, ".RDS"))
   # tests        <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests",        custom_tag, ".RDS"))
-  tests_nrevss <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests_nrevss", custom_tag, ".RDS"))
-  pops         <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops",         custom_tag, ".RDS"))
+  tests_nrevss <- read_backup_rds(data_dir, data_date, data_date, "tests_nrevss", custom_tag)
+  pops <- read_backup_rds(data_dir, data_date, data_date, "pops", custom_tag)
   #s1_groups <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_s1_groups", custom_tag, ".RDS"))
   print('Finished reading in data.')
 } else if (use_previously_imported_data & date_frozen_toread != data_date &
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", date_frozen_toread, "_data",         custom_tag, ".RDS")) &
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", date_frozen_toread, "_pangolin",     custom_tag, ".RDS")) &
-    #file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date,         "_baseline",     custom_tag, ".RDS")) &
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date,          "_tests",        custom_tag, ".RDS")) &
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date,          "_pops",         custom_tag, ".RDS")) &
-    file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date,          "_tests_nrevss", custom_tag, ".RDS"))
-    #file.exists(paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_s1_groups", custom_tag, ".RDS"))
+    backup_files_exist(
+      data_dir = data_dir,
+      backup_date = data_date,
+      object_dates = frozen_backup_dates,
+      object_names = c("data", "pangolin", "tests", "pops", "tests_nrevss"),
+      custom_tag = custom_tag
+    )
     ){
   print('Reading in previously pulled data. analytics_metadata frozen date different from test date')
-  dat          <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", date_frozen_toread, "_data",         custom_tag, ".RDS"))
-  pangolin     <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", date_frozen_toread, "_pangolin",     custom_tag, ".RDS"))
+  dat <- read_backup_rds(data_dir, data_date, date_frozen_toread, "data", custom_tag)
+  pangolin <- read_backup_rds(data_dir, data_date, date_frozen_toread, "pangolin", custom_tag)
   #baseline    <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date,          "_baseline",     custom_tag, ".RDS"))
-  tests        <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date,          "_tests",        custom_tag, ".RDS"))
-  tests_nrevss <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date,          "_tests_nrevss", custom_tag, ".RDS"))
-  pops         <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date,          "_pops",         custom_tag, ".RDS"))
+  tests <- read_backup_rds(data_dir, data_date, data_date, "tests", custom_tag)
+  tests_nrevss <- read_backup_rds(data_dir, data_date, data_date, "tests_nrevss", custom_tag)
+  pops <- read_backup_rds(data_dir, data_date, data_date, "pops", custom_tag)
   #s1_groups <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_s1_groups", custom_tag, ".RDS"))
   print('Finished reading in data.')
 
@@ -220,27 +283,17 @@ impala <- DBI::dbConnect(
 )
 # NOTE: The above error: "ERROR StatusLogger No Log4j 2 configuration file found." is expected. You can ignore it.
 
-# Ensure that the "data_date" value is valid.
-# In order to get:
-# 1) CDP data
-# 2) Pangolin lineages
-# 3) the list of vocs for Run2,
-# "data_date" must be one of the "date_frozen" dates in the
-# sc2_archive.analytics_metadata_frozen table.
-# valid "data_date" values include:
+# Validate that data_date exists in the frozen source tables used by the pipeline.
 valid_data_dates <- DBI::dbGetQuery(
   conn = impala,
   statement = '
-SELECT DISTINCT to_date(date_frozen)
-FROM sc2_archive.analytics_metadata_frozen
-    ')
-# In order to get the tests data, "data_date" must be in the
-# sc2_archive.hhs_protect_testing_frozen table.
-# valid "data_date" values include:
+	SELECT DISTINCT to_date(date_frozen)
+	FROM sc2_archive.analytics_metadata_frozen
+	    ')
 valid_tests_dates <- DBI::dbGetQuery(
   conn = impala,
   statement = '
-SELECT DISTINCT to_date(date_frozen)
+	SELECT DISTINCT to_date(date_frozen)
 FROM sc2_archive.analytics_metadata_frozen
     ')
 
@@ -511,48 +564,24 @@ DBI::dbDisconnect(conn = impala)
 
 # read in static table of state populations
 # (population data may need to be updated)
-pops = read.delim(file = paste0(script.basename, "/resources/ACStable_B01001_40_2018_5.txt"))[, c("STUSAB", "Total.")]
+pops = read.delim(file = file.path(resources_dir, "ACStable_B01001_40_2018_5.txt"))[, c("STUSAB", "Total.")]
 
 # create a folder for the backup data (data that do not get used in "weekly_variant_report_nowcast.R")
 dir.create(
-  path = paste0(script.basename, "/data/backup_", data_date, custom_tag),
+  path = backup_dir_path(data_dir, data_date, custom_tag),
   showWarnings = FALSE
 )
 
-saveRDS(dat,
-  file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_data", custom_tag, ".RDS")
-)
-saveRDS(pangolin,
-  file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pangolin", custom_tag, ".RDS")
-)
-saveRDS(tests,
-  file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests", custom_tag, ".RDS")
-)
-saveRDS(tests_nrevss,
-  file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests_nrevss", custom_tag, ".RDS")
-)
-saveRDS(pops,
-  file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_pops", custom_tag, ".RDS")
-)
+save_backup_rds(dat, data_dir, data_date, data_date, "data", custom_tag)
+save_backup_rds(pangolin, data_dir, data_date, data_date, "pangolin", custom_tag)
+save_backup_rds(tests, data_dir, data_date, data_date, "tests", custom_tag)
+save_backup_rds(tests_nrevss, data_dir, data_date, data_date, "tests_nrevss", custom_tag)
+save_backup_rds(pops, data_dir, data_date, data_date, "pops", custom_tag)
 print('Finished reading in data.')
 }
 # Data Cleaning ----------------------------------------------------------------
 
-# Things that this code filters on: [as of 2022-09-08]
-# 1) only human hosts  # done in sql query
-# 2) only US sequences  # done in sql query
-# 3) drop invalid state abbreviations
-# 4) drop duplicates
-# 5) drop invalid dates (collection_date older than 2019-10-01 or newer than the final day in the analysis)
-# 6) drop sequences from labs with < 100 sequences total
-# 7) drop invalid lab names (NA's)
-# 8) drop invalid variant names (NA's or "None")
-# 9) drop invalid weights (NA or infinite values, which can happen if the testing data for a state is really sparse in a given week)
-
-# The genomic data are subset to U.S. specimens among human hosts. Some light
-# cleaning of the sequence data includes dropping records where the state
-# abbreviation is incorrect, or the collection data is prior to October 2019.
-# An HHS Region variable is merged in.
+# Apply the core sequence and metadata cleaning rules described in the README.
 
 # Keep track of why sequences are dropped from the analysis
 {
@@ -1499,3 +1528,8 @@ if(date_frozen_toread == data_date) {
 # * Find test counts by collection date for states consistently missing at HHS Protect
 # * Adjust multinomial logistic growth rate models for R_t
 # * Locate all SGTF sequences using in silico PCR [row 5 (TCAACTCAGGACTTGTTCTTACCT) https://www.protocols.io/view/multiplexed-rt-qpcr-to-screen-for-sars-cov-2-b-1-1-br9vm966/materials]? (Probably not needed any longer)
+}
+
+if (sys.nframe() == 0) {
+  variant_surveillance_system_main()
+}

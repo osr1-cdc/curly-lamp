@@ -18,6 +18,7 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
 - [Lab Aggregation](#lab-aggregation)
 - [Column Descriptions](#column-descriptions)
 - [Load Hadoop](#load-hadoop)
+- [Implementation Notes](#implementation-notes)
 - [Methods](#methods)
 
 ## Code
@@ -28,22 +29,18 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
   - Input: CDC database queries for sequences, lineages, and testing data
   - Output: Processed data with survey design weights
 
-- **variant_surveillance_system.sh** - Wrapper script for submitting variant_surveillance_system.R to HPC.
-  - Usage: `qsub variant_surveillance_system.sh <username> <password>`
-
 - **weekly_variant_report_nowcast.R** - Creates variant proportion estimates using the dataset created in `variant_surveillance_system.R`.
   - Run 1: Calculates variant share/proportion and confidence intervals for fortnights and weeks (HHS regions & nationally)
   - Run 2: Generates the same output as Run 1, plus model-based smoothed trends (nowcasts) for both national and HHS regional estimates
 
-- **run1_trim.sh** - Executes Run 1 (variant proportions for CDC COVID Data Tracker variants)
-  - Usage: Called automatically by proportion_modeling_run.sh
+- **pipeline.R** - Consolidated pipeline entrypoint for preparing data, running Run 1, running Run 2, and orchestrating HPC submission.
+  - Usage: `Rscript pipeline.R --help`
 
-- **run2_trim.sh** - Executes Run 2 (nowcast models + auto-selected variants)
-  - Usage: Called automatically by proportion_modeling_run.sh
+- **pipeline_job.sh** - Generic HPC wrapper that submits `pipeline.R` subcommands through Grid Engine.
 
 - **proportion_modeling_run.sh** - Master wrapper script for running the complete monthly reporting workflow.
   - Usage: `qsub proportion_modeling_run.sh -u <username> -p <password>`
-  - This wrapper automatically submits variant_surveillance_system.sh, then run1_trim.sh and run2_trim.sh
+  - This wrapper calls `pipeline.R submit-all`, which submits prepare-data, Run 1, and Run 2 jobs
 
 - **weekly_variant_report_functions.R** - Library of helper functions used by weekly_variant_report_nowcast.R
 
@@ -64,7 +61,9 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
 
 ## Other Requirements
 
-- Cloudera Impala JDBC driver: provided in `./jdbc/ClouderaImpalaJDBC-2.6.20.1024/ClouderaImpalaJDBC41-2.6.20.1024`
+- Cloudera Impala JDBC driver: configured in [config.R](/scicomp/home-pure/osr1/repos/sc2_proportion_modeling/config/config.R)
+- Conda environment: [environment.yml](/scicomp/home-pure/osr1/repos/sc2_proportion_modeling/config/environment.yml)
+- Shared shell activation settings: [conda_env.sh](/scicomp/home-pure/osr1/repos/sc2_proportion_modeling/config/conda_env.sh)
 
 ## Output Files
 
@@ -112,6 +111,11 @@ Navigate to the repository:
 cd /scicomp/groups/Projects/SARS2Seq/repos/sc2_proportion_modeling
 ```
 
+Create or update the environment if needed:
+```bash
+conda env create -f config/environment.yml
+```
+
 Make sure files are up to date:
 ```bash
 git status
@@ -142,15 +146,18 @@ In `proportion_modeling_run.sh`, update the email address:
 #$ -M <your email address>
 ```
 
+If the conda installation or env prefix differs on your host, update `CONDA_ACTIVATE` and `CONDA_ENV_PREFIX` in `config/conda_env.sh`. The shell entrypoints now fail fast if either path is invalid.
+
 ### Step 5: Submit the Master Wrapper Script
 ```bash
 qsub proportion_modeling_run.sh -u <username> -p <cdp_password>
 ```
 
 This automatically executes:
-1. `variant_surveillance_system.sh` - Data preparation
-2. `run1_trim.sh` - Run 1 analysis (when data is ready)
-3. `run2_trim.sh` - Run 2 analysis (when Run 1 is ready)
+1. `pipeline.R submit-all` - HPC orchestration
+2. `pipeline.R prepare-data` - Data preparation
+3. `pipeline.R run1` - Run 1 analysis
+4. `pipeline.R run2` - Run 2 analysis
 
 ### Step 6: Monitor Progress
 Check the log file: `/scicomp/groups/Projects/SARS2Seq/repos/sc2_proportion_modeling/log`
@@ -197,7 +204,7 @@ Some submitting labs use slightly different names for their sequences, so they s
 3. Change "XX_labs_to_agg" and "labnames_df_xx" to new UNIQUE names (verify with Ctrl-F)
 4. Change the regex pattern to match ONLY your set of labs
 5. Add "labnames_df_xx" to the "labnames_df" list
-6. Re-run variant_surveillance_system.sh
+6. Re-run `Rscript pipeline.R prepare-data -u <username> -p <password>`
 7. Verify aggregations in `data/backup_YYYY-MM-DD/lab_name_updates_YYYY-MM-DD.csv`
 
 ## Column Descriptions
@@ -252,6 +259,55 @@ REFRESH sc2_archive.proportion_modeling
 Extract data by creation_date into Tableau workbooks.
 
 **Downstream tables:** See https://git.biotech.cdc.gov/sars2seq/sc2_variant_proportion_socrata_update/-/blob/main/README.md for updates to publishing pipelines.
+
+## Implementation Notes
+
+### Pipeline Structure
+
+- `pipeline.R` is the main entrypoint for orchestration and shared runtime setup.
+- `variant_surveillance_system.R` prepares the analytic dataset.
+- `weekly_variant_report_nowcast.R` produces weighted share outputs and Run 2 nowcasts.
+- `weekly_variant_report_functions.R` contains the survey-design and multinomial helper functions used by the nowcast step.
+
+### Data Preparation Model
+
+The preparation step treats each retained record as a sequenced positive specimen tied to a collection date and reporting state.
+
+- Event time is specimen collection date.
+- Event location is the reporting state.
+- Strata are U.S. states and territories.
+- Cluster structure follows the sequencing source stream, such as NS3 or contractor labs.
+- Inputs include sequence metadata, Pangolin lineage data, testing data, and state population data.
+
+### Weighting Notes
+
+The modeling step supports multiple weight constructions.
+
+- `population` weights represent the population covered by each sequence within a state-week.
+- `updated` weights use regional NREVSS positivity and CELR testing totals to proxy infections, then allocate that burden back to states by population.
+- SGTF upsampling weights currently default to `1` in the nowcast script; any future SGTF-specific weighting logic should be documented here rather than as inline TODO blocks.
+- Invalid weights are removed before analysis, and optional trimming can cap extreme weights.
+
+### Run Structure
+
+- Run 1 produces weighted share estimates and confidence intervals for weekly and fortnightly outputs.
+- Run 2 produces the same weighted outputs plus smoothed nowcast estimates and figures.
+- Run 2 also writes both Run 1-style and Run 2-style downstream output tables.
+
+### Data Cleaning Rules
+
+Before the survey design object is created, the preparation step drops or repairs records that would make the analysis unreliable.
+
+- Keep U.S. human-host sequences only.
+- Drop invalid state abbreviations.
+- Drop duplicates.
+- Drop unreasonable specimen collection dates.
+- Drop invalid lab names and invalid variant names.
+- Drop records with invalid derived weights.
+
+### Comment Policy
+
+High-level workflow notes and assumptions should live in this README rather than as large inline comment blocks in the R scripts.
 
 # Methods
 

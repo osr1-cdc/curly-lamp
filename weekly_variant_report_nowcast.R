@@ -1,311 +1,304 @@
-# Updates ----------------------------------------------------------------------
-#
-#   Variant share estimates and nowcasts
-#   created by Prabasaj Paul
-#
-# Updates:
-#   ~ weight trimming to avoid overly-influential sequences when samples are small
-#   ~ Error handling added to multinomial model fitting to handle non-invertible
-#     
+# Variant share estimates and nowcasts.
 
-#   ~ Multinomial model run on aggregated data to speed up model fitting
-#   ~ Survey design updated to have PSU=Source and strata=week and state
-#   ~ Less reliable CIs are now flagged based on NCHS data presentation
-#     standards for proportions
-#   ~ Code now generates state-level weighted estimates for rolling 4 week
-#     time bins
-#   ~ Multinomial model code updated to formally account for survey design
-#     in variance estimation via svyrecvar
-#   ~ Function to calculate binomial CI for nowcast proportion
+load_weekly_report_packages <- function() {
+  library(optparse)   # to get arguments from the command line
+  library(survey)     # package with survey desgin functions
+  library(nnet)       # package with multinomial regression for nowcast
+  library(data.table) # package for speeding up calculation of simple adjusted weights
+  library(zoo)        # package for performing date calculations
+  library(dplyr)
+}
+
+configure_weekly_report_options <- function() {
+  options(
+    survey.adjust.domain.lonely = T,
+    survey.lonely.psu = "average",
+    stringsAsFactors = FALSE,
+    warn = 1
+  )
+}
+
+get_weekly_pipeline_context <- function() {
+  list(
+    pipeline_root = Sys.getenv("SC2_PIPELINE_ROOT", unset = ""),
+    pipeline_mode = nzchar(Sys.getenv("SC2_PIPELINE_ROOT", unset = "")),
+    config_path = Sys.getenv("SC2_CONFIG_PATH", unset = ""),
+    functions_path = Sys.getenv("SC2_FUNCTIONS_PATH", unset = ""),
+    data_dir = Sys.getenv("SC2_DATA_DIR", unset = ""),
+    results_dir = Sys.getenv("SC2_RESULTS_DIR", unset = "")
+  )
+}
+
+parse_weekly_report_options <- function(pipeline_mode) {
+  if (pipeline_mode) {
+    return(list(
+      run_number = Sys.getenv("SC2_RUN_NUMBER", unset = "2"),
+      reduced_vocs = Sys.getenv("SC2_REDUCED_VOCS", unset = "F"),
+      trim_weights = Sys.getenv("SC2_TRIM_WEIGHTS", unset = "quantile_99"),
+      save_datasets_to_file = Sys.getenv("SC2_SAVE_DATASETS_TO_FILE", unset = "T"),
+      parallel_cores = Sys.getenv("SC2_PARALLEL_CORES", unset = "12"),
+      weighted_methods = Sys.getenv("SC2_WEIGHTED_METHODS", unset = "weighted"),
+      weight_type = Sys.getenv("SC2_WEIGHT_TYPE", unset = "population"),
+      voc2_extra_preaggregation = Sys.getenv("SC2_VOC2_EXTRA_PREAGGREGATION", unset = "FALSE"),
+      voc_aggregation_method = Sys.getenv("SC2_VOC_AGGREGATION_METHOD", unset = "updated")
+    ))
+  }
+
+  option_list <- list(
+    optparse::make_option(opt_str = c("-r", "--run_number"), type = "character", default = "2", help = "Run number", metavar = "character"),
+    optparse::make_option(opt_str = c("-v", "--reduced_vocs"), type = "character", default = "F", help = "Whether or not to use reduced set of vocs (character value of T or F)", metavar = "character"),
+    optparse::make_option(opt_str = c("-t", "--trim_weights"), type = "character", default = "quantile_99", help = "Maximum weight for any individual sequence", metavar = "character"),
+    optparse::make_option(opt_str = c("-s", "--save_datasets_to_file"), type = "character", default = "T", help = "Maximum weight for any individual sequence", metavar = "character"),
+    optparse::make_option(opt_str = c("-p", "--parallel_cores"), type = "character", default = "12", help = "Number of cores for parallel estimation of weighted proportions", metavar = "character"),
+    optparse::make_option(opt_str = c("-w", "--weighted_methods"), type = "character", default = "weighted", help = '"weighted", "unweighted" (with survey design CI), or "both"', metavar = "character"),
+    optparse::make_option(opt_str = c("-b", "--weight_type"), type = "character", default = "population", help = 'options include "original", "updated", and "population" ', metavar = "character"),
+    optparse::make_option(opt_str = c("-d", "--voc2_extra_preaggregation"), type = "character", default = "FALSE", help = 'T/F, whether or not to pre-aggregate subvariants (to myriad parent variants) when looking for extra vocs to include in Nowcast modeling', metavar = "character"),
+    optparse::make_option(opt_str = c("-e", "--voc_aggregation_method"), type = "character", default = "updated", help = "Whether to use the original voc aggregation method (based on variant name) or the updated method (based on lineage_expanded)", metavar = "character")
+  )
+
+  optparse::parse_args(optparse::OptionParser(option_list = option_list))
+}
+
+resolve_weekly_script_basename <- function(pipeline_mode, pipeline_root) {
+  if (pipeline_mode) {
+    return(pipeline_root)
+  }
+
+  initial.options <- commandArgs(trailingOnly = FALSE)
+  file.arg.name <- "--file="
+  script.name <- sub(pattern = file.arg.name, replacement = "", x = initial.options[grep(file.arg.name, initial.options)])
+  script.basename <- dirname(script.name)
+  if (length(script.basename) == 0) {
+    script.basename <- "."
+  }
+  script.basename
+}
+
+resolve_weekly_paths <- function(script.basename, context) {
+  list(
+    config_path = if (nzchar(context$config_path)) context$config_path else file.path(script.basename, "config", "config.R"),
+    functions_path = if (nzchar(context$functions_path)) context$functions_path else file.path(script.basename, "weekly_variant_report_functions.R"),
+    data_dir = if (nzchar(context$data_dir)) context$data_dir else file.path(script.basename, "data"),
+    results_dir = if (nzchar(context$results_dir)) context$results_dir else file.path(script.basename, "results")
+  )
+}
+
+normalize_weekly_runtime_options <- function(opts) {
+  custom_lineages <- toupper(Sys.getenv("SC2_CUSTOM_LINEAGES", unset = "FALSE")) %in% c("T", "TRUE", "Y", "YES")
+  custom_tag <- Sys.getenv("SC2_CUSTOM_TAG", unset = "")
+
+  if (toupper(opts$reduced_vocs) %in% c("T", "TRUE", "Y", "YES")) {
+    reduced_vocs <- TRUE
+    reduced_voc_tag <- "_reduced_vocs"
+  } else if (toupper(opts$reduced_vocs) %in% c("F", "FALSE", "N", "NO")) {
+    reduced_vocs <- FALSE
+    reduced_voc_tag <- ""
+  } else {
+    stop(message = paste0('reduced_vocs must be "T" or "F". Argument provide: ', opts$reduced_vocs))
+  }
+
+  trim_weights <- !(toupper(opts$trim_weights) %in% c("F", "FALSE", "N", "NO"))
+  save_datasets_to_file <- !(toupper(opts$save_datasets_to_file) %in% c("F", "FALSE", "N", "NO"))
+
+  if (toupper(opts$parallel_cores) %in% c("F", "FALSE", "N", "NO", "1", "0")) {
+    use_parallel <- FALSE
+    ncores <- NA_real_
+  } else {
+    use_parallel <- TRUE
+    ncores <- as.numeric(opts$parallel_cores)
+  }
+
+  voc2_extra_preaggregation <- !(toupper(opts$voc2_extra_preaggregation) %in% c("F", "FALSE", "N", "NO", "0"))
+
+  weighted_methods <- if (toupper(opts$weighted_methods) %in% c("BOTH")) {
+    c("weighted", "unweighted")
+  } else if (toupper(opts$weighted_methods) %in% c("WEIGHTED")) {
+    c("weighted")
+  } else if (toupper(opts$weighted_methods) %in% c("UNWEIGHTED")) {
+    c("unweighted")
+  } else {
+    stop(paste('"weighted_method" must be one of "weighted", "unweighted", "both".', opts$weighted_methods, 'is not an option.'))
+  }
+
+  list(
+    custom_lineages = custom_lineages,
+    custom_tag = custom_tag,
+    reduced_vocs = reduced_vocs,
+    reduced_voc_tag = reduced_voc_tag,
+    trim_weights = trim_weights,
+    save_datasets_to_file = save_datasets_to_file,
+    use_parallel = use_parallel,
+    ncores = ncores,
+    voc2_extra_preaggregation = voc2_extra_preaggregation,
+    weighted_methods = weighted_methods
+  )
+}
+
+load_weekly_report_dependencies <- function(config_path, functions_path) {
+  source(config_path)
+  source(functions_path)
+}
+
+load_weekly_input_data <- function(data_dir, data_date, custom_tag, date_frozen_toread) {
+  if (date_frozen_toread != data_date) {
+    load(paste0(data_dir, "/", "svydat_", data_date, custom_tag, "_", date_frozen_toread, "_frozendata", ".RData"))
+  } else {
+    load(paste0(data_dir, "/svydat_", data_date, custom_tag, ".RData"))
+  }
+}
+
+initialize_weekly_results_dir <- function(results_dir, results_folder) {
+  dir.create(results_dir, showWarnings = FALSE)
+  dir.create(file.path(results_dir, results_folder), showWarnings = FALSE)
+}
+
+shares_sum_to_one <- function(dt, group_cols) {
+  all(dt[, .(total_share = sum(Share)), by = group_cols][, unique(round(total_share, 5))] == 1)
+}
+
+normalize_hadoop_variant_names <- function(values) {
+  values <- gsub("Delta Aggregated", "B.1.617.2", values)
+  values <- gsub("Omicron Aggregated", "B.1.1.529", values)
+  gsub(" Aggregated", "", values)
+}
+
+build_hadoop_output <- function(results_df,
+                                base_columns,
+                                data_date,
+                                results_tag,
+                                run_label,
+                                cadence_label,
+                                calc_confirmed_infections,
+                                confirmed_columns) {
+  hadoop_df <- data.frame(results_df[, base_columns])
+  hadoop_df[is.na(hadoop_df)] <- "\\N"
+  hadoop_df[, 7:15] <- "\\N"
+  hadoop_df[, 16] <- "smoothed"
+  hadoop_df[, 17] <- cadence_label
+  hadoop_df[, 18] <- data_date
+  hadoop_df[, 19] <- paste0(results_tag, "_", run_label)
+  hadoop_df[, 20] <- 1
+
+  if (calc_confirmed_infections) {
+    hadoop_df[, 21:24] <- results_df[, confirmed_columns]
+  }
+
+  hadoop_df[, 3] <- normalize_hadoop_variant_names(hadoop_df[, 3])
+  hadoop_df[is.na(hadoop_df)] <- "\\N"
+  hadoop_df
+}
+
+write_hadoop_output <- function(results_df,
+                                file,
+                                base_columns,
+                                data_date,
+                                results_tag,
+                                run_label,
+                                cadence_label,
+                                calc_confirmed_infections,
+                                confirmed_columns) {
+  hadoop_df <- build_hadoop_output(
+    results_df = results_df,
+    base_columns = base_columns,
+    data_date = data_date,
+    results_tag = results_tag,
+    run_label = run_label,
+    cadence_label = cadence_label,
+    calc_confirmed_infections = calc_confirmed_infections,
+    confirmed_columns = confirmed_columns
+  )
+
+  write.table(
+    x = hadoop_df,
+    file = file,
+    quote = FALSE,
+    row.names = FALSE,
+    col.names = FALSE,
+    sep = ","
+  )
+}
+
+get_run1_lineages <- function(agg_var_mat) {
+  agg_lineages <- colnames(agg_var_mat)[colSums(agg_var_mat) > 0]
+  if ("Other" %notin% agg_lineages) {
+    agg_lineages <- c(agg_lineages, "Other Aggregated")
+  }
+  agg_lineages
+}
+
+get_run2_excluded_lineages <- function(agg_var_mat) {
+  c(
+    row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"],
+    "Other",
+    colnames(agg_var_mat["Other Aggregated", , drop = FALSE])[agg_var_mat["Other Aggregated", , drop = FALSE] > 0]
+  )
+}
+
+rename_other_aggregated <- function(results_df) {
+  results_df[results_df$Variant == "Other Aggregated", "Variant"] <- "Other"
+  results_df
+}
+
+build_run1_output <- function(proj_res, agg_var_mat) {
+  rename_other_aggregated(proj_res[Variant %notin% get_run1_lineages(agg_var_mat)])
+}
+
+build_run2_output <- function(proj_res, agg_var_mat) {
+  rename_other_aggregated(proj_res[Variant %notin% get_run2_excluded_lineages(agg_var_mat)])
+}
+
+split_weekly_and_daily_results <- function(results_df) {
+  list(
+    weekly = data.table:::subset.data.table(
+      x = results_df,
+      subset = model_week %% 1 == 0,
+      select = !names(results_df) %in% c("total_test_positives_daily", "cases_daily", "cases_lo_daily", "cases_hi_daily")
+    ),
+    daily = data.table:::subset.data.table(
+      x = results_df,
+      select = !names(results_df) %in% c("total_test_positives_weekly", "cases_weekly", "cases_lo_weekly", "cases_hi_weekly")
+    )
+  )
+}
+
+weekly_variant_report_nowcast_main <- function() {
 
 # Setup ------------------------------------------------------------------------
-library(optparse)   # to get arguments from the command line
-library(survey)     # package with survey desgin functions
-library(nnet)       # package with multinomial regression for nowcast
-library(data.table) # package for speeding up calculation of simple adjusted weights
-library(zoo)        # package for performing date calculations
-library(dplyr)
-# set global options:
-#  - tell the survey package how to handle surveys where only a single primary
-#    sampling units has observations from a particular domain or subpopulation.
-#    See more here:
-#    https://r-survey.r-forge.r-project.org/survey/exmample-lonely.html
-#  - do not convert strings to factors (as was default in R < 4.0)
-options(survey.adjust.domain.lonely = T,
-        survey.lonely.psu = "average",
-        stringsAsFactors = FALSE,
-        warn = 1) # show warnings immediately. 
+load_weekly_report_packages()
+configure_weekly_report_options()
 
 # optionally calculate 99% confidence intervals (in addition to 95% intervals)
 calc_99_CI_weighted <- FALSE # these might add a lot of time
 calc_99_CI_nowcast  <- TRUE  # these should not add a lot of time
 
-## optparse option list --------------------------------------------------------
-{
-  # -r run_number
-  # -v reduced_vocs
-  # -t trim_weights
-  # -s save_datasets_to_file
-  # -p parallel_cores
-  # -w weighted_methods
-  # -b weight_type
-  # -d voc2_extra_preaggregation
-  # -e voc_aggregation_method
+context <- get_weekly_pipeline_context()
+opts <- parse_weekly_report_options(context$pipeline_mode)
+runtime_options <- normalize_weekly_runtime_options(opts)
+list2env(runtime_options, environment())
+script.basename <- resolve_weekly_script_basename(context$pipeline_mode, context$pipeline_root)
+paths <- resolve_weekly_paths(script.basename, context)
+config_path <- paths$config_path
+functions_path <- paths$functions_path
+data_dir <- paths$data_dir
+results_dir <- paths$results_dir
 
-  # (get the run number from the command line)
-  option_list <- list(
-    
-    # Run number
-    optparse::make_option(
-      opt_str = c("-r", "--run_number"),
-      type    = "character",
-      default = "2",
-      help    = "Run number",
-      metavar = "character"),
-    # options:
-    # Run1: calc proportions USING SURVEY DESIGN for VOCs specified in voc1
-    # Run2: calc proportions for VOCs with >= 1% unweighted share (many Delta subclades)
-    #       this is the only run that includes the multinomial "nowcast" model
-    #     Note: Nowcast runs best with a large set of variants (or very few variants with Omicron)
-    #           (if you group everything into Delta, then the model breaks)
-    # Run3: calc state-level proportions in 4-week bins for VOCs specified in voc3
-    #       runs & VOC's generally won't change
-    
-
-    # whether or not to use reduced vocs
-    optparse::make_option(
-      opt_str = c("-v", "--reduced_vocs"),
-      type    = "character",
-      default = "F",
-      help    = "Whether or not to use reduced set of vocs (character value of T or F)",
-      metavar = "character"
-    ),
-    
-    # whether (and how) to trim weights.
-    # options include:
-    #   - "quantile_99" = 99th percentile. This must contain the letters "quant" followed by a number.
-    #   - "F", "FALSE", "N", or "NO" = no weight trimming
-    #   - "IQR" = median + 6 * IQR
-    optparse::make_option(
-      opt_str = c("-t", "--trim_weights"),
-      type    = "character",
-      default = "quantile_99",
-      help    = "Maximum weight for any individual sequence",
-      metavar = "character"
-    ),
-    
-    # optionally save datasets that are produced by this script
-    # setting to true will save:
-    #  - src.dat (processed data used for weighted variant proportions)
-    #  - data used for the nowcast models
-    optparse::make_option(
-      opt_str = c("-s", "--save_datasets_to_file"),
-      type    = "character",
-      default = "T",
-      help    = "Maximum weight for any individual sequence",
-      metavar = "character"
-    ),
-    
-    # optionally run the weighted estimates in parallel
-    # setting to a number will use that many cores (make sure the qsub script reserves adequate cores)
-    # options: must be a number or FALSE
-    optparse::make_option(
-      opt_str = c("-p", "--parallel_cores"),
-      type    = "character",
-      default = "12",
-      help    = "Number of cores for parallel estimation of weighted proportions",
-      metavar = "character"
-    ),
-    
-    # choose how to calculated proportions (and CI)
-    # options: weighted   =   weighted estimate with survey-design-based CI
-    #          unweighted = unweighted estimate with survey-design-based CI
-    #          both       = both weighted & unweighted (saved to different files)
-    # (all options will also calculate unweighted proportions with binomial CI)
-    optparse::make_option(
-      opt_str = c("-w", "--weighted_methods"),
-      type    = "character",
-      default = "weighted",
-      help    = '"weighted", "unweighted" (with survey design CI), or "both"',
-      metavar = "character"
-    ),
-    
-    # type of weights to use
-    # - original        (weights used from 2021 to May 2023)
-    # - updated         (uses regional positivity rate from NREVSS testing data (intead of state positivity rate from CLERS, as for "original"))
-    # - population      (uses population-based weights (no testing data))
-    optparse::make_option(
-      opt_str = c("-b", "--weight_type"),
-      type    = "character",
-      default = "population",
-      help    = 'options include "original", "updated", and "population" ',
-      metavar = "character"
-    ),
-    
-    # whether or not to aggregate subvariants when looking for voc2 that are
-    # over 0.5% in lag week -3
-    # e.g. when TRUE, if variant xyz.123 meets the 0.5% criterion for inclusion in voc2,
-    #      then all subvariants of xyz.123 (that are not already included in voc2) will be
-    #      aggregated into xyz.123. This scenario is unlikely to occur unless a variant and
-    #      its subvariants are split out in at the same time.
-    optparse::make_option(
-      opt_str = c("-d", "--voc2_extra_preaggregation"),
-      type    = "character",
-      default = "FALSE",
-      help    = 'T/F, whether or not to pre-aggregate subvariants (to myriad parent variants) when looking for extra vocs to include in Nowcast modeling',
-      metavar = "character"
-    ),
-    # voc aggregation method
-    # original = the lengthy code based on abbreviated pango lineages
-    # updated = shorter/faster code based on lineage_expanded
-    optparse::make_option(
-      opt_str = c("-e", "--voc_aggregation_method"),
-      type    = "character",
-      default = "updated", # "original"; "updated"/"lineage_expanded"
-      help    = "Whether to use the original voc aggregation method (based on variant name) or the updated method (based on lineage_expanded)",
-      metavar = "character"
-    )
-  )
-  
-  # parsing options list
-  opts <- optparse::parse_args(optparse::OptionParser(option_list = option_list))
-  
-  # use the specified flags to set several variables
-  # convert custom_lineages flag to a logical value
-  # Standard production: always use standard Pangolin lineages
-  custom_lineages = FALSE
-  custom_tag = ""
-
-  # convert reduced_vocs flag to a logical value
-  if(toupper(opts$reduced_vocs) %in% c('T', 'TRUE', 'Y', 'YES')){
-    reduced_vocs = TRUE
-    reduced_voc_tag = "_reduced_vocs"
-  } else {
-    if(toupper(opts$reduced_vocs) %in% c('F', 'FALSE', 'N', 'NO')){
-      reduced_vocs = FALSE
-      reduced_voc_tag = ""
-    } else {
-      stop(message = paste0('reduced_vocs must be "T" or "F". Argument provide: ', opts$reduced_vocs))
-    }
-  }
-  
-  # convert trim_weights flag to a logical value
-  if( toupper(opts$trim_weights) %in% c('F', 'FALSE', 'N', 'NO')){
-    trim_weights = FALSE
-  } else {
-    trim_weights = TRUE
-  }
-  
-  # convert save_datasets_to_file flag to a logical value
-  if( toupper(opts$save_datasets_to_file) %in% c('F', 'FALSE', 'N', 'NO')){
-    save_datasets_to_file = FALSE
-  } else {
-    save_datasets_to_file = TRUE
-  }
-  
-  # whether or not to use parallel processing on weighted estimates
-  if( toupper(opts$parallel_cores) %in% c('F', 'FALSE', 'N', 'NO', '1', '0')){
-    use_parallel = FALSE
-  } else {
-    use_parallel = TRUE
-    ncores = as.numeric(opts$parallel_cores)
-  }
-  
-  # whether or not to aggregate subvariants to various parent levels when looking for extra voc to include in Nowcast modeling
-  if( toupper(opts$voc2_extra_preaggregation) %in% c('F', 'FALSE', 'N', 'NO', '0')){
-    voc2_extra_preaggregation = FALSE
-  } else {
-    voc2_extra_preaggregation = TRUE
-  }
-  
-  
-  # type of estimates to produce
-  if( toupper(opts$weighted_methods) %in% c('BOTH')){
-    weighted_methods <- c('weighted', 'unweighted')
-  } else if( toupper(opts$weighted_methods) %in% c('WEIGHTED')){
-    weighted_methods <- c('weighted')
-  } else if( toupper(opts$weighted_methods) %in% c('UNWEIGHTED')){
-    weighted_methods <- c('unweighted')
-  } else {
-    # if opts$weighted_methods is not a valid value, throw an error.
-    stop(paste('"weighted_method" must be one of "weighted", "unweighted", "both".', opts$weighted_methods, 'is not an option.'))
-  }
-} # end optparse options list
-
-
-# get base directory
-initial.options <- commandArgs(trailingOnly = FALSE)
-file.arg.name   <- "--file="
-script.name     <- sub(pattern = file.arg.name,
-                       replacement = "",
-                       x = initial.options[grep(file.arg.name, initial.options)])
-script.basename <- dirname(script.name)
-# set script.basename when running from Rstudio interactively
-if(length(script.basename) == 0) {
-  script.basename = "."
-}
-
-## Data prep -------------------------------------------------------------------
-#capture system time
 tstart = proc.time()
 
-# source options from config.R file
-source(paste0(script.basename, "/config/config.R"))
+load_weekly_report_dependencies(config_path, functions_path)
 
-#Source the functions used in this script.
-# source(paste0(script.basename, "/svycipropkg.R"))
-source(paste0(script.basename, "/weekly_variant_report_functions.R"))
+load_weekly_input_data(data_dir, data_date, custom_tag, date_frozen_toread)
 
-# Load output from variant_surveillance_system.r
-# (filtered genomic surveillance data)
-if(date_frozen_toread != data_date){
-  load(paste0(script.basename, "/data/", "svydat_", data_date, custom_tag, "_", date_frozen_toread, "_frozendata",".RData"))
-} else {
-  load(paste0(script.basename, "/data/svydat_", data_date, custom_tag, ".RData"))
-  # load(paste0('/scicomp/groups-pure/Projects/SARS2Seq/repos/sc2_proportion_modeling', "/data/svydat_", data_date, custom_tag, ".RData"))
-}
-
-# create results dir and output folder definition
-dir.create(paste0(script.basename,"/results"), showWarnings = F)
-dir.create(paste0(script.basename,"/results/",results_folder), showWarnings = F)
+initialize_weekly_results_dir(results_dir, results_folder)
 output_folder <- paste0("/results/", results_folder)
-
-# # filter out data that's older than we actually use
-# # NOTE: this will prevent calculation of # of old sequences removed b/c of invalid lab name, invalid variant name, invalid weight
-# svy.dat <- subset(svy.dat,
-#                   yr_wk >= time_start)
-
-# create a tag for the filenames to differentiate results from different runs
 tag <- paste0("_",state_source,"_Run", opts$run_number, reduced_voc_tag, custom_tag)
 
-
-# define some functions for automated lineage aggregation
-# these will be needed for both "voc2_extra_preaggregation" and "voc_aggregation_method" == 'updated',
 {
-  # define a function to find a variant's nearest parent from a list of
-  # options. It defines "parent" as the longest string that is a subset
-  # of the child variant name. (So it only works on extended names.)
-  # If no match is found, it returns "Other"
-  # takes 3 arguments:
-  # arg x  = (string) variant name to look up
-  # arg y  = (string) vector of voc (extended)
-  # arg no_match = (string) what to return if there is no match
-  # returns string with the parent's name
   np = function(x, y, no_match = 'Other') {
-    
-    # only look for parents in y, so each y MUST be shorter than x
     y <- y[ nchar(y) <= nchar(x) ]
-    
-    # add a "." to all y that are shorter than x (to make sure that the parent variant IS a parent)
-    # e.g. without the extra ".", the parent of BA.5.22 might be identified as BA.5.2 (shorter & a perfect subset)
     y. <- y
     y.[ nchar(y) < nchar(x) ] <- paste0(y[ nchar(y) < nchar(x) ], '.')
-    
-    # split out each character in x & y
     sx = strsplit(x, "", fixed = TRUE)
     sy = strsplit(y., "", fixed = TRUE)
-    
-    # calculate an array of match proportions (based on: https://stackoverflow.com/a/33120009/3174566)
     match_array <- array(
       # cycle over each string in X and Y
       data = mapply(function(X, Y) {
@@ -369,9 +362,6 @@ tag <- paste0("_",state_source,"_Run", opts$run_number, reduced_voc_tag, custom_
 
 
 ### choose vocs ----------------------------------------------------------------
-# - run number
-# - custom_lineage
-# - reduced_vocs
 if( grepl("Run1", tag) ){
   if(reduced_vocs){
     voc = voc1_reduced
@@ -860,14 +850,7 @@ src.dat <- as.data.table(src.dat)
 
 ### SGTF weights ---------------------------------------------------------------
 
-# set s-gene upsampling weights to 1 until I move the SGTF weights here...
 src.dat$sgtf_weights = 1
-# set this so that default SAW_ALT will be 1
-# src.dat$HHS_INCIDENCE = 1/src.dat$state_population
-
-# SGTF WEIGHT CALCULATIONS SHOULD BE MOVED FROM VARIANT_SURVEILLANCE_SYSTEM.R TO HERE!
-# Note that SGTF weights are calculated for every contractor & week, but they should ONLY be applied to sequences that were identified as being oversampled! (e.g. join on c('STUSAB', 'yr_wk', 'contractor_targeted_sequencing') )
-
 
 ### survey weights -------------------------------------------------------------
 if(opts$weight_type == "original"){
@@ -913,23 +896,13 @@ if(opts$weight_type == "original"){
 src.dat[, "population_weight" := state_population / sum(count), by = c('STUSAB', 'yr_wk')]
 # src.dat[, "population_weight.hhs"   := population_reporting.HHS / sum(count), by = c('HHS',    'yr_wk')] # this uses CLERS testing data to get the regional population (total population of states within each region that reported testing data to CLERS)
 
-# UPDATED weights using NREVSS testing data
-# Based on Prabasaj's "weighty_matters.rmd".
-# proxy_infections    = estimated number of infections in a given state-week
-# state_population    = state population
-# POSITIVE.HHS.nrevss = number of positive tests reported to NREVSS in a given HHS region in a given week
-# TOTAL.HHS.nrevss    = number of total    tests reported to NREVSS in a given HHS region in a given week
-# POSITIVE.HHS        = number of positive tests reported to CLERS in a given HHS region in a given week
-# population_reporting.HHS.nrevss = total population of the states in a given HHS region that reported tests to NREVSS in a given week
+# Updated weights use NREVSS and CELR regional testing signals to proxy infections.
 if(opts$weight_type == "updated"){
   if("POSITIVE.HHS" %in% names(svy.dat)){
     src.dat[
       ,
       "proxy_infections" := state_population * sqrt(POSITIVE.HHS.nrevss / TOTAL.HHS.nrevss) *
         sqrt( POSITIVE.HHS / population_reporting.HHS )]
-    # this formula is equivalent to calculating the regional infections as: sqrt(POSITIVE.HHS.nrevss / TOTAL.HHS.nrevss * population_reporting.HHS * POSITIVE.HHS) and then splitting it up among states in the region based on population (i.e. multiplying by): (state_population / population_reporting.HHS)
-    
-    # calculate the updated weight (number of infections represented by each sequence) based on "proxy_infections"
     src.dat[, 'updated_weight' := proxy_infections / sum(count), by = c('STUSAB', 'yr_wk')] # this still works for states that are missing POSITIVE in a given week
   } else {
     stop("The \"updated\" weight_type requires CELR testing data (at the HHS region level), but no CELR testing data is available. Use another weight_type." )
@@ -1536,82 +1509,18 @@ if(trim_weights){
   src.dat$weights = myweights
 }
 
-# tally sequences by source
-# 1. tagged as surveillance
-# 2. CDC contracting labs
-# 3. NS3
-# alternatively, tally them using SQL on HUE: https://cdp-01.biotech.cdc.gov:8889/hue/editor?editor=37419
-# (This isn't calculated on a regular basis; it's just whenever we want to look at it again)
-if(FALSE){
-  # identify contractor sequences
-  src.dat[ SOURCE %in% c("UW VIROLOGY LAB",
-                         "FULGENT GENETICS",
-                         "HELIX",
-                         "HELIX/ILLUMINA",
-                         "LABORATORY CORPORATION OF AMERICA",
-                         "AEGIS SCIENCES CORPORATION",
-                         "QUEST DIAGNOSTICS INCORPORATED",
-                         "BROAD INSTITUTE",
-                         "INFINITY BIOLOGIX",
-                         "MAKO MEDICAL"),
-           'source_type' := 'Contractor']
-  # identify NS3 sequences
-  src.dat[ SOURCE %in% c("NS3"),
-           'source_type' := 'NS3']
-  # identify tagged sequences
-  src.dat[ is.na(source_type), 'source_type' := 'Tagged']
-  
-  # tally totals by source_type
-  src.dat[ ,
-           .('N' = .N,
-             'Prop' = .N / nrow(src.dat)),
-           by = c('source_type')]
-  
-  # compare to results from HUE on 2022-05-31
-  data.frame(
-    'source_type' = c('Contractor', 'NS3', 'Tagged'),
-    'N' = c(1643231, 31781, 529791),
-    'Prop' = c(1643231, 31781, 529791)/sum(c(1643231, 31781, 529791)))
-  
-  # plot proportion of totals by week & source_type
-  merge(
-    x = src.dat[ ,
-                 .('N' = .N),
-                 by = c('source_type', 'week')],
-    y = src.dat[ ,
-                 .('N_total' = .N),
-                 by = c('week')],
-    by =  'week'
-  ) %>%
-    mutate(Prop = N / N_total) %>%
-    ggplot(., aes(x = week, y = Prop, color = source_type)) + theme_bw() + geom_line() + scale_y_continuous(labels = scales::percent_format())
-}
-
 ### model weeks ----------------------------------------------------------------
-# add in another column for model_week to use in the model
-# the reason for this is b/c large values of "week" were causing non-invertible hessians in the nowcast model.
-# could scale "week" using mean and SD. This is just another option.
-# NOTE! When switching to this method, I also switched to fitting the model to
-#       20 weeks instead of 21 weeks. (then when switching back to 21 weeks, it screwed up this method a little)
-# maximum week (not maximum "model_week") included in the model
+# Center week values to improve nowcast model stability.
 model_week_max = as.numeric(as.Date(model_time_end) - week0day1) %/% 7
-### SHOULD THIS BE BASED ON TIME_END OR ON DATA_DATE???
-
-# first week (not first "model_week") included in the model
 model_week_min = model_week_max - model_weeks
-# a midpoint week that will be used to center week values
-# this is also the maximum value of "model_week"
 model_week_mid = round(model_weeks/2) # center it around 0 instead of using 1:model_weeks
-# create a dataframe of old and new values to help visualize things
 model_week_df = data.frame(week       = 1:model_weeks + model_week_min,
                            model_week = 1:model_weeks - model_week_mid,
                            week_start = (1:model_weeks + model_week_min)*7 + as.Date(week0day1),
                            week_mid   = (1:model_weeks + model_week_min)*7 + as.Date(week0day1) + 3,
                            week_end   = (1:model_weeks + model_week_min)*7 + as.Date(week0day1) + 6)
-# add the new model_week info to the dataframe
 src.dat$model_week = src.dat$week - model_week_min - model_week_mid
 
-# data week (this might be the same as the last week in "model_week_df", or it might be 1 week after; it depends on "time_end")
 data_week_df = data.frame(
   week       = current_week, # "current_week" is defined in config.R: as.numeric(data_date - week0day1) %/% 7
   model_week = current_week - model_week_min - model_week_mid,
@@ -1620,57 +1529,11 @@ data_week_df = data.frame(
   week_end   = (data_date - as.numeric(format(data_date, '%w'))) + 6
 )
 
-# a function to convert dates to model_week
-# (used in making predictions with Nowcast model)
 date_to_model_week = function(date){
-  # whole week
-  # week = as.numeric(as.Date(date) - week0day1) %/% 7
-  
-  # fractional week (centered on Wednesday)
   week = as.numeric(as.Date(date) - (week0day1+3)) / 7
   return(week - model_week_min - model_week_mid)
 }
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# # Background
-#
-# This brief summarizes findings from the variant surveillance system for variants
-#  of concern and variants of interest.
-#
-# The sequences are those submitted to NS3 and by contract with lab vendors. Both
-# raw numbers and weighted estimates are displayed. Weights allow estimates to be
-# representative of all infected persons, aggregated by week of specimen collection
-# and by state. Currently, the probability of selection for each sample is assumed
-# to be independent of data source, but that may be modified as more data on
-# sampling protocol become available. An adjustment is applied to account for
-# oversampling of SGTF specimens in certain data streams.
-
-
-# The general process for the runs below:
-# 1) subset the data & survey design
-# 2) generate estimates for individual regions/states
-#    - create a dataframe with all combinations of time period, region, and
-#      variant for which you want estimates
-#    - calculate proportions & CI using survey design
-# 3) generate estimates for entire US
-#    - create a dataframe with all combinations of time period & variant for
-#      which you want estimates
-#    - calculate proportions & CI using survey design
-# 4) combine regional & national estimates
-# 5) add raw counts of sequences
-# 6) add NCHS flags to identify estimates that may not be reliable
-# 7) save results
-
-
-# Runs 1 & 2 (i.e. not 3) ------------------------------------------------------
-# calculate the variant share/proportion and confidence interval using survey
-# design ("myciprop" function) for:
-# - fortnights (HHS regions & nationally)
-# - weeks  (HHS regions & nationally)
-# creates 2 output files:
-# - "results/variant_share_weighted_",       ci.type,"CI_",svy.type,"_",data_date,tag,".csv"
-# - "results/variant_share_weekly_weighted_",ci.type,"CI_",svy.type,"_",data_date,tag,".csv"
+# Run 1/2 weighted share estimates.
 if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
   
   # subset data to only include
@@ -2180,83 +2043,22 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
             start_share := data.table::shift(Share, 1, type = "lag"),
             by = c("USA_or_HHSRegion", "Variant")
           ]
-          # calculate multinomial growth rate (weekly)
-          # This is an exponential growth rate.
-          # https://en.wikipedia.org/wiki/Doubling_time#Cell_culture_doubling_time:~:text=Growth%20rate%3A,or
-          # exponential growth rate = log(Share / start_share)/(time_diff_days/7)
-          #    continuous time: xt = x0*exp(r*t) (r = proportion of e)
-          #                  xt/x0 = exp(r*t)
-          #             log(xt/x0) = r*t
-          #           log(xt/x0)/t = r
-          #
-          # But then we take the exponent of it so that the growth rate is on the
-          # scale of proportions. This essentially converts it to discrete time.
-          # continuous time: xt = x0*exp(r*t) (r = proportion of e)
-          #                  xt = x0*exp(r)^t
-          # discrete time:   xt = x0*(1+r)^t  (r = proportion of x0)
-          # so we can convert the continuous time growth rate, r, to the discrete time growth rate, using the equivalence above: exp(r) = (1+r)
-          #
-          # discrete time:   xt = x0*(1+r)^t  (r = proportion of x0)
-          #               xt/x0 = (1+r)^t
-          #       (xt/x0)^(1/t) = (1+r)
-          #   (xt/x0)^(1/t) - 1 = r
-          #
-          # multinomial model growth rate is the derivative (slope) of the log of the proportion;
-          # - convert proportion to log proportion
-          # - get the change in log proportion
-          # - divide by number of weeks in the time period
-          # - convert back to proportion scale, (exponent() - 1) * 100
-          # so that it's comparable to our other estimates
-          # Note! This is the average growth rate over the previous week/Month
-          #       and will therefore be > the Nowcast growth rate estimate for the same week
+          # Convert change in log share to a weekly percent growth rate.
           all.month2[
             ,
             growth_rate := (exp((log(Share) - log(start_share))/(time_diff_days/7))-1)*100
-            # could calculate using the discrete time formula
-            # growth_rate = ((Share/start_share)^(1/(time_diff_days/7))-1)*100
-            # continuous time: (then exponentiate, subtract 1, *100)
-            # growth_rate = (exp( log(Share / start_share)/(time_diff_days/7))-1) *100 )
           ]
-          # all.month2[!is.na(growth_rate),.(Share,start_share,time_diff_days, growth_rate, growth_rate2, growth_rate3)]
           
-          # calculate logistic growth rate (log-odds) (weekly)
           all.month2[
             ,
             growth_rate_logodds := log( (Share / (1 - Share)) / (start_share / (1 - start_share))) / (time_diff_days/7)
           ]
-          # all.month2[!is.na(logistic_growth_rate),.(Share,start_share,time_diff_days, growth_rate_logodds)]
           
-          # calculate multinomial doubling time (in days)
+          # Convert weekly growth rate to doubling time in days.
           all.month2[
             ,
-            # https://en.wikipedia.org/wiki/Doubling_time
-            # Countinuous time (https://en.wikipedia.org/wiki/Doubling_time#Cell_culture_doubling_time)
-            # doubling time = log(2)/r where r = multiplicative (exponential) growth rate
-            # A  = P*e^(r*t)
-            # 2P = P*e^(r*t)
-            # 2  = e^(r*t)
-            # log(2) = r*t
-            # log(2)/r = t (r=0 is no growth)
-            #
-            # or....
-            # Discrete time
-            # Doubling time = log(2) / log(r+1) where r = (exponential) growth rate
-            # y   = y0*(1+r)^t
-            # 2y0 = y0*(1+r)^t
-            # 2   = (1+r)^t
-            # log(2) = log((1+r)^t)
-            # log(2) = t*log(1+r)
-            # log(2)/log(r+1) = t (r=0 is no growth)
-            #
-            # log((100+growth_rate)/100) = exponential (multiplicative) growth rate
-            # log(2) / log((100+growth_rate)/100) = number of weeks per doubling
-            # multiply by days / week to get the number of days per doubling
             doubling_time := (log(2) / log((100 + growth_rate) / 100)) * 7
-            # equivalent to
-            # doubling_time := log(2)/ (continuous gr)      = log(2) / (log(Share/start_share) / (time_diff_days/7)) * 7
-            # doubling_time := log(2)/ log(discrete gr + 1) = log(2) / log((Share/start_share)^(1/time_diff_days) - 1 + 1) [divide by 7 to convert to weeks then multiply by 7 to convert back to days]
           ]
-          # all.month2[!is.na(doubling_time1),.(Share,start_share,time_diff_days, doubling_time1, doubling_time3)]
           
           # calculate time for log odds to double (this is equivalent to doubling time calculated from the time coefficient in a logistic model)
           all.month2[,doubling_time_logodds := log(2) / growth_rate_logodds * 7]
@@ -2906,80 +2708,20 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
               start_share := data.table::shift(Share, 1, type = "lag"),
               by = c("USA_or_HHSRegion", "Variant")
             ]
-            # calculate multinomial growth rate (weekly)
-            # This is an exponential growth rate.
-            # https://en.wikipedia.org/wiki/Doubling_time#Cell_culture_doubling_time:~:text=Growth%20rate%3A,or
-            # exponential growth rate = log(Share / start_share)/(time_diff_days/7)
-            #    continuous time: xt = x0*exp(r*t) (r = proportion of e)
-            #                  xt/x0 = exp(r*t)
-            #             log(xt/x0) = r*t
-            #           log(xt/x0)/t = r
-            #
-            # But then we take the exponent of it so that the growth rate is on the
-            # scale of proportions. This essentially converts it to discrete time.
-            # continuous time: xt = x0*exp(r*t) (r = proportion of e)
-            #                  xt = x0*exp(r)^t
-            # discrete time:   xt = x0*(1+r)^t  (r = proportion of x0)
-            # so we can convert the continuous time growth rate, r, to the discrete time growth rate, using the equivalence above: exp(r) = (1+r)
-            #
-            # discrete time:   xt = x0*(1+r)^t  (r = proportion of x0)
-            #               xt/x0 = (1+r)^t
-            #       (xt/x0)^(1/t) = (1+r)
-            #   (xt/x0)^(1/t) - 1 = r
-            #
-            # multinomial model growth rate is the derivative (slope) of the log of the proportion;
-            # - convert proportion to log proportion
-            # - get the change in log proportion
-            # - divide by number of weeks in the time period
-            # - convert back to proportion scale, (exponent() - 1) * 100
-            # so that it's comparable to our other estimates
-            # Note! This is the average growth rate over the previous week/Month
-            #       and will therefore be > the Nowcast growth rate estimate for the same week
+            # Convert change in log share to a weekly percent growth rate.
             all.wkly2[
               ,
               growth_rate := (exp((log(Share) - log(start_share))/(time_diff_days/7))-1)*100
-              # could calculate using the discrete time formula
-              # growth_rate = ((Share/start_share)^(1/(time_diff_days/7))-1)*100
-              # continuous time: (then exponentiate, subtract 1, *100)
-              # growth_rate = (exp( log(Share / start_share)/(time_diff_days/7))-1) *100 )
             ]
             
-            # calculate logistic growth rate (log-odds) (weekly)
             all.wkly2[
               ,
-              # change in log odds: (log(odds_1) - log(odds_0) / # of weeks
-              #                   =  log(odds_1/odds_0) / # of weeks
               growth_rate_logodds := log( (Share / (1 - Share)) / (start_share / (1 - start_share))) / (time_diff_days/7)
             ]
-            # calculate multinomial doubling time (in days)
+            # Convert weekly growth rate to doubling time in days.
             all.wkly2[
               ,
-              # https://en.wikipedia.org/wiki/Doubling_time
-              # Countinuous time (https://en.wikipedia.org/wiki/Doubling_time#Cell_culture_doubling_time)
-              # doubling time = log(2)/r where r = multiplicative (exponential) growth rate
-              # A  = P*e^(r*t)
-              # 2P = P*e^(r*t)
-              # 2  = e^(r*t)
-              # log(2) = r*t
-              # log(2)/r = t (r=0 is no growth)
-              #
-              # or....
-              # Discrete time
-              # Doubling time = log(2) / log(r+1) where r = (exponential) growth rate
-              # y   = y0*(1+r)^t
-              # 2y0 = y0*(1+r)^t
-              # 2   = (1+r)^t
-              # log(2) = log((1+r)^t)
-              # log(2) = t*log(1+r)
-              # log(2)/log(r+1) = t (r=0 is no growth)
-              #
-              # log((100+growth_rate)/100) = exponential (multiplicative) growth rate
-              # log(2) / log((100+growth_rate)/100) = number of weeks per doubling
-              # multiply by days / week to get the number of days per doubling
               doubling_time := (log(2) / log((100 + growth_rate) / 100)) * 7
-              # equivalent to
-              # doubling_time := log(2)/ (continuous gr)      = log(2) / (log(Share/start_share) / (time_diff_days/7)) * 7
-              # doubling_time := log(2)/ log(discrete gr + 1) = log(2) / log((Share/start_share)^(1/time_diff_days) - 1 + 1) [divide by 7 to convert to weeks then multiply by 7 to convert back to days]
             ]
             # calculate time for log odds to double (this is equivalent to doubling time calculated from the time coefficient in a logistic model)
             all.wkly2[,doubling_time_logodds := log(2) / growth_rate_logodds * 7]
@@ -3178,22 +2920,7 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
     } # end !nowcast_only
 } # end run (not 3)
   
-# Run2 (nowcast) ---------------------------------------------------------------
-# Model-based smoothed trends in variant share: National and by HHS Region
-# creates 5 + 33 output files:
-# - "/results/wow_growth_variant_share",data_date,tag,".csv"
-# - "/results/updated_nowcast_monthly_",data_date,"_state_tag_included_Run1.csv"
-# - "/results/updated_nowcast_monthly_",data_date,"_state_tag_included_Run2.csv"
-# - "/results/updated_nowcast_weekly_",data_date,"_state_tag_included_Run1.csv"
-# - "/results/updated_nowcast_weekly_",data_date,"_state_tag_included_Run2.csv"
-# - and 33 images
-#   - "/results/wtd_shares_",data_date,"_","barplot_US",tag,".jpg"
-#   - "/results/wtd_shares_",data_date,"_","projection_US",tag,".jpg"
-#   - "/results/wtd_shares_",data_date,"_","growthrate_US",tag,".png"
-#     Create the same 3 figures for each HHS region
-#   - "/results/wtd_shares_",data_date,"_","barplot_HHS",hhs,tag,".jpg"
-#   - "/results/wtd_shares_",data_date,"_","projection_HHS",hhs,tag,".jpg"
-#   - "/results/wtd_shares_",data_date,"_","growthrate_HHS", hhs,tag,".jpg"
+# Run 2 model-based nowcast outputs.
 if ( grepl("Run2",tag) ){
   remove_fortnights <- tail(sort(unique(src.dat$FORTNIGHT_END)),2)[1]
   src.dat <- subset(src.dat, src.dat$FORTNIGHT_END < remove_fortnights)
@@ -3841,13 +3568,7 @@ if ( grepl("Run2",tag) ){
           '. Fix the aggregation matrix.'))
       }
       
-      # NOTE! Setting up the agg_var_mat in this way assumes that variants included in
-      # voc2 but NOT in voc1 (i.e: setdiff(voc, voc1) ) will be aggregated into something
-      # that IS in voc1 (other than "Other Aggregated"). This is necessary to ensure that the
-      # "Other Aggregated" row is the SAME for run1 output and run2 output, which
-      # is important because they both use that row for output below.
-      # this is a check to make sure that the assumption stated above is being met.
-      # sub_mat <- agg_var_mat[row.names(agg_var_mat) != 'Other Aggregated', setdiff(voc, voc1), drop = FALSE] # this line assumes that everything in voc will be included in model_vars, which isn't always the case. If something is in voc, but not modeled (i.e. not in model_vars), then it will be grouped into "Other". If it's also not in voc1, then it will be grouped into "Other" there, too, so the Nowcast results will line up with the run1 weighted estimates. The Nowcast results will NOT line up with he run2 weighted estimates (b/c "Other" will have differing numbers of variants included)
+      # Ensure variants not in voc1 still aggregate into a Run1 category.
       sub_mat <- agg_var_mat[row.names(agg_var_mat) != 'Other Aggregated', setdiff(model_vars, voc1), drop = FALSE]
       if(!all(colSums(sub_mat) > 0)){
         problem_vocs <- colnames(sub_mat)[colSums(sub_mat) == 0]
@@ -4267,19 +3988,9 @@ if ( grepl("Run2",tag) ){
     }
     
     if(pre_aggregation==FALSE){
-      # Format output for the run 1 lineage list
-      agg_lineages <- colnames(agg_var_mat)[colSums(agg_var_mat)>0] # need to make sure that run1 keeps either "Other" or Other aggregated! (not both or neither)
-      if("Other" %notin% agg_lineages) agg_lineages <- c(agg_lineages, "Other Aggregated")
-      run_1 = proj.res[Variant %notin% agg_lineages]
-      
-      # change the name of "Other Aggregated" to "Other" to match other output files
-      run_1[run_1$Variant == "Other Aggregated","Variant"] <- "Other"
-      
-      # output data file depends on NO change in run_1 column order!!!
-      # If new columns are to be added, they need to go to the end.
-      
-      # QA: make sure that the shares add up to 1 each time period to make sure that the aggregation is doing what I want it to:
-      if (!all(run_1[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Month_ending')][,unique(round(total_share, 5))] == 1)){
+      run_1 <- build_run1_output(proj.res, agg_var_mat)
+
+      if (!shares_sum_to_one(run_1, c("USA_or_HHSRegion", "Month_ending"))){
         warning(paste(
           paste0(script.basename,
                  output_folder, "/updated_nowcast_monthly_",
@@ -4289,8 +4000,6 @@ if ( grepl("Run2",tag) ){
           'results are invalid! The total proportion does not add up to 100% in each time period!')
         )
       } else {
-        # only save the results to file if the proportions add up to 100% each week
-        # save the results to file
         write.csv(x = run_1,
                   file = paste0(script.basename,
                                 output_folder, "/updated_nowcast_monthly_",
@@ -4302,86 +4011,29 @@ if ( grepl("Run2",tag) ){
                                 results_tag,
                                 ".csv"),
                   row.names = FALSE)
-        if(meth == 'weighted'){
-          # process dataframe and save to a format for direct hadoop upload
-          run_1_hadoop = data.frame(run_1[,1:6])
-          run_1_hadoop[is.na(run_1_hadoop)] = '\\N'
-          run_1_hadoop[,7:15] = '\\N'
-          run_1_hadoop[,16] = 'smoothed'
-          run_1_hadoop[,17] = '4_week'
-          run_1_hadoop[,18] = data_date
-          run_1_hadoop[,19] = paste0(results_tag, '_Run1')
-          run_1_hadoop[,20] = 1
-          if (calc_confirmed_infections){
-            run_1_hadoop[,21:24] = run_1[,14:17]
-          }
-          
-          run_1_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_1_hadoop[,3])
-          run_1_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_1_hadoop[,3])
-          run_1_hadoop[,3] = gsub(' Aggregated', '', run_1_hadoop[,3])
-          run_1_hadoop[is.na(run_1_hadoop)] = '\\N'
-          write.table(x = run_1_hadoop,
-                      file = paste0(script.basename,
-                                    output_folder, "/updated_nowcast_monthly_",
-                                    data_date,
-                                    sub(pattern = '2', replacement = '1', x = tag),
-                                    "_",
-                                    results_tag,
-                                    "_hadoop.csv"),
-                      quote = FALSE,
-                      row.names = FALSE,
-                      col.names = FALSE,
-                      sep = ",")
-        } else if(meth == 'unweighted'){
-          # process dataframe and save to a format for direct hadoop upload
-          run_1_hadoop = data.frame(run_1[,1:6])
-          run_1_hadoop[is.na(run_1_hadoop)] = '\\N'
-          run_1_hadoop[,7:15] = '\\N'
-          run_1_hadoop[,16] = 'smoothed'
-          run_1_hadoop[,17] = '4_week'
-          run_1_hadoop[,18] = data_date
-          run_1_hadoop[,19] = paste0(results_tag, '_Run1')
-          run_1_hadoop[,20] = 1
-          if (calc_confirmed_infections){
-            run_1_hadoop[,21:24] = run_1[,14:17]
-          }
-          
-          run_1_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_1_hadoop[,3])
-          run_1_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_1_hadoop[,3])
-          run_1_hadoop[,3] = gsub(' Aggregated', '', run_1_hadoop[,3])
-          run_1_hadoop[is.na(run_1_hadoop)] = '\\N'
-          write.table(x = run_1_hadoop,
-                      file = paste0(script.basename,
-                                    output_folder, "/updated_nowcast_monthly_",
-                                    data_date,
-                                    sub(pattern = '2', replacement = '1', x = tag),
-                                    "_",
-                                    results_tag,
-                                    "_hadoop.csv"),
-                      quote = FALSE,
-                      row.names = FALSE,
-                      col.names = FALSE,
-                      sep = ",")
-        } # end save hadoop data
-      } # end save data
-    } # end save data when pre-aggregation == FALSE
+        write_hadoop_output(
+          results_df = run_1,
+          file = paste0(script.basename,
+                        output_folder, "/updated_nowcast_monthly_",
+                        data_date,
+                        sub(pattern = '2', replacement = '1', x = tag),
+                        "_",
+                        results_tag,
+                        "_hadoop.csv"),
+          base_columns = 1:6,
+          data_date = data_date,
+          results_tag = results_tag,
+          run_label = "Run1",
+          cadence_label = "4_week",
+          calc_confirmed_infections = calc_confirmed_infections,
+          confirmed_columns = 14:17
+        )
+      }
+    }
     
-    # Format output for the run2 lineage list
-    # exclude the lineages that were aggregated (other than "Other")
-    drop_lin <- row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"]
-    # alternatively, just include only the variants that are in c(voc, "Other Aggregated")
+    run_2 <- build_run2_output(proj.res, agg_var_mat)
     
-    # Only include variants that are NOT in the list provided
-    # (also use "Other Aggregated" instead of "Other"; this requires dropping the variants that were aggregated into "Other Aggregated")
-    # output data file depends on NO change in run_2 column order!!!
-    # If new columns are to be added, they need to go to the end.
-    run_2 = proj.res[Variant %notin% c(drop_lin, "Other", colnames(agg_var_mat['Other Aggregated',,drop=F])[agg_var_mat['Other Aggregated',,drop=F] > 0])]
-    
-    # change the name of "Other Aggregated" to "Other" to match other output files
-    run_2[run_2$Variant=="Other Aggregated","Variant"] <- "Other"
-    
-    # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
-    if (!all(run_2[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Month_ending')][,unique(round(total_share, 5))] == 1)){
+    if (!shares_sum_to_one(run_2, c("USA_or_HHSRegion", "Month_ending"))){
       warning(paste(
         paste0(script.basename,
                output_folder, "/updated_nowcast_monthly_",
@@ -4391,7 +4043,6 @@ if ( grepl("Run2",tag) ){
         'results are invalid! The total proportion does not add up to 100% in all weeks!')
       )
     } else {
-      # only save the results to file if the proportions add up to 100% each week
       write.csv(x = run_2,
                 file = paste0(script.basename,
                               output_folder, "/updated_nowcast_monthly_",
@@ -4403,92 +4054,38 @@ if ( grepl("Run2",tag) ){
                               results_tag,
                               ".csv"),
                 row.names = FALSE)
-      if(meth == "weighted"){
-        # process dataframe and save to a format for direct hadoop upload
-        run_2_hadoop = data.frame(run_2[,1:6])
-        run_2_hadoop[is.na(run_2_hadoop)] = '\\N'
-        run_2_hadoop[,7:15] = '\\N'
-        run_2_hadoop[,16] = 'smoothed'
-        run_2_hadoop[,17] = '4_week'
-        run_2_hadoop[,18] = data_date
-        run_2_hadoop[,19] = paste0(results_tag, '_Run2')
-        run_2_hadoop[,20] = 1
-        if (calc_confirmed_infections){
-          run_2_hadoop[,21:24] = run_2[,14:17] 
-        }
-        run_2_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_2_hadoop[,3])
-        run_2_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_2_hadoop[,3])
-        run_2_hadoop[,3] = gsub(' Aggregated', '', run_2_hadoop[,3])
-        run_2_hadoop[is.na(run_2_hadoop)] = '\\N'
-        write.table(x = run_2_hadoop,
-                    file = paste0(script.basename,
-                                  output_folder, "/updated_nowcast_monthly_",
-                                  data_date,
-                                  tag,
-                                  "_",
-                                  results_tag,
-                                  "_hadoop.csv"),
-                    quote = FALSE,
-                    row.names = FALSE,
-                    col.names = FALSE,
-                    sep = ",")
-      }else if(meth == "unweighted"){
-        # process dataframe and save to a format for direct hadoop upload
-        run_2_hadoop = data.frame(run_2[,1:6])
-        run_2_hadoop[is.na(run_2_hadoop)] = '\\N'
-        run_2_hadoop[,7:15] = '\\N'
-        run_2_hadoop[,16] = 'smoothed'
-        run_2_hadoop[,17] = '4_week'
-        run_2_hadoop[,18] = data_date
-        run_2_hadoop[,19] = paste0(results_tag, '_Run2')
-        run_2_hadoop[,20] = 1
-        if (calc_confirmed_infections){
-          run_2_hadoop[,21:24] = run_2[,14:17] 
-        }
-        run_2_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_2_hadoop[,3])
-        run_2_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_2_hadoop[,3])
-        run_2_hadoop[,3] = gsub(' Aggregated', '', run_2_hadoop[,3])
-        run_2_hadoop[is.na(run_2_hadoop)] = '\\N'
-        write.table(x = run_2_hadoop,
-                    file = paste0(script.basename,
-                                  output_folder, "/updated_nowcast_monthly_",
-                                  data_date,
-                                  tag,
-                                  "_",
-                                  results_tag,
-                                  "_hadoop.csv"),
-                    quote = FALSE,
-                    row.names = FALSE,
-                    col.names = FALSE,
-                    sep = ",")
-      } # end save hadoop data
-    } # end save run2 monthly data
+      write_hadoop_output(
+        results_df = run_2,
+        file = paste0(script.basename,
+                      output_folder, "/updated_nowcast_monthly_",
+                      data_date,
+                      tag,
+                      "_",
+                      results_tag,
+                      "_hadoop.csv"),
+        base_columns = 1:6,
+        data_date = data_date,
+        results_tag = results_tag,
+        run_label = "Run2",
+        cadence_label = "4_week",
+        calc_confirmed_infections = calc_confirmed_infections,
+        confirmed_columns = 14:17
+      )
+    }
     
-    ### Weekly estimates ----
-    # same as above, but for weekly estimates instead of monthly
-    
-    # define and use a function to get the end-of-week dates
     cast_wks = (function(dd) as.Date(seq(from = dd[1],
                                          to = dd[2],
                                          by = 7),
                                      origin = "1970-01-01"))(range(as.Date(proj_months)) + c(-7, 0))
-    
-    # optionally make predictions on a daily basis instead of weekly basis
-    
-    # cast weeks are based on months, which are end-of-week dates
+
     cast_wks <- seq(from = min(cast_wks) - 6,
                     to   = max(cast_wks),
                     by   = 1)
-    
-    # create an empty object to hold predicted values for each region
+
     proj.res = c()
-    
-    # cycle over regions
+
     for (rgn in "USA"){
-      # cycle over weeks
       for (cwk in cast_wks) {
-        
-        # get the model fit & geoid
         if (rgn=="USA") {
           mlm = svymlm_us$mlm
           geoid = rgn
@@ -4496,19 +4093,10 @@ if ( grepl("Run2",tag) ){
           mlm = svymlm_hhs$mlm
           geoid = as.numeric(rgn)
         }
-        
-        # get the week for the given timepoint
         wk_date = as.Date(cwk, origin="1970-01-01")
-        # convert date to model_week
         wk = date_to_model_week(wk_date)
-        
-        # Sunday of week
         week_start  = wk_date - as.numeric(format(wk_date, format = '%w'))
-        # Saturday of week
         week_ending = week_start + 6
-        
-        
-        # get the estimates (and SE) for the given place & time
         ests = se.multinom(mlm = mlm,
                            newdata_1row = data.frame(
                              model_week = wk,
@@ -4516,16 +4104,10 @@ if ( grepl("Run2",tag) ){
                            ),
                            composite_variant = agg_var_mat,
                            dy_dt = data.frame(model_week=1))
-        
-        # calculate the SE of the growth rate
         se.gr = with(data = ests,
                      expr = 100 * exp(sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2))) - 100)
-        
-        # calculate the growth rate
         gr = with(ests,
                   100 * exp(b_i - sum(p_i * b_i)) - 100)
-        
-        # add in doubling times
         se.gr_link = with(data = ests,
                           expr = sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2)))
         gr_link = with(data = ests,
@@ -4535,13 +4117,10 @@ if ( grepl("Run2",tag) ){
         
         gr_lo = 100 * exp(gr_lo_link) - 100
         gr_hi = 100 * exp(gr_hi_link) - 100
-        
-        # calculate doubling time
         doubling_time    = log(2)/gr_link * 7
         doubling_time_lo = log(2)/gr_lo_link * 7
         doubling_time_hi = log(2)/gr_hi_link * 7
         
-        # empty dataframe to hold growth rates of aggregated variants
         gr_agg <- data.frame( variant = rownames(agg_var_mat),
                               gr    = NA,
                               se.gr = NA,
@@ -4550,9 +4129,7 @@ if ( grepl("Run2",tag) ){
                               dt    = NA,
                               dt_lo = NA,
                               dt_hi = NA)
-        # extract the growth rates for the aggregated variants
         for(r in 1:nrow(agg_var_mat)){
-          # if nothing is actually being aggregated, just get the growth rate of the individual component
           if(unname(rowSums(agg_var_mat)[r]) == 1){
             col_ind <- which(agg_var_mat[r,]>0)
             gr_agg[r,'gr']    <- gr[col_ind]
@@ -4563,7 +4140,6 @@ if ( grepl("Run2",tag) ){
             gr_agg[r,'dt_lo'] <- doubling_time_lo[col_ind]
             gr_agg[r,'dt_hi'] <- doubling_time_hi[col_ind]
           } else {
-            # if there are component variants, then take the weighted mean to get the aggregated growth rate
             col_ind <- unname(which(agg_var_mat[r,]>0))
             gr_agg[r,'gr']    <- sum(   gr[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
             gr_agg[r,'gr_lo'] <- sum(gr_lo[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
@@ -4574,10 +4150,9 @@ if ( grepl("Run2",tag) ){
           }
         }
         
-        # format estimates into dataframe with relevant info
         ests = data.table::data.table(
           USA_or_HHSRegion = rgn,
-          Week_ending = week_ending, # this no longer identifies a single estimate.
+          Week_ending = week_ending,
           Variant = c(model_vars,
                       "Other",
                       row.names(ests$composite_variant$matrix)),
@@ -4591,19 +4166,15 @@ if ( grepl("Run2",tag) ){
           doubling_time    = c(doubling_time,    gr_agg$dt),
           doubling_time_lo = c(doubling_time_lo, gr_agg$dt_lo),
           doubling_time_hi = c(doubling_time_hi, gr_agg$dt_hi),
-          # add in dates
           date        = wk_date,
           week_start  = week_start,
           model_week  = wk
         )
-        
-        # Get binomial CI from p_i and se.p_i
         binom.ci = apply(X = ests,
                          MARGIN = 1 ,
                          FUN = function(rr) svyCI(p = as.numeric(rr[4]),
                                                   s = as.numeric(rr[5])))
         
-        # add the CI into the estimates dataframe
         ests$Share_lo = binom.ci[1,]
         ests$Share_hi = binom.ci[2,]
         
@@ -4615,19 +4186,14 @@ if ( grepl("Run2",tag) ){
                                       conf.level = 0.99)
           }
           
-          # add the CI into the estimates dataframe
           ests$Share_lo_99 = binom.ci.99[1,]
           ests$Share_hi_99 = binom.ci.99[2,]
         }
-        
-        
-        # add the estimates for this specific place & time to the results
         proj.res = rbind(proj.res,
                          ests)
-      } # end loop over weeks
-    } # end loop over regions
+      }
+    }
     
-    # select column names to save
     proj.res_column_names <- c(
       "USA_or_HHSRegion",
       "Week_ending",
@@ -4647,7 +4213,6 @@ if ( grepl("Run2",tag) ){
       "model_week"
     )
     if(calc_99_CI_nowcast) proj.res_column_names <- c(proj.res_column_names, 'Share_lo_99', 'Share_hi_99')
-    # subset to the columns we want
     proj.res = proj.res[,..proj.res_column_names]
     
     # optionally calculate the number of infections attributable to each variant
@@ -4720,26 +4285,12 @@ if ( grepl("Run2",tag) ){
     }
     
     if(pre_aggregation==FALSE){
-      # Format output for the run 1 lineage list
-      agg_lineages <- colnames(agg_var_mat)[colSums(agg_var_mat)>0] # need to make sure that run1 keeps either "Other" or Other aggregated! (not both or neither)
-      if("Other" %notin% agg_lineages) agg_lineages <- c(agg_lineages, "Other Aggregated")
-      run_1 = proj.res[Variant %notin% agg_lineages]
-      
-      # change the name of "Other Aggregated" to "Other" to match other output files
-      run_1[run_1$Variant == "Other Aggregated","Variant"] <- "Other"
-      
-      # weekly results = remove daily results & daily columns
-      # output data file depends on NO change in run_1_weekly column order!!!
-      # If new columns are to be added, they need to go to the end.
-      run_1_weekly <- data.table:::subset.data.table(x = run_1,
-                                                     subset = model_week %% 1 == 0,
-                                                     select = !names(run_1) %in% c('total_test_positives_daily', 'cases_daily', 'cases_lo_daily', 'cases_hi_daily'))
-      # daily results = remove weekly columns
-      run_1_daily <- data.table:::subset.data.table(x = run_1,
-                                                    select = !names(run_1) %in% c('total_test_positives_weekly', 'cases_weekly', 'cases_lo_weekly', 'cases_hi_weekly'))
-      
-      # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
-      if (!all(run_1_weekly[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Week_ending')][,unique(round(total_share, 5))] == 1)){
+      run_1 <- build_run1_output(proj.res, agg_var_mat)
+      run_1_split <- split_weekly_and_daily_results(run_1)
+      run_1_weekly <- run_1_split$weekly
+      run_1_daily <- run_1_split$daily
+
+      if (!shares_sum_to_one(run_1_weekly, c("USA_or_HHSRegion", "Week_ending"))){
         warning(paste(
           paste0(script.basename,
                  output_folder, "/updated_nowcast_weekly_",
@@ -4749,8 +4300,6 @@ if ( grepl("Run2",tag) ){
           'results are invalid! The total proportion does not add up to 100% in all weeks!')
         )
       } else {
-        # only save the results to file if the proportions add up to 100% each week
-        # save the results to file
         write.csv(x = run_1_weekly,
                   file = paste0(script.basename,
                                 output_folder, "/updated_nowcast_weekly_",
@@ -4762,68 +4311,26 @@ if ( grepl("Run2",tag) ){
                                 results_tag,
                                 ".csv"),
                   row.names = FALSE)
-        # process dataframe and save to a format for direct hadoop upload
-        if(meth == 'weighted'){
-          run_1_weekly_hadoop = data.frame(run_1_weekly[,c(1:2,4:7)])
-          run_1_weekly_hadoop[is.na(run_1_weekly_hadoop)] = '\\N'
-          run_1_weekly_hadoop[,7:15] = '\\N'
-          run_1_weekly_hadoop[,16] = 'smoothed'
-          run_1_weekly_hadoop[,17] = 'weekly'
-          run_1_weekly_hadoop[,18] = data_date
-          run_1_weekly_hadoop[,19] = paste0(results_tag, '_Run1')
-          run_1_weekly_hadoop[,20] = 1
-          if (calc_confirmed_infections){
-            run_1_weekly_hadoop[,21:24] = run_1_weekly[,17:20] 
-          }
-          run_1_weekly_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_1_weekly_hadoop[,3])
-          run_1_weekly_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_1_weekly_hadoop[,3])
-          run_1_weekly_hadoop[,3] = gsub(' Aggregated', '', run_1_weekly_hadoop[,3])
-          run_1_weekly_hadoop[is.na(run_1_weekly_hadoop)] = '\\N'
-          write.table(x = run_1_weekly_hadoop,
-                      file = paste0(script.basename,
-                                    output_folder, "/updated_nowcast_weekly_",
-                                    data_date,
-                                    sub(pattern = '2', replacement = '1', x = tag),
-                                    "_",
-                                    results_tag,
-                                    "_hadoop.csv"),
-                      quote = FALSE,
-                      row.names = FALSE,
-                      col.names = FALSE,
-                      sep = ",")
-        } else if(meth == 'unweighted'){
-          run_1_weekly_hadoop = data.frame(run_1_weekly[,c(1:2,4:7)])
-          run_1_weekly_hadoop[is.na(run_1_weekly_hadoop)] = '\\N'
-          run_1_weekly_hadoop[,7:15] = '\\N'
-          run_1_weekly_hadoop[,16] = 'smoothed'
-          run_1_weekly_hadoop[,17] = 'weekly'
-          run_1_weekly_hadoop[,18] = data_date
-          run_1_weekly_hadoop[,19] = paste0(results_tag, '_Run1')
-          run_1_weekly_hadoop[,20] = 1
-          if (calc_confirmed_infections){
-            run_1_weekly_hadoop[,21:24] = run_1_weekly[,17:20] 
-          }
-          run_1_weekly_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_1_weekly_hadoop[,3])
-          run_1_weekly_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_1_weekly_hadoop[,3])
-          run_1_weekly_hadoop[,3] = gsub(' Aggregated', '', run_1_weekly_hadoop[,3])
-          run_1_weekly_hadoop[is.na(run_1_weekly_hadoop)] = '\\N'
-          write.table(x = run_1_weekly_hadoop,
-                      file = paste0(script.basename,
-                                    output_folder, "/updated_nowcast_weekly_",
-                                    data_date,
-                                    sub(pattern = '2', replacement = '1', x = tag),
-                                    "_",
-                                    results_tag,
-                                    "_hadoop.csv"),
-                      quote = FALSE,
-                      row.names = FALSE,
-                      col.names = FALSE,
-                      sep = ",")
-        } # end save hadoop data
-      } # end save run1 data
-      # daily results
-      # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
-      if (!all(run_1_daily[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'date')][,unique(round(total_share, 5))] == 1)){
+        write_hadoop_output(
+          results_df = run_1_weekly,
+          file = paste0(script.basename,
+                        output_folder, "/updated_nowcast_weekly_",
+                        data_date,
+                        sub(pattern = '2', replacement = '1', x = tag),
+                        "_",
+                        results_tag,
+                        "_hadoop.csv"),
+          base_columns = c(1:2, 4:7),
+          data_date = data_date,
+          results_tag = results_tag,
+          run_label = "Run1",
+          cadence_label = "weekly",
+          calc_confirmed_infections = calc_confirmed_infections,
+          confirmed_columns = 17:20
+        )
+      }
+
+      if (!shares_sum_to_one(run_1_daily, c("USA_or_HHSRegion", "date"))){
         warning(paste(
           paste0(script.basename,
                  output_folder, "/updated_nowcast_weekly_",
@@ -4833,8 +4340,6 @@ if ( grepl("Run2",tag) ){
           'results are invalid! The total proportion does not add up to 100% in all weeks!')
         )
       } else {
-        # only save the results to file if the proportions add up to 100% each week
-        # save the results to file
         write.csv(x = run_1_daily,
                   file = paste0(script.basename,
                                 output_folder, "/updated_nowcast_weekly_",
@@ -4848,30 +4353,13 @@ if ( grepl("Run2",tag) ){
                   row.names = FALSE)
       }
     }
-    # Format output for the run2 lineage list
-    # exclude the lineages that were aggregated (other than "Other")
-    drop_lin <- row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"]
-    # alternatively, just include only the variants that are in c(voc, "Other Aggregated")
-    
-    # Only include variants that are NOT in the list provided
-    # (also use "Other Aggregated" instead of "Other"; this requires dropping the variants that were aggregated into "Other Aggregated")
-    run_2 = proj.res[Variant %notin% c(drop_lin, "Other", colnames(agg_var_mat['Other Aggregated',,drop=F])[agg_var_mat['Other Aggregated',,drop=F] > 0])]
-    
-    # change the name of "Other Aggregated" to "Other" to match other output files
-    run_2[run_2$Variant=="Other Aggregated","Variant"] <- "Other"
-    
-    # weekly results = remove daily results & daily columns
-    # output data file depends on NO change in run_2_weekly column order!!!
-    # If new columns are to be added, they need to go to the end.
-    run_2_weekly <- data.table:::subset.data.table(x = run_2,
-                                                   subset = model_week %% 1 == 0,
-                                                   select = !names(run_2) %in% c('total_test_positives_daily', 'cases_daily', 'cases_lo_daily', 'cases_hi_daily'))
-    # daily results = remove weekly columns
-    run_2_daily <- data.table:::subset.data.table(x = run_2,
-                                                  select = !names(run_2) %in% c('total_test_positives_weekly', 'cases_weekly', 'cases_lo_weekly', 'cases_hi_weekly'))
-    
-    # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
-    if (!all(run_2_weekly[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'Week_ending')][,unique(round(total_share, 5))] == 1)){
+
+    run_2 <- build_run2_output(proj.res, agg_var_mat)
+    run_2_split <- split_weekly_and_daily_results(run_2)
+    run_2_weekly <- run_2_split$weekly
+    run_2_daily <- run_2_split$daily
+
+    if (!shares_sum_to_one(run_2_weekly, c("USA_or_HHSRegion", "Week_ending"))){
       warning(paste(
         paste0(script.basename,
                output_folder, "/updated_nowcast_weekly_",
@@ -4881,8 +4369,6 @@ if ( grepl("Run2",tag) ){
         'results are invalid! The total proportion does not add up to 100% in all weeks!')
       )
     } else {
-      # only save the results to file if the proportions add up to 100% each week
-      # save the results to file
       write.csv(x = run_2_weekly,
                 file = paste0(script.basename,
                               output_folder, "/updated_nowcast_weekly_",
@@ -4894,68 +4380,26 @@ if ( grepl("Run2",tag) ){
                               results_tag,
                               ".csv"),
                 row.names = FALSE)
-      # process dataframe and save to a format for direct hadoop upload
-      if(meth == 'weighted'){
-        run_2_weekly_hadoop = data.frame(run_2_weekly[,c(1:2,4:7)])
-        run_2_weekly_hadoop[is.na(run_2_weekly_hadoop)] = '\\N'
-        run_2_weekly_hadoop[,7:15] = '\\N'
-        run_2_weekly_hadoop[,16] = 'smoothed'
-        run_2_weekly_hadoop[,17] = 'weekly'
-        run_2_weekly_hadoop[,18] = data_date
-        run_2_weekly_hadoop[,19] = paste0(results_tag, '_Run2')
-        run_2_weekly_hadoop[,20] = 1
-        if (calc_confirmed_infections){
-          run_2_weekly_hadoop[,21:24] = run_2_weekly[,17:20]
-        }
-        run_2_weekly_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_2_weekly_hadoop[,3])
-        run_2_weekly_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_2_weekly_hadoop[,3])
-        run_2_weekly_hadoop[,3] = gsub(' Aggregated', '', run_2_weekly_hadoop[,3])
-        run_2_weekly_hadoop[is.na(run_2_weekly_hadoop)] = '\\N'
-        write.table(x = run_2_weekly_hadoop,
-                    file = paste0(script.basename,
-                                  output_folder, "/updated_nowcast_weekly_",
-                                  data_date,
-                                  tag,
-                                  "_",
-                                  results_tag,
-                                  "_hadoop.csv"),
-                    quote = FALSE,
-                    row.names = FALSE,
-                    col.names = FALSE,
-                    sep = ",")
-      } else if(meth == 'unweighted'){
-        run_2_weekly_hadoop = data.frame(run_2_weekly[,c(1:2,4:7)])
-        run_2_weekly_hadoop[is.na(run_2_weekly_hadoop)] = '\\N'
-        run_2_weekly_hadoop[,7:15] = '\\N'
-        run_2_weekly_hadoop[,16] = 'smoothed'
-        run_2_weekly_hadoop[,17] = 'weekly'
-        run_2_weekly_hadoop[,18] = data_date
-        run_2_weekly_hadoop[,19] = paste0(results_tag, '_Run2')
-        run_2_weekly_hadoop[,20] = 1
-        if (calc_confirmed_infections){
-          run_2_weekly_hadoop[,21:24] = run_2_weekly[,17:20]
-        }
-        run_2_weekly_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', run_2_weekly_hadoop[,3])
-        run_2_weekly_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', run_2_weekly_hadoop[,3])
-        run_2_weekly_hadoop[,3] = gsub(' Aggregated', '', run_2_weekly_hadoop[,3])
-        run_2_weekly_hadoop[is.na(run_2_weekly_hadoop)] = '\\N'
-        write.table(x = run_2_weekly_hadoop,
-                    file = paste0(script.basename,
-                                  output_folder, "/updated_nowcast_weekly_",
-                                  data_date,
-                                  tag,
-                                  "_",
-                                  results_tag,
-                                  "_hadoop.csv"),
-                    quote = FALSE,
-                    row.names = FALSE,
-                    col.names = FALSE,
-                    sep = ",")
-      } # end save hadoop data
-    } # end save run2 weekly data
-    # daily results
-    # QA: make sure that the shares add up to 1 each week to make sure that the aggregation is doing what I want it to:
-    if (!all(run_2_daily[, .(total_share = sum(Share)), by = c('USA_or_HHSRegion', 'date')][,unique(round(total_share, 5))] == 1)){
+      write_hadoop_output(
+        results_df = run_2_weekly,
+        file = paste0(script.basename,
+                      output_folder, "/updated_nowcast_weekly_",
+                      data_date,
+                      tag,
+                      "_",
+                      results_tag,
+                      "_hadoop.csv"),
+        base_columns = c(1:2, 4:7),
+        data_date = data_date,
+        results_tag = results_tag,
+        run_label = "Run2",
+        cadence_label = "weekly",
+        calc_confirmed_infections = calc_confirmed_infections,
+        confirmed_columns = 17:20
+      )
+    }
+
+    if (!shares_sum_to_one(run_2_daily, c("USA_or_HHSRegion", "date"))){
       warning(paste(
         paste0(script.basename,
                output_folder, "/updated_nowcast_weekly_",
@@ -4965,8 +4409,6 @@ if ( grepl("Run2",tag) ){
         'results are invalid! The total proportion does not add up to 100% in all weeks!')
       )
     } else {
-      # only save the results to file if the proportions add up to 100% each week
-      # save the results to file
       write.csv(x = run_2_daily,
                 file = paste0(script.basename,
                               output_folder, "/updated_nowcast_weekly_",
@@ -4978,8 +4420,8 @@ if ( grepl("Run2",tag) ){
                               results_tag,
                               "_daily.csv"),
                 row.names = FALSE)
-    } # end QA check for daily results
-  } # end loop over weighted_methods (unweighted, weighted)
+    }
+  }
 } # end run 2 Nowcast modeling
   
   
@@ -5002,3 +4444,8 @@ if ( grepl("Run2",tag) ){
   
   # print out the runtime
   sprintf(paste0("code for ",tag, " run took %f minutes"), round(tdiff/60, 1))
+}
+
+if (sys.nframe() == 0) {
+  weekly_variant_report_nowcast_main()
+}
