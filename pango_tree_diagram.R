@@ -236,7 +236,6 @@ prop_list <-list(HV.1 = 0.289585804,
                  Other = 0.010873377
   
 )
-#prop_list <-list()
 # coloring frame and functions
 color.df <- tibble(name = names(color_list), color = as.character(color_list))
 w <- paste('{', paste(color.df %>% 
@@ -287,4 +286,3 @@ webshot(url = paste0("file://", normalizePath(html_file)),
 
 # Remove the temporary HTML file
 file.remove(html_file)
-

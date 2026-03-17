@@ -720,13 +720,6 @@ se.multinom = function(mlm,
                 nrow = nrow(mnames),
                 ncol = ncol(vc),
                 dimnames = list(mlm$lev[-1], colnames(mlm$Hessian)))
-  #cmat = matrix(data = 0,
-  #              nrow = nrow(mnames),
-  #              # ncol = length(cf),
-  #              ncol = ncol(vc),
-  #              dimnames = list(mlm$lev[-1],
-  #                              as.vector(t(mnames))))
-                               # colnames(mlm$Hessian)))
   # fill in covariate values into the cmat
   for (rr in 1:nrow(cmat)) cmat[rr, mnames[rr,]] = c(mm)
   # ucmat is set up for growth-rates [2023-10-11]

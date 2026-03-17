@@ -1,477 +1,338 @@
 # SARS-CoV-2 Proportion Modeling and Nowcast
 
-Code for applying a weights and confidence intervals to SARS-CoV-2 proportion data using a survey design-based approach.
+**Standard Production Code for CDC Monthly Reporting**
+
+Code for applying weights and confidence intervals to SARS-CoV-2 proportion data using a survey design-based approach.
 
  **Written by** Prabasaj Paul <vig5@cdc.gov>, Molly Steele <xzn9@cdc.gov>
  **with updates from** Norman Hassell <ncy6@cdc.gov>, Philip Shirk <rsv4@cdc.gov>, Xiaoyu Sherry Zheng <qiu5@cdc.gov>
 
 **Reference**:
-Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants Circulating in the United States, December 2020–May 2021. MMWR Morb Mortal Wkly Rep 2021;70:846–850. DOI: [http://dx.doi.org/10.15585/mmwr.mm7023a3](http://dx.doi.org/10.15585/mmwr.mm7023a3)  
+Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants Circulating in the United States, December 2020–May 2021. MMWR Morb Mortal Wkly Rep 2021;70:846–850. DOI: [http://dx.doi.org/10.15585/mmwr.mm7023a3](http://dx.doi.org/10.15585/mmwr.mm7023a3)
 
 - [Code](#code)
 - [Data Requirements](#data-requirements)
 - [Other Requirements](#other-requirements)
 - [Output Files](#output-files)
-- [How to run from a scicomp location](#how-to-run-from-a-scicomp-location)
-   - [Option A](#option-a)
-   - [Option B](#option-b)
-- [Other Important Notes](#other-important-notes)
-   - [Lab Aggregation](#lab-aggregation)  
-   - [Column Descriptions for Run1 and Run2 proportion modeling output](#column-descriptions-for-run1-and-run2-proportion-modeling-output-sc2_archivestate_proportion_modeling)
-   - [Column Descriptions for Run3 state proportion modeling output](#column-descriptions-for-run3-state-proportionmodeling-output-sc2_archivestate_proportion_modeling)
-   - [Loading data into database](#load-hadoop)
+- [How to Run Monthly Reporting](#how-to-run-monthly-reporting)
+- [Lab Aggregation](#lab-aggregation)
+- [Column Descriptions](#column-descriptions)
+- [Load Hadoop](#load-hadoop)
 - [Methods](#methods)
-   - [Weights](#weights)
-   - [Lineage Aggregation](#lineage-aggregation)
-   - [Multinomial Logistic Regression prediction intervals](#multinomial-logistic-regression-prediction-intervals)
-   - [Multinomial Logistic Regression growth rates](#multinomial-logistic-regression-growth-rates)
 
 ## Code
-- **config/config.R** - Specify various configuration settings, such as data dates, VOCs to include in particular runs, and figure settings.
 
-- **variant_surveillance_system.R** - Generates the analytic dataset with the survey weights. Input arguments and their explanations can be found in the script.
+- **config/config.R** - Specify configuration settings: data dates, VOCs (variants shown on CDC COVID Data Tracker), and figure settings.
 
-- **variant_surveillance_system.sh** - Wrapper script for submitting variant_surveillance_system.R to run in HPC. Input arguments and their explanations can be found in the script. General usage:
-   ```bash
-   qsub variant_surveillance_system.sh <username> <password> <T/F for custom lineage> <T/F for using nextclade pango calls>
-   ```
+- **variant_surveillance_system.R** - Generates the analytic dataset with survey weights from CDC databases.
+  - Input: CDC database queries for sequences, lineages, and testing data
+  - Output: Processed data with survey design weights
 
-- **weekly_variant_report_nowcast.R** - Creates variant proportion estimates using the dataset created in `variant_surveillance_system.R`. Input arguments and their detailed explanations can be found in the script. 
-   - `weekly_variant_report_nowcast.R` accomodates 3 different "runs", each of which has its own set of "vocs" (i.e. variants for which to calculate proportions)
-      1) Run 1 calculates variant share/proportion and confidence intervals estimated using survey design for both fortnights (HHS regions & nationally) and weeks (HHS regions & nationally) for vocs that are shown on CDC COVID data tracker website (voc1).
+- **variant_surveillance_system.sh** - Wrapper script for submitting variant_surveillance_system.R to HPC.
+  - Usage: `qsub variant_surveillance_system.sh <username> <password>`
 
-      2) Run 2 generates the same 2 files as Run 1, but with vocs specified for Run 2 (voc2). Run 2 voc2s are usually automatically generated based on preset selection criteria. Currently, Run 2 autoselected vocs include all variants that occur at a frequency >= 1% of the unweighted sequence data in any of the 2-week periods from -1 to -7 2-week periods and variants at a frequency >= 0.5% of the unweighted sequence data in the -1 2-week period (See table below). All variants from Run 1 are also added to Run 2 voc2. Additionally, any variant of special interest can also be added to voc2 using the `voc2_additional` variable. Run 2 fits model-based smoothed trends in variant share to both national and HHS regional estimates (i.e. "_Nowcast_"). Run 2 also generates nowcast estimates for voc list for Run1 (voc1) by aggregating estimates for lineages from Run 2 to their corresponding parental lineages.
-      #### Run 2 vocs auto selection criteria
+- **weekly_variant_report_nowcast.R** - Creates variant proportion estimates using the dataset created in `variant_surveillance_system.R`.
+  - Run 1: Calculates variant share/proportion and confidence intervals for fortnights and weeks (HHS regions & nationally)
+  - Run 2: Generates the same output as Run 1, plus model-based smoothed trends (nowcasts) for both national and HHS regional estimates
 
-      | fortnight |      -7     |      -6     |      -5     |     -4    |     -3    |     -2    |      -1     |  Current Fortnight  |
-      |:---------:|:-----------:|:-----------:|:-----------:|:---------:|:---------:|:---------:|:-----------:|      :-------------------:|
-      |    week   | -15 and -14 | -13 and -12 | -11 and -10 | -9 and -8 | -7 and -6 | -5 and -4 |  -3 and -2  | -1 and Current Week |
-      | Nowcast   |  >=1% (unw)  |  >=1% (unw)  |  >=1% (unw)  | >=1% (unw) | >=1% (unw) | >=0.5% (unw) | >=1% (unw) |                     |
-      
-      3) Run3 generates state-level estimates in rolling 4 wk bins using survey design (same as Run 1). NO LONGER NEEDED. 
+- **run1_trim.sh** - Executes Run 1 (variant proportions for CDC COVID Data Tracker variants)
+  - Usage: Called automatically by proportion_modeling_run.sh
 
-- **proportion_modeling_run.sh** - Wrapper script for running variant_surveillance_system.sh and weekly_variant_report_nowcast.R. Input arguments and their explanations can be found in the script. General usage:
-   ```bash
-   qsub proportion_modeling_run.sh -u <username> -p <cdp password> -c <'T' or 'F' for custom lineage>
-   ```
+- **run2_trim.sh** - Executes Run 2 (nowcast models + auto-selected variants)
+  - Usage: Called automatically by proportion_modeling_run.sh
 
-- **weekly_s1_variant_report_nowcast.R** - Creates s1_species proportion estimates using the dataset created in `variant_surveillance_system.R`. General usage:
-   ```bash
-   qsub s1_run.sh <username> <cdp password> <reference lineage>
-   ```
+- **proportion_modeling_run.sh** - Master wrapper script for running the complete monthly reporting workflow.
+  - Usage: `qsub proportion_modeling_run.sh -u <username> -p <password>`
+  - This wrapper automatically submits variant_surveillance_system.sh, then run1_trim.sh and run2_trim.sh
 
+- **weekly_variant_report_functions.R** - Library of helper functions used by weekly_variant_report_nowcast.R
+
+- **pango_tree_diagram.R** - Generates Pango lineage tree visualization diagrams
 
 ## Data Requirements
-- Sequence data (compiled by SSEV Bioinformatics infrastructure team) 
-   - Source: CDP database `sc2_archive.analytics_metadata_frozen`
-- Pangolin lineages 
-   - Source: default CDP database tables `sc2_src.pangolin`, same information is also preserved in the `lineage` field of `sc2_archive.analytics_metadata_frozen`. The `nextclade_pango` field of `sc2_src.nextclade` can also be used instead; however when using `nextclade_pango`, the 4th argument for variant_surveillance_system.sh should be 'T', and aggregation codes need to be manually updated
-- NREVSS testing data
-   - Source: CDP database `sc2_archive.nrevss_frozen`
-- HHS protect RT-PCR testing data
-   - Source: CDP database `sc2_archive.hhs_protect_testing_frozen`
-- For auto-voc2 selection
-   - Source: CDP database `sc2_air.analytics_metadata`, `sc2_src.variant_definitions`, `sc2_air.analytics_lineage_corr`
-- Population Data - State population data (as of 2018) 
-   - Source: `./resources/ACStable_B01001_40_2018_5.txt`
 
-## Other requirements
+- Sequence data (compiled by SSEV Bioinformatics infrastructure team)
+  - Source: CDP database `sc2_archive.analytics_metadata_frozen`
+- Pangolin lineages
+  - Source: CDP database `sc2_src.pangolin`
+- NREVSS testing data
+  - Source: CDP database `sc2_archive.nrevss_frozen`
+- HHS Protect RT-PCR testing data
+  - Source: CDP database `sc2_archive.hhs_protect_testing_frozen`
+- Population Data - State population data (as of 2018)
+  - Source: `./resources/ACStable_B01001_40_2018_5.txt`
+
+## Other Requirements
+
 - Cloudera Impala JDBC driver: provided in `./jdbc/ClouderaImpalaJDBC-2.6.20.1024/ClouderaImpalaJDBC41-2.6.20.1024`
 
 ## Output Files
-Result folder: `paste0("/scicomp/groups/Projects/SARS2Seq/repos/sc2_proportion_modeling/results_", data_date, '_', results_tag)`
-   1) Run 1
-      - Pre-modeling Lineage aggregation results: `paste0("voc_aggregation_table", data_date, "_state_tag_included_Run1.csv)`
-      - Fornightly weighted estimates: `paste0("variant_share_weighted_KGCI_svyNEW_", data_date, "state_tag_included_Run1", results_tag,".csv")`
-      - Weekly weighted estimates: `paste0("variant_share_weekly_weighted_KGCI_svyNEW_", data_date, "state_tag_included_Run1", results_tag,".csv")`      
-      - Fornightly weighted estimates formatted for hadoop table `sc2_archive.proportion_modeling`: `paste0("variant_share_weighted_KGCI_svyNEW_", data_date, "state_tag_included_Run1", results_tag,"_hadoop.csv")`
-      - Weekly weighted estimates formatted for hadoop table `sc2_archive.proportion_modeling`: `paste0("variant_share_weekly_weighted_KGCI_svyNEW_", data_date, "state_tag_included_Run1", results_tag,"_hadoop.csv")`
-      - ONLY useful when automatic lineage aggregation is turned off.Pre-modeling Lineage aggregation results: `paste0("lineage_aggregataion_summary_KGCI_svyNEW_", data_date, "state_tag_included_Run1.csv")`
 
-   2) Run 2 
-   - *NOTE! Run 2 produces results for both Run 2 AND Run 1!*
-      - Pre-modeling Lineage aggregation results: `paste0("voc_aggregation_table", data_date, "_state_tag_included_Run2.csv)`      
-      - Fornightly weighted estimates: `paste0("variant_share_weighted_KGCI_svyNEW_", data_date, "_state_tag_included_Run2", results_tag,".csv")`
-      - Weekly weighted estimates: `paste0("variant_share_weekly_weighted_KGCI_svyNEW_", data_date, "_state_tag_included_Run2", results_tag,".csv")`
-      - Fornightly nowcast estimates: `paste0("updated_nowcast_fornightly_", weighted_methods, "_", data_date, "_state_tag_included_Run2", results_tag,".csv")`
-      - Weekly nowcast estimates: `paste0("updated_nowcast_weekly_", weighted_methods, "_", data_date, "_state_tag_included_Run2", results_tag,".csv")`
-      - Fornightly weighted estimates formatted for hadoop table `sc2_archive.proportion_modeling`: `paste0("variant_share_weighted_KGCI_svyNEW_", data_date, "_state_tag_included_Run2", results_tag,"_hadoop.csv")`
-      - Weekly weighted estimates formatted for hadoop table `sc2_archive.proportion_modeling`: `paste0("variant_share_weekly_weighted_KGCI_svyNEW_", data_date, "_state_tag_included_Run2", results_tag,"_hadoop.csv")`
-      - Fornightly nowcast estimates formatted for hadoop table `sc2_archive.proportion_modeling`: `paste0("updated_nowcast_fornightly_", data_date, "_state_tag_included_Run2", results_tag,"_hadoop.csv")`
-      - Weekly nowcast estimates formatted for hadoop table `sc2_archive.proportion_modeling`: `paste0("updated_nowcast_weekly_", data_date, "_state_tag_included_Run2", results_tag,"_hadoop.csv")`
-      - ONLY useful when automatic lineage aggregation is turned off.Pre-modeling Lineage aggregation results: `paste0("lineage_aggregataion_summary_KGCI_svyNEW_", data_date, "_state_tag_included_Run2.csv")`\
-   - The following files are nowcast estimates for the Run1 vocs
-      - Fornightly nowcast estimates: `paste0("updated_nowcast_fornightly_", weighted_methods, "_", data_date, "state_tag_included_Run1", results_tag,".csv")`
-      - Weekly nowcast estimates: `paste0("updated_nowcast_weekly_", weighted_methods, "_", data_date, "_state_tag_included_Run1", results_tag,".csv")`
-      - Fornightly nowcast estimates formatted for hadoop table `sc2_archive.proportion_modeling`: `paste0("updated_nowcast_fornightly_", data_date, "_state_tag_included_Run1", results_tag,"_hadoop.csv")`
-      - Weekly nowcast estimates formatted for hadoop table `sc2_archive.proportion_modeling`: `paste0("updated_nowcast_weekly_", data_date, "_state_tag_included_Run1", results_tag,"_hadoop.csv")`
-      - Post-modeling lineage aggregation results (aggregateing voc2 variants to their parental lineages in voc1): `paste0(agg_var_mat_KGCI_svyNEW_", data_date, "_state_tag_included_Run2.csv")`
-   - Image files
-      - National data
-         - `paste0("/results/wtd_shares_",data_date,"_","barplot_US",tag,".png")`
-         - `paste0("/results/wtd_shares_",data_date,"_","growthrate_US",tag,".png")`
-         - `paste0("/results/wtd_shares_",data_date,"_","growthrate_US",tag,".png")`
-      - For each HHS region
-         - `paste0("/results/wtd_shares_",data_date,"_","barplot_HHS",hhs,tag,".jpg")`
-         - `paste0("/results/wtd_shares_",data_date,"_","projection_HHS",hhs,tag,".jpg")`
-         - `paste0("/results/wtd_shares_",data_date,"_","growthrate_HHS", hhs,tag,".jpg")`
-   3) Run3 generates state-level estimates in rolling 4 wk bins using survey design (same as Run 1). NO LONGER NEEDED. 
-    - State level weighted estimates: `paste0("/state_weighted_roll4wk_KGCI_svyNEW_", data_date, "_state_tag_included_Run3.csv")`
-    - State level weighted estimates formatted for hadoop table `sc2_archive.state_proportion_modeling`: `paste0(/state_weighted_roll4wk_KGCI_svyNEW_", data_date, "_state_tag_included_Run3_hadoop.csv")`
+Result folder: `results_<data_date>_<results_tag>`
 
+### Run 1 Outputs
+- Pre-modeling lineage aggregation results: `voc_aggregation_table<data_date>_state_tag_included_Run1.csv`
+- Fortnightly weighted estimates: `variant_share_weighted_KGCI_svyNEW_<data_date>state_tag_included_Run1<results_tag>.csv`
+- Weekly weighted estimates: `variant_share_weekly_weighted_KGCI_svyNEW_<data_date>state_tag_included_Run1<results_tag>.csv`
+- Fortnightly weighted estimates for Hadoop: `variant_share_weighted_KGCI_svyNEW_<data_date>state_tag_included_Run1<results_tag>_hadoop.csv`
+- Weekly weighted estimates for Hadoop: `variant_share_weekly_weighted_KGCI_svyNEW_<data_date>state_tag_included_Run1<results_tag>_hadoop.csv`
 
-## How to run from a scicomp location
-It is best to run this from rosalind (`rosalind.biotech.cdc.gov`). Option A and Option B are two ways to run the codes. Choose either one of them to run.
+### Run 2 Outputs
+**NOTE: Run 2 produces results for both Run 1 AND Run 2**
 
-### Option A
-This is the simplest way to run when variant list for CDC COVID data tracker has been determined and no other special modifications/testings are needed.
+- Pre-modeling lineage aggregation results: `voc_aggregation_table<data_date>_state_tag_included_Run2.csv`
+- Fortnightly weighted estimates: `variant_share_weighted_KGCI_svyNEW_<data_date>_state_tag_included_Run2<results_tag>.csv`
+- Weekly weighted estimates: `variant_share_weekly_weighted_KGCI_svyNEW_<data_date>_state_tag_included_Run2<results_tag>.csv`
+- Fortnightly nowcast estimates: `updated_nowcast_fortnightly_<data_date>_state_tag_included_Run2<results_tag>.csv`
+- Weekly nowcast estimates: `updated_nowcast_weekly_<data_date>_state_tag_included_Run2<results_tag>.csv`
+- Fortnightly weighted estimates for Hadoop: `variant_share_weighted_KGCI_svyNEW_<data_date>_state_tag_included_Run2<results_tag>_hadoop.csv`
+- Weekly weighted estimates for Hadoop: `variant_share_weekly_weighted_KGCI_svyNEW_<data_date>_state_tag_included_Run2<results_tag>_hadoop.csv`
+- Fortnightly nowcast estimates for Hadoop: `updated_nowcast_fortnightly_<data_date>_state_tag_included_Run2<results_tag>_hadoop.csv`
+- Weekly nowcast estimates for Hadoop: `updated_nowcast_weekly_<data_date>_state_tag_included_Run2<results_tag>_hadoop.csv`
+- Post-modeling lineage aggregation results: `agg_var_mat_KGCI_svyNEW_<data_date>_state_tag_included_Run2.csv`
 
-1. Navigate to the folder from which you will run the analyses. Typically this is the shared project folder. 
-   ```bash
-   cd /scicomp/groups/Projects/SARS2Seq/repos/sc2_proportion_modeling
-   ```
+### Visualization Files (Run 2 only)
+National data:
+- `wtd_shares_<data_date>_barplot_US<tag>.png`
+- `wtd_shares_<data_date>_projection_US<tag>.jpg`
+- `wtd_shares_<data_date>_growthrate_US<tag>.png`
 
-2. Make sure the files are up to date with the git repository
-   ```bash 
-	git status 
-	# make sure it is on the appropriate branch, master branch should generally be used
-	git fetch --all
-	git status
-    # if not up-to-date, pull updates from remote repository
-    git pull
-   ```
-3. Get the list of autoselected voc2s by running the [voc2_autoselection sql](https://cdp-01.biotech.cdc.gov:8889/hue/editor?editor=74361) in Hue. Decide the list of variants to be shown on CDC COVID data tracker website (voc1) and any additional variants to add to voc2 (that have not receached the selection criteria).
+For each HHS region (1-10):
+- `wtd_shares_<data_date>_barplot_HHS<region><tag>.jpg`
+- `wtd_shares_<data_date>_projection_HHS<region><tag>.jpg`
+- `wtd_shares_<data_date>_growthrate_HHS<region><tag>.jpg`
 
-   - To change voc1 list (Variants shown in CDT): change `voc1` definition in `config\config.R`
-   - Make sure all voc1s are included in `voc2_additional` definition in `config\config.R`
-   - To add additional variants to voc2: change `voc2_additionl` definition in `config\config.R`
+## How to Run Monthly Reporting
 
-4. Make sure the configuation settings are all correct for the current runs
+Best run from rosalind (`rosalind.biotech.cdc.gov`).
 
-   - `data_date`: Should be one of the `date_frozen` from `sc2_archive.analytics_metadata_frozen`. This value would be used in the result folder, result file names and the `analysis_date` field when the data is ingested to `sc2_archive.proportion_modeling`.\
-   `date_frozen` can be checked in Hue using the following sql
-      ```sql
-      select distinct date_frozen from sc2_archive.analytics_metadata_frozen 
-      order by date_frozen desc
-      ```
-   
-   - `results_tag`: This value would be used in the result folder, result file names and the `note` field when the data is ingested to `sc2_archive.proportion_modeling`.
+### Step 1: Prepare Configuration
+Navigate to the repository:
+```bash
+cd /scicomp/groups/Projects/SARS2Seq/repos/sc2_proportion_modeling
+```
 
-5. Make sure the email notification settings are all correct in the bash scripts below by changing the value in the following line
-   ```bash
-   #$ -M <user email address>
-   ```
+Make sure files are up to date:
+```bash
+git status
+git fetch --all
+git status
+git pull  # if not up-to-date
+```
 
-   - proportion_modeling_run.sh
-   - variant_surveillance_system.sh
-   - run1_trim.sh
-   - run2_trim.sh
+### Step 2: Update Configuration Settings
+Edit `config/config.R` with:
+- **`data_date`**: Should be one of the `date_frozen` from `sc2_archive.analytics_metadata_frozen`. Check with:
+  ```sql
+  select distinct date_frozen from sc2_archive.analytics_metadata_frozen
+  order by date_frozen desc
+  ```
+- **`voc1`**: Variants to display on CDC COVID Data Tracker (lines 70-105)
+- **`voc2_additional`**: Any additional variants to include in Run 2 beyond auto-selected ones (line 307)
+- **`results_tag`**: Label for this run's results (used in filenames and database notes)
 
-6. Run the wrapper script by submitting it as a HPC job to the server.
-   ```bash
-   qsub proportion_modeling_run.sh -u <username> -p <cdp password> -c <'T' or 'F' for custom lineage>
-   ```
-   
-   This wrapper script submits the job for running variant_surveillance_system.sh first. When that is finished, it submits the jobs for run1_trim.sh and run2_trim.sh. So user will receive individual notification emails for the above three jobs and finally a notification for finishing this wrapper job.
+### Step 3: Get Auto-Selected VOC2 List
+Run the voc2_autoselection SQL in Hue to identify variants automatically selected for Run 2.
+- Ensure all voc1 variants are included in voc2_additional
+- Add any special interest variants to voc2_additional
 
-7. Check the wrapper job logfile and .err file to make sure all steps run successfully.\
-   The log file is `/scicomp/groups/Projects/SARS2Seq/repos/sc2_proportion_modeling/log`
+### Step 4: Update Email Notifications
+In `proportion_modeling_run.sh`, update the email address:
+```bash
+#$ -M <your email address>
+```
 
-8. Check results in the result folder: 
-   ```paste0("/scicomp/groups/Projects/SARS2Seq/repos/sc2_proportion_modeling/results_", data_date, '_', results_tag)```
+### Step 5: Submit the Master Wrapper Script
+```bash
+qsub proportion_modeling_run.sh -u <username> -p <cdp_password>
+```
 
-   a. Check .err and .out files to make sure no running error occured.\
-      The following error message can be ignored:\
-          ```WARNING: sun.reflect.Reflection.getCallerClass is not supported. This will impact performance. ERROR StatusLogger No Log4j 2 configuration file found. Using default configuration (logging only errors to the console), or user programmatically provided configurations. Set system property 'log4j2.debug' to show Log4j 2 internal initialization logging. See https://logging.apache.org/log4j/2.x/manual/configuration.html for instructions on how to configure Log4j 2```
+This automatically executes:
+1. `variant_surveillance_system.sh` - Data preparation
+2. `run1_trim.sh` - Run 1 analysis (when data is ready)
+3. `run2_trim.sh` - Run 2 analysis (when Run 1 is ready)
 
-   b. Check the output files to makes sure the files and images are all generated. See the output description in [Output Files](#output-files)
-   
-   c. Move the corresponding .err and .out files to result folder.\
-      ```bash
-      mv Run1_<results_tag>.[eo]* results/results_<data_date>_<results_tag>/
-      ```
-   
-   d. automated aggregation is implemented based on the `extended_lineage` field in `sc2_src.pangolin`. This only works when custom lineage option is NOT used and nextclade_pango option is NOT used. `Variant` column shows the original lineage names (data from sc2_src.pangolin), `parent_variant` shows the lineage it is aggregated to in the run (should be aggregated to the nearest parent lineage included in the specific voc). lineage aggregation results can be checked in the following files:
-      - `voc_aggregation_table...` (`lineage_aggregation_summary...` for the original aggregation method) list the aggregation done before the actuall weighting and modeling processes.
-         - In Run2, lineages in voc2 (voc2_auto and voc2_additional) should not be aggregated to parental lineages.
-         - In Run1, lineages in voc1 should not be aggregated to parental lineages.
+### Step 6: Monitor Progress
+Check the log file: `/scicomp/groups/Projects/SARS2Seq/repos/sc2_proportion_modeling/log`
 
-      - `agg_var_mat...` lists the aggregation done after the nowcast modeling processes are finished in Run2, to aggregate variants in voc2 but not in voc1 to their parental lineages in voc1, and generate the nowcast results for Run 1.
-         - Cells with the value `1` means the lineage in the corresponding column name is aggregated to the corresponding row lineage.
-   
-9. Backup the code that was used for a production run to the git repository
-   ```bash
-   git status
-   git add config/config.R # and other files modified for the run
-	git commit -m 'Production runs: YYYY-MM-DD' # and any other brief notes for changes made for the week
-	git push
-   ```
-10. Input run information in [SC2_Proportion_Modeling_Run_Records](https://cdc.sharepoint.com/:x:/r/teams/NCEZID-OD_CAWG/_layouts/15/Doc.aspx?sourcedoc=%7B44002A5C-B5B1-49ED-AA6B-27F34EEAC8CC%7D&file=SC2_Proportion_Modeling_Run_Records.xlsx&action=default&mobileredirect=true&cid=13859ed2-691c-4865-b2a7-c548e4b1a585)
+Each script generates `.err` and `.out` files. The following warning can be ignored:
+```
+WARNING: sun.reflect.Reflection.getCallerClass is not supported. This will impact performance.
+ERROR StatusLogger No Log4j 2 configuration file found. Using default configuration (logging only errors to the console)
+```
 
-### Option B
-This is the expanded way to run the whole process step by step without using the wrapper script. Use this option when debugging, or when special modifications/requests/tests are needed for the modeling run.
+### Step 7: Verify Results
+Check results folder: `results_<data_date>_<results_tag>`
+- Verify all expected output files are present
+- Check .err and .out files for errors
+- Move the corresponding .err and .out files to results folder:
+  ```bash
+  mv Run1_<results_tag>.[eo]* results/results_<data_date>_<results_tag>/
+  ```
 
-1. Navigate to the folder from which you will run the analyses. Typically this is the shared project folder. 
-   ```bash
-   cd /scicomp/groups/Projects/SARS2Seq/repos/sc2_proportion_modeling
-   ```
-2. Make sure the files are up to date with the git repository
-   ```bash 
-	git status 
-	# make sure it is on the appropriate branch
-	git fetch --all
-	git status
-   # if not up-to-date, pull updates from remote repository
-   git pull
-   ```
-3. Update configuration settings in `config/config.R` if required. The variables you will most likely need to update include `data_date`, `voc1`, `voc2_additional`. Details about these variables can check [code](#code) and [Option A](#option-a).
-4. Run the `variant_surveillance_system.sh` script to pull and clean the data. Currently two other different options can be chosen.   
-   - One is to pull data with custom lineages. This requires defining the custom lineage in sql in` variant_suerveillance_system.R` and update the lineage aggregation code blocks in `weekly_variant_report_nowcast.R`. 
-   - The other is to pull lineage definition from the `nexclade_pango` field from `sc2_src.nextclade` table. If using this option, lineage aggregation code blocks in `weekly_variant_report_nowcast.R` need to be manually updated.
-   ```bash
-   qsub variant_surveillance_system.sh <username> <password> <'T' or 'F' for custom lineage> <'T' or 'F' for nextclade_pango>
-   ```
-   This  will generate the survey dataset. Data results will be output in a folder titled `data/` and will be dated using `data_date` variable from `config/config.R`.
+### Step 8: Archive Code
+Commit configuration changes to git for record-keeping:
+```bash
+git status
+git add config/config.R
+git commit -m "Production run: YYYY-MM-DD"
+git push
+```
 
-5. Wait until `variant_surveillance_system.sh` finishes which creates the databaset. Check `Run_var_sys.err` and `Run_var_sys.out`.
+### Step 9: Record Run Information
+Input run information in [SC2_Proportion_Modeling_Run_Records](https://cdc.sharepoint.com/:x:/r/teams/NCEZID-OD_CAWG/_layouts/15/Doc.aspx?sourcedoc=%7B44002A5C-B5B1-49ED-AA6B-27F34EEAC8CC%7D&file=SC2_Proportion_Modeling_Run_Records.xlsx&action=default&mobileredirect=true&cid=13859ed2-691c-4865-b2a7-c548e4b1a585)
 
-6. Run the `weekly_variant_report_nowcast.R` script with the desired specified runs. If special modifications are needed, for example using different weighting method, variable inputs in the run1_trim.sh or run2_trim.sh need to be modified. See details in the [code](#code) section.
-   ```bash
-   qsub run1_trim.sh 
-   qsub run2_trim.sh
-   ```
-7. Check results in the result folder: 
-   ```paste0("/scicomp/groups/Projects/SARS2Seq/repos/sc2_proportion_modeling/results_", data_date, '_', results_tag)```
-
-   a. Check .err and .out files to make sure no running error occured.\
-      The following error message can be ignored:\
-          ```WARNING: sun.reflect.Reflection.getCallerClass is not supported. This will impact performance. ERROR StatusLogger No Log4j 2 configuration file found. Using default configuration (logging only errors to the console), or user programmatically provided configurations. Set system property 'log4j2.debug' to show Log4j 2 internal initialization logging. See https://logging.apache.org/log4j/2.x/manual/configuration.html for instructions on how to configure Log4j 2```
-
-   b. Check the output files to makes sure the files and images are all generated. See the output description in [Output Files](#output-files)
-   
-   c. Move the corresponding .err and .out files to result folder.\
-      ```bash
-      mv Run1_<results_tag>.[eo]* results/results_<data_date>_<results_tag>/
-      ```
-   
-   d. automated aggregation is implemented based on the `extended_lineage` field in `sc2_src.pangolin`. This only works when custom lineage option is NOT used and nextclade_pango option is NOT used. `Variant` column shows the original lineage names (data from sc2_src.pangolin), `parent_variant` shows the lineage it is aggregated to in the run (should be aggregated to the nearest parent lineage included in the specific voc). lineage aggregation results can be checked in the following files:
-      - `voc_aggregation_table...` (`lineage_aggregation_summary...` for the original aggregation method) list the aggregation done before the actuall weighting and modeling processes.
-         - In Run2, lineages in voc2 (voc2_auto and voc2_additional) should not be aggregated to parental lineages.
-         - In Run1, lineages in voc1 should not be aggregated to parental lineages.
-
-      - `agg_var_mat...` lists the aggregation done after the nowcast modeling processes are finished in Run2, to aggregate variants in voc2 but not in voc1 to their parental lineages in voc1, and generate the nowcast results for Run 1.
-         - Cells with the value `1` means the lineage in the corresponding column name is aggregated to the corresponding row lineage.
-
-8. Backup the code that was used for a production run to the git repository
-   ```bash
-   git status
-   git add config/config.R # and other files modified for the run
-	git commit -m 'Production runs: YYYY-MM-DD' # and any other brief notes for changes made for the week
-	git push
-   ```
-
-# Other Important Notes
 ## Lab Aggregation
-Some submitting labs might input slightly different names for their sequences, so they should be aggregated/normalized to be the name in order to be calculated correctly in the survey design method. This is done in `variant_surveillance_system.R` around Line 1548 - 1095.
 
-- Check the labs that are in the `Run_var_sys.out` after "\nnewly added lab names:"\
-Compare that to the list of all lab names immediately after to see if any new labs should be combined with any previous labs.\
-For example, the below two labs should be combined.\
-	- "BUREAU OF LABORATORIES, PENNSYLVANIA DEPARTMENT OF HEALTH"
-	- "PENNSYLVANIA DEPARTMENT OF HEALTH BUREAU OF LABORATORIES"
-- every now and again it's good to look at the "data/backup_YYYY-MM-DD/lab_name_updates_YYYY-MM-DD.csv" file to see if any labs were combined that should NOT be combined. 
-- Steps to add more lab aggregations
-   1. Find lab names that almost assuredly refer to the same lab
-   2. Copy-and-paste one of the blocks of code above
-   3. Change "XX_labs_to_agg" and "labnames_df_xx" to new AND UNIQUE names (do a control-F for the new name to make sure it's unique)
-   4. Change the regex pattern to something that will return ONLY your set of labs
-   5. Add "labnames_df_xx" to "labnames_df" below
-   6. Run variant_surveillance_system.sh again
-   7. After running the new code, look at ./data/backup_YYYY-MM-DD/lab_name_updates_YYYY-MM-DD.csv to make sure that ONLY the intended labs are being renamed.
+Some submitting labs use slightly different names for their sequences, so they should be aggregated/normalized. This is done in `variant_surveillance_system.R` around lines 1548-1095.
 
-## Column Descriptions for Run1 and Run2 proportion modeling output (sc2_archive.state_proportion_modeling)
+- Check the labs in the Run_var_sys.out file after "\nnewly added lab names:"
+- Compare to the list of all lab names immediately after
+- Combine similar lab names if they refer to the same lab
+- Check `data/backup_YYYY-MM-DD/lab_name_updates_YYYY-MM-DD.csv` to verify aggregations
+
+**To add more lab aggregations:**
+1. Find lab names that should be combined
+2. Copy-and-paste one of the existing aggregation blocks
+3. Change "XX_labs_to_agg" and "labnames_df_xx" to new UNIQUE names (verify with Ctrl-F)
+4. Change the regex pattern to match ONLY your set of labs
+5. Add "labnames_df_xx" to the "labnames_df" list
+6. Re-run variant_surveillance_system.sh
+7. Verify aggregations in `data/backup_YYYY-MM-DD/lab_name_updates_YYYY-MM-DD.csv`
+
+## Column Descriptions
+
+### Table: sc2_archive.proportion_modeling
+
+Output from both Run 1 and Run 2 (rows where modeltype = 'weighted' and 'smoothed')
+
 | name                 | type      | comment                                                                                                                                                                                 |
 |----------------------|-----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| usa_or_hhsregion     | string    | Specifies the geographic area for the estimate; either national   (USA), or HHS regions 1 to 10.                                                                                        |
-| week_ending          | timestamp | The date of the last day (Saturday) of the week (or 2-week period) for   which an estimate is made.                                                                                     |
-| variant              | string    | The name of the variant that the estimate is for. (Note that some   variants are aggregates of all that variantâ€™s subvariants.)                                                       |
-| share                | float     | The proportion of the variant.                                                                                                                                                          |
-| share_lo             | float     | The upper bound of the 95% confidence interval for the estimated variant   share (prediction intervals for smoothed estimates).                                                         |
-| share_hi             | float     | The lower bound of the 95% confidence interval for the estimated variant   share (prediction intervals for smoothed estimates).                                                         |
-| count                | int       | The number of observed samples of the given variant in the given week and   region.                                                                                                     |
-| denom_count          | int       | The total number of samples (of all variants) in the given week and   region.                                                                                                           |
-| df                   | int       | The approximate degrees of freedom.                                                                                                                                                     |
-| eff_size             | float     | The effective sample size.                                                                                                                                                              |
-| ci_width             | float     | An NCHS QA for proportions: the absolute width of the confidence interval   (i.e. share_hi - share_lo)                                                                                  |
-| nchs_flag            | tinyint   | Whether or not any of the NCHS QA checks identified the estimate as less   reliable.                                                                                                    |
-| nchs_flag_wodf       | tinyint   | Whether or not any of the NCHS QA checks (other than the Degrees of   Freedom check) identified the estimate as less reliable.                                                          |
-| count_lt20           | tinyint   | An NCHS QA for proportions: If the estimate is based on less than 20   samples.                                                                                                         |
-| count_lt10           | tinyint   | An NCHS QA for proportions: If the estimate is based on less than 10   samples.                                                                                                         |
-| modeltype            | string    | Estimate is based on weighted data ("weighted") or Nowcasted   data ("smoothed").                                                                                                       |
-| interval             | string    | Whether data is base on one week interval ("weekly") or two   week intervals ("biweekly").                                                                                              |
-| creation_date        | timestamp | Date when the estimate was created.                                                                                                                                                     |
-| notes                | string    |                                                                                                                                                                                         |
-| tagged_included      | tinyint   | Whether or not tagged samples were included in the estimate. Tagged   samples are those that labs other than the CDC contracting labs   self-identified as being surveillance quality.  |
-| total_test_positives | int       | The total number of PCR positive tests from a given region in a given   week.                                                                                                           |
-| cases                | float     | The estimated number of infections attributable to a given variant in a   given week. (cases = share * total_test_positives)                                                            |
-| cases_lo             | float     | The lower bound of the 95% confidence interval for the estimated number   of infections attributable to a given variant in a given week. (cases_lo =   share_lo * total_test_positives) |
-| cases_hi             | float     | The upper bound of the 95% confidence interval for the estimated number   of infections attributable to a given variant in a given week. (cases_hi =   share_hi * total_test_positives) |
+| usa_or_hhsregion     | string    | Specifies the geographic area for the estimate; either national (USA), or HHS regions 1 to 10                                                                                        |
+| week_ending          | timestamp | The date of the last day (Saturday) of the week (or 2-week period) for which an estimate is made                                                                                     |
+| variant              | string    | The name of the variant that the estimate is for. (Note that some variants are aggregates of all that variant's subvariants.)                                                       |
+| share                | float     | The proportion of the variant                                                                                                                                                         |
+| share_lo             | float     | The lower bound of the 95% confidence interval for the estimated variant share (prediction intervals for smoothed estimates)                                                         |
+| share_hi             | float     | The upper bound of the 95% confidence interval for the estimated variant share (prediction intervals for smoothed estimates)                                                         |
+| count                | int       | The number of observed samples of the given variant in the given week and region                                                                                                     |
+| denom_count          | int       | The total number of samples (of all variants) in the given week and region                                                                                                           |
+| df                   | int       | The approximate degrees of freedom                                                                                                                                                    |
+| eff_size             | float     | The effective sample size                                                                                                                                                             |
+| ci_width             | float     | An NCHS QA for proportions: the absolute width of the confidence interval (share_hi - share_lo)                                                                                      |
+| nchs_flag            | tinyint   | Whether or not any of the NCHS QA checks identified the estimate as less reliable                                                                                                    |
+| nchs_flag_wodf       | tinyint   | Whether or not any of the NCHS QA checks (other than the Degrees of Freedom check) identified the estimate as less reliable                                                          |
+| count_lt20           | tinyint   | An NCHS QA for proportions: If the estimate is based on less than 20 samples                                                                                                         |
+| count_lt10           | tinyint   | An NCHS QA for proportions: If the estimate is based on less than 10 samples                                                                                                         |
+| modeltype            | string    | Estimate type: "weighted" (Run 1/2 weighted data) or "smoothed" (Run 2 nowcasted data)                                                                                              |
+| interval             | string    | Time interval: "weekly" (1 week) or "biweekly" (2 week)                                                                                                                               |
+| creation_date        | timestamp | Date when the estimate was created                                                                                                                                                    |
+| notes                | string    | Additional notes                                                                                                                                                                       |
+| tagged_included      | tinyint   | Whether tagged samples were included. Tagged samples are those from labs other than CDC contracting labs that self-identified as surveillance quality                               |
+| total_test_positives | int       | The total number of PCR positive tests from a given region in a given week                                                                                                           |
+| cases                | float     | Estimated number of infections from a given variant: cases = share × total_test_positives                                                                                           |
+| cases_lo             | float     | Lower bound of 95% CI for estimated infections: cases_lo = share_lo × total_test_positives                                                                                          |
+| cases_hi             | float     | Upper bound of 95% CI for estimated infections: cases_hi = share_hi × total_test_positives                                                                                          |
 
+## Load Hadoop
 
-## Column Descriptions for Run3 State proportionmodeling output (sc2_archive.state_proportion_modeling)
-| name                 | type      | comment                                                                                                                                                                                 |   |   |
-|----------------------|-----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---|---|
-| state                | string    | Specifies the geographic area (abbreviation for state or jurisdiction)   for the estimate                                                                                               |   |   |
-| roll_fourweek_ending | timestamp | The date of the last day (Saturday) of the 4-week time period for which   an estimate is made.                                                                                          |   |   |
-| variant              | string    | The name of the variant that the estimate is for. (Note that some   variants are aggregates of all that variantâ€™s subvariants.)                                                       |   |   |
-| share                | float     | The proportion of the variant.                                                                                                                                                          |   |   |
-| share_lo             | float     | The upper bound of the 95% confidence interval for the estimated variant   share (prediction intervals for smoothed estimates).                                                         |   |   |
-| share_hi             | float     | The lower bound of the 95% confidence interval for the estimated variant   share (prediction intervals for smoothed estimates).                                                         |   |   |
-| count                | int       | The number of observed samples of the given variant in the given week and   region.                                                                                                     |   |   |
-| denom_count          | int       | The total number of samples (of all variants) in the given week and   region.                                                                                                           |   |   |
-| df                   | int       | The approximate degrees of freedom.                                                                                                                                                     |   |   |
-| eff_size             | float     | The effective sample size.                                                                                                                                                              |   |   |
-| ci_width             | float     | An NCHS QA for proportions: the absolute width of the confidence interval   (i.e. share_hi - share_lo)                                                                                  |   |   |
-| nchs_flag            | int       | Whether or not any of the NCHS QA checks identified the estimate as less   reliable.                                                                                                    |   |   |
-| nchs_flag_wodf       | int       | Whether or not any of the NCHS QA checks (other than the Degrees of   Freedom check) identified the estimate as less reliable.                                                          |   |   |
-| creation_date        | timestamp |                                                                                                                                                                                         |   |   |
-| note                 | string    | Date when the estimate was created.                                                                                                                                                     |   |   |
-| total_test_positives | int       | The total number of PCR positive tests from a given region in a given   week.                                                                                                           |   |   |
-| cases                | float     | The estimated number of infections attributable to a given variant in a   given week. (cases = share * total_test_positives)                                                            |   |   |
-| cases_lo             | float     | The lower bound of the 95% confidence interval for the estimated number   of infections attributable to a given variant in a given week. (cases_lo =   share_lo * total_test_positives) |   |   |
-| cases_hi             | float     | The upper bound of the 95% confidence interval for the estimated number   of infections attributable to a given variant in a given week. (cases_hi =   share_hi * total_test_positives) |   |   |
+Once data is available, load the CSV files into [sc2_archive.proportion_modeling](https://cdp-01.biotech.cdc.gov:8889/hue/filebrowser/view=%2Fwarehouse%2Ftablespace%2Fexternal%2Fhive%2Fsc2_archive.db%2Fproportion_modeling) at `hdfs:///warehouse/tablespace/external/hive/sc2_archive.db/proportion_modeling` on CDP.
 
+Load the following files using Hue or hput:
+- `updated_nowcast_fortnightly_<date>_state_tag_included_Run1_<tag>_hadoop.csv`
+- `updated_nowcast_fortnightly_<date>_state_tag_included_Run2_<tag>_hadoop.csv`
+- `variant_share_weighted_KGCI_svyNEW_<date>_state_tag_included_Run1_<tag>_hadoop.csv`
+- `variant_share_weighted_KGCI_svyNEW_<date>_state_tag_included_Run2_<tag>_hadoop.csv`
+- (And all other `*_hadoop.csv` files)
 
-<br>
+**Important:** Refresh the table after loading:
+```sql
+REFRESH sc2_archive.proportion_modeling
+```
 
+Extract data by creation_date into Tableau workbooks.
 
-# Load hadoop
+**Downstream tables:** See https://git.biotech.cdc.gov/sars2seq/sc2_variant_proportion_socrata_update/-/blob/main/README.md for updates to publishing pipelines.
 
-Once data is available, load the CSV files into the [sc2_archive.proportion_modeling](https://cdp-01.biotech.cdc.gov:8889/hue/filebrowser/view=%2Fwarehouse%2Ftablespace%2Fexternal%2Fhive%2Fsc2_archive.db%2Fproportion_modeling) at [hdfs:///warehouse/tablespace/external/hive/sc2_archive.db/proportion_modeling](https://cdp-01.biotech.cdc.gov:8889/hue/filebrowser/view=%2Fwarehouse%2Ftablespace%2Fexternal%2Fhive%2Fsc2_archive.db%2Fproportion_modeling) on CDP. You may use Hue or hput to do so.
-
-Load the following files:
-- updated_nowcast_fortnightly_2024-11-05_state_tag_included_Run1_CDT_hadoop.csv
-- updated_nowcast_fortnightly_2024-11-05_state_tag_included_Run2_CDT_hadoop.csv 
-- variant_share_weighted_KGCI_svyNEW_2024-11-05_state_tag_included_Run1_CDT_hadoop.csv
-- variant_share_weighted_KGCI_svyNEW_2024-11-05_state_tag_included_Run2_CDT_hadoop.csv
-
-(Alternatively `*_hadoop.csv`)
-
-**Don't forget to refresh the table**: `REFRESH sc2_archive.proportion_modeling`
-
-From there you can extract the data into the Tableau workbooks on `creation_date`.
-
-Downstream tables must be updated in order to publish results properly. Please see https://git.biotech.cdc.gov/sars2seq/sc2_variant_proportion_socrata_update/-/blob/main/README.md for more information. 
-
-# Methods 
+# Methods
 
 ## Weights
 
-We weight sequences based on their inverse probability of selection from all SARS-CoV-2 infections in the United States. In other words, a sequence's weight is the number of infections represented by that sequence. We estimate the total number of infections in each state-week combination using the methods of [Chiu & Ndeffo-Mbah](https://doi.org/10.1371/journal.pcbi.1009374), which is based on an observed correlation between testing and total infections (not theory). To account for states that are missing testing data, we first calculate infections at the HHR region level and split up the regional infections to individual states based on population. (In other words, we calculate an infection rate for a given region and then multiply it by a state's population to get the number of infections in a given state.)  
+We weight sequences based on their inverse probability of selection from all SARS-CoV-2 infections in the United States. We estimate total infections in each state-week combination using the methods of [Chiu & Ndeffo-Mbah](https://doi.org/10.1371/journal.pcbi.1009374), based on observed correlation between testing and total infections.
 
 ```math
 I_{rw} \approx \sqrt{ \frac{p_{rw}}{t_{rw}} } * t_{rw+}
 ```
 
->$I_{rw}$ = number of infections in HHS region $r$ in week $w$  
->$p_{rw}$ = population of all the states in region $r$ that reported testing data in week $w$  
->$t_{rw}$ = total number of tests conducted in region $r$ in week $w$  
->$t_{rw+}$ = number of positive tests conducted in region $r$ in week $w$
+>$I_{rw}$ = number of infections in HHS region $r$ in week $w$
+>$p_{rw}$ = population of states in region $r$ that reported testing in week $w$
+>$t_{rw}$ = total tests conducted in region $r$ in week $w$
+>$t_{rw+}$ = number of positive tests in region $r$ in week $w$
 
-<br>
-
-If we move $t_{rw+}$ inside the squareroot, we get: 
-
-```math
-I_{rw} \approx \sqrt{ \frac{t_{rw+}}{t_{rw}} * p_{rw} * t_{rw+}}
-```
-
-This formulation separates out the test positivity rate, $\frac{t_{rw+}}{t_{rw}}$, which allows us to combine testing data from NREVSS and CELR. Test positivity, $\frac{t_{rw+}}{t_{rw}}$, comes from NREVSS because after the public health emergency ended in May, 2023, we only get the total number of tests, $t_{rw}$, from NREVSS. We still use CELR data for the number of positive tests, $t_{rw+}$. Adding subscripts for the test data source, we get:  
+We handle multiple test data sources (NREVSS and CELR) by separating test positivity:
 
 ```math
 I_{rw} \approx \sqrt{ \frac{t_{rw+,N}}{t_{rw,N}} * p_{rwC} * t_{rw+C}}
 ```
 
->$t_{rwN}$ = total number of tests conducted in region $r$ in week $w$ and reported to NREVSS  
->$t_{rw+N}$ = number of positive tests conducted in region $r$ in week $w$ and reported to NREVSS  
->$t_{rw+C}$ = number of positive tests conducted in region $r$ in week $w$ and reported to CELR  
->$p_{rwC}$ = population of all the states in region $r$ that reported testing data to CELR in week $w$
+>$t_{rw,N}$ = total tests in region $r$ week $w$ from NREVSS
+>$t_{rw+,N}$ = positive tests in region $r$ week $w$ from NREVSS
+>$t_{rw+,C}$ = positive tests in region $r$ week $w$ from CELR
+>$p_{rwC}$ = population of states in region $r$ reporting to CELR in week $w$
 
-<br>
-
-We then attribute regional infections, $I_{rw}$, to states based on population. 
+Regional infections are distributed to states by population:
 
 ```math
 I_{sw} = \frac{p_{s}}{p_{r}} * I_{rw}
 ```
 
->$I_{sw}$ = number of infections in state $s$ in week $w$  
->$p_{s}$ = population of state $s$  
->$p_{r}$ = total population of region $r$ (including all states, not just those reporting testing)  
->$I_{rw}$ = number of infections in HHS region $r$ in week $w$
-
-<br>
-
-The final weights are the estimated number of infections per sequence in a given state and week. 
+Final weights are infections per sequence:
 
 ```math
 w_{sw} = \frac{I_{sw}}{s_{sw}}
 ```
 
->$s_{sw}$ = number of sequences from state $s$ in week $w$  
-
-<br>
+>$s_{sw}$ = number of sequences from state $s$ in week $w$
 
 All sequences from the same state and week have the same weight.
 
-
-<br>
-
 ## Lineage Aggregation
 
-Rather than working with each Pango lineage, we aggregate lineages to their nearest parent lineage that is listed in the VOCs for a particular run. The nearest parent is determined by using the `expanded_lineage` name and looking for the longest (i.e. the most `.`) lineage listed in the VOCs that is a perfect subset of the given lineage name. For example, `XBB.1.5` is a perfect subset of `XBB.1.5.1`. We ensure that parent lineages are actually parent lineages by making sure that the parent lineage is still a subset of the child lineage after adding a `.` to the end of the parent lineage name. This ensures that `BA.1` is _not_ a subset/parent of `BA.11` because `BA.1.` is not a subset of `BA.11`. 
+Lineages are aggregated to their nearest parent lineage listed in the VOC list. The nearest parent is determined using the `expanded_lineage` field and finding the longest lineage in the VOC that is a perfect subset.
 
+For example, `XBB.1.5.1` aggregates to `XBB.1.5` if `XBB.1.5` is in VOC but not `XBB.1.5.1`.
 
-<br>
+We validate parent-child relationships by checking that the parent lineage (with `.` appended) is a subset of the child. This ensures `BA.1` is not considered a parent of `BA.11`.
 
-## Multinomial Logistic Regression prediction intervals
+Aggregation is validated in output files:
+- `voc_aggregation_table...` - Shows aggregation before weighting and modeling
+- `agg_var_mat...` (Run 2 only) - Shows aggregation after nowcast modeling (cells with value 1 indicate aggregation)
 
-We fit multinomial logist regression models using the `nnet` package in R. The `nnet` package estimates model parameters using a neural network. It optionally estimates the Hessian matrix of the neural network. The Hessian is needed if one wants confidence intervals on model parameter estimates (or prediction intervals on model predictions). 
+## Multinomial Logistic Regression Prediction Intervals
 
-The Hessian matrix is the second derivatives of the likelihood with respect to the parameters. The second derivative of a function gives the curvature (the first derivative gives the slope), and the curvature of the likelihood function describes our certainty in the model estimates. The more curvature, the faster the likelihood declines as we go away from the model estimates and the smaller the confidence interval on the model estimates. 
+Multinomial logistic regression models are fit using the `nnet` package. The Hessian matrix is needed for confidence intervals. When numerical under/overflow occurs during Hessian estimation, we rescale weights by factors specified in `config/config.R` (`rescale_model_weights_by`) until successful estimation occurs.
 
-However, `nnet` is not always able to estimate the Hessian. In those cases, it will still return estimates of model parameters, which means that we can use the model to make predictions, but we cannot produce prediction intervals for those predictions. The most common reason for our models to fail to estimate the Hessian is because of numerical under/overflow: when a number is too small (or large) for the software to handle. (Model fitting is commonly done on the log scale to help avoid numerical overflow, but it can still happen.) The easiest way to work around this is to scale the weights on the data in the model. If all of the weights of the data in the model are multiplied (or divided) by the same number, the model fit will be exactly the same. But some of the intermediate values used in estimating the model fit will be larger (or smaller), which can help to avoid numerical under/overflow. Because the weights that we use for our data are relatively large (they represent the number of infections represented by a given sequence), we divide those weights by a constant value when fitting the multinomial model. In practice, we can give the code multiple values to try (via `rescale_model_weights_by` in `config/config.R`), and it will go through those values one at a time, fit the multinomial Nowcast model, check to see if the Hessian was successfully estimated, and if it was not, it will try the next value until one of the values works in estimating the Hessian or until all of the values have been tried.  
+Scaling changes intermediate values used in fitting without changing the model fit itself.
 
-I think another reason that the model may fail to estimate the Hessian is if the model is "poorly specified". This means that the model doesn't match the data well. The problem could be with the data or the model, but we'll assume that the root of the problem is with the data. If the model still can't estimate the Hessian after trying a wide range of values of `rescale_model_weights_by`, then the next potential solution is to make sure that the data fit the model reasonably well. This means that individual lineage's proportions decline smoothly (possibly after increasing). Our multinomial model cannot currently model a lineage that declines then increases. Lineages might decline and then increase in our data if sublineages emerge and grow or if the sample size is small and there's a lot of random noise from week to week. Usually the model will still fit and estimate the Hessian, but will predict that the lineage declines smoothly, even if it does not. Sometimes the model will not be able to estimate a Hessian. In that case, try fitting the model to fewer lineages (try removing the rarest lineages first). 
+Model uncertainty is adjusted using survey design, as samples from the same state, week, and lab are correlated and contribute less information than random samples. The adjusted uncertainty is based on effective sample size rather than actual sequence count, and is typically larger than unadjusted model uncertainty.
 
-Note that our methods adjust the multinomial model uncertainty using the survey design. Because samples from the same state, week, and/or lab are likely to be correlated, they contribute less information than perfectly random samples would; the effective sample size is smaller than the actual number of sequences. In essense, adjusting the model uncertainty using survey design calculates the model uncertainty based on the effective sample size, rather than the actual number of sequences. The adjusted uncertainty will almost always be larger than the unadjusted model uncertainty. 
+## Multinomial Logistic Regression Growth Rates
 
-<br>
-
-## Multinomial Logistic Regression growth rates
-Multinomial logistic regression is essentially a series of logistic regressions (comparing each outcome category to the same reference category) with an added [normalization factor](https://en.wikipedia.org/wiki/Multinomial_logistic_regression#As_a_log-linear_model:~:text=as%20well%20as%20an%20additional%20normalization%20factor) to ensure that the probabilities always sum to 1. The normalization factor changes depending on the values of predictor variables and coefficient values. Because the relationship between coefficient value(s) and the predicted proportion vary with the normalization factor, one cannot just use multinomial regression coefficient value(s) as growth rates (as one can do with logistic regression). Rather, we calculate growth rate as the exponent of the derivative (i.e. instantaneous rate of change) of the log of the model-estimated proportion at time $`t`$:  $`p_i(t)`$. The estimated proportion of variant $`i`$ at time $`t`$ is:  
-
-
-```math 
-p_i(t) = \frac{e^{b_{0i}+b_{1i}*t}}{ \sum_je^{b_{0j}+b_{1j}*t} } 
-```
-
-If we take the log of $p_i(t)$ (so that we’re on the [linear predictor scale](https://en.wikipedia.org/wiki/Multinomial_logistic_regression#As_a_log-linear_model:~:text=we%20model%20the%20logarithm%20of%20the%20probability) instead of the response scale): 
+Growth rate is calculated as the exponent of the derivative of log-proportions at time $t$:
 
 ```math
-log⁡(p_i(t))=log⁡(\frac{e^{b_{0i}+b_{1i}*t}}{ \sum_je^{b_{0j}+b_{1j}*t} })
+p_i(t) = \frac{e^{b_{0i}+b_{1i}*t}}{ \sum_je^{b_{0j}+b_{1j}*t} }
 ```
 
-we can then take the derivative of $log(p_i(t))$ to get the instantaneous rate of change:
+Taking the derivative of the log-proportion:
 
 ```math
 \frac{d log⁡(p_i(t))}{dt}=b_{1i}-\sum_j{p_j*b_{1j}}
 ```
 
-and exponentiate to get our growth rate (then multiply to 100 so that it's a percent instead of a decimal and subtract 100 so that "no change" is 0 instead of (100% of the current value).)
+And exponentiating (multiplying by 100) for percent change:
 
-```math 
-growth\ rate=100*e^{b_{1i}-\sum_j{p_j*b_{1j}}}-100
+```math
+growth\ rate=100*(e^{b_{1i}-\sum_j{p_j*b_{1j}}}-1)
 ```
 
-The resulting growth rate is the relative amount that the proportion is expected to change in a given time period. For example, a growth rate of 100 means that (if the growth rate were maintained) the proportion would grow by 100% over the given time period (i.e. double). However, these growth rates are _not_ constant over time (they decline with time).
+This represents relative proportional change over the time period. A growth rate of 100 means the proportion would double over the period if the growth rate were maintained. These growth rates decline over time and are not constant.

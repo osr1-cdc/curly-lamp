@@ -11,7 +11,6 @@
 #$ -e Run_var_sys.err
 # 
 # Rename the job to be this string instead of the default which is the name of the script
-# -N Run1_trim_proportion_modeling
 #$ -N Run_var_sys
 # 
 # Refer all file reference to work the current working directory which is
@@ -32,7 +31,6 @@
 # 
 # Choose queue
 #$ -q all.q
-# -q covid.q
 #
 # Set the parallel_environment to "smp" and use xx cores (smp = Symmetric multiprocessing or shared-memory multiprocessing); MAKE SURE THIS IS >= p CORES!
 #$ -pe smp 2
@@ -45,8 +43,6 @@ source /etc/profile
 source    /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/bin/activate /scicomp/groups-pure/Projects/SARS2Seq/bin/miniconda/envs/prop_model-pure
 
 
-Rscript variant_surveillance_system.R -u ${1} -p ${2} -c ${3} -n ${4}
+Rscript variant_surveillance_system.R -u ${1} -p ${2}
 # -u = username
 # -p = password
-# -c = custom_lineages
-# -n = nextclade_pango

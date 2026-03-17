@@ -1,48 +1,10 @@
-# Overview -------------------------------------------------------------
-# Setting for each run:
-# the command-line argument "run_number" contributes to the R variable "tag",
-# with options:
-# Run1, Run2, Run3
-# - Run1 calculates the variant share/proportion and confidence interval using
-#   survey design ("myciprop" function) for fortnights (HHS regions & nationally)
-#   and weeks  (HHS regions & nationally). It produces 2 files as output:
-#   - "results/variant_share_weighted_",       ci.type,"CI_",svy.type,"_",data_date,tag,".csv"
-#   - "results/variant_share_weekly_weighted_",ci.type,"CI_",svy.type,"_",data_date,tag,".csv"
-# - Run2 does everything that "Run1" does and also fits the "nowcast" model,
-#   which estimated smoothed trends in variant share: National and by HHS Region
-#   NOTE: Run2 also produces output for Run1! (to get complete Run1 output, you
-#         must run Run1 AND Run2.)
-#   It creates 38 output files:
-#   - "/results/wow_growth_variant_share",data_date,tag,".csv"
-#   - "/results/updated_nowcast_fortnightly_",data_date,"_state_tag_included_Run1.csv"
-#   - "/results/updated_nowcast_fortnightly_",data_date,"_state_tag_included_Run2.csv"
-#   - "/results/updated_nowcast_weekly_",data_date,"_state_tag_included_Run1.csv"
-#   - "/results/updated_nowcast_weekly_",data_date,"_state_tag_included_Run2.csv"
-#   - and 33 images
-#      - "/results/wtd_shares_",data_date,"_","barplot_US",tag,".jpg"
-#      - "/results/wtd_shares_",data_date,"_","projection_US",tag,".jpg"
-#      - "/results/wtd_shares_",data_date,"_","growthrate_US",tag,".png"
-#      Create the same 3 figures for each HHS region
-#      - "/results/wtd_shares_",data_date,"_","barplot_HHS",hhs,tag,".jpg"
-#      - "/results/wtd_shares_",data_date,"_","projection_HHS",hhs,tag,".jpg"
-#      - "/results/wtd_shares_",data_date,"_","growthrate_HHS", hhs,tag,".jpg"
-# - Run3 createws state-level estimates based on rolling 4 wk bins. It saves a
-#   single file:
-#   - "/results/state_weighted_roll4wk_",ci.type,"CI_svyNEW_",data_date,tag,".csv"
-
-
+# Overview for configuration settings
+#
 # Update the following each run ----------------------------------------
-
-# custom_lineages = FALSE
 # set date for data creation
-# (generally set to current date to allow more portability)
-# data_date <- Sys.Date()
 data_date <- as.Date('2026-01-08')
 # This needs to be a date on which data were frozen in the CDP database
-# Set specific date_frozen to read sequencing data; but read test data and voc list from the data_date backup files. This can be used to rerun modeling using later date backfilled data.
-# Default would be data_date
 date_frozen_toread <- data_date
-# date_frozen_toread <- as.Date('2023-01-10')
 # If the data was already pulled and you want to just use that data instead of re-pulling it, set here.
 # This is useful if you aggregate some lab names at the end of this code and then want to re-run the
 # script after changing which labs get aggregated.
@@ -56,24 +18,8 @@ results_folder <- paste0("results_", data_date, '_', results_tag)
 # If pre_aggregation is TRUE, force aggregate sublineages to voc1 list, no need to generate run1 postaggregated nowcast results in run2.
 pre_aggregation <- FALSE
 ## List of variants to track (not just VOC or VOI, but we name them voc in these scripts):
-# These variables (custom_lineage_names, voc*) are *only* used in the weekly_variant_report_nowcast.R script. They are not used in the variant_surveillance_system.R script.
 
-# The current branch has the following custom defined lineages:
-# - BA.1+ = BA.1 with R346K
-# FORMERLY "custom" lineages included:
-# - AY.4.2+ - AY.4.2 with Y145H and A222V
-# - AY.35+ - AY.35 with E484Q
-#
-# All other lineages (including AY.4.2 and AY.35) are from default pangolin calls.
-
-# Set custom lineages
-#custom_lineage_names <- "S146K_XBB.1.5"    # 2023-03-07 added
-# custom_lineage_names <- c("R346T_BQ11","R346T_BQ1","R346T_BE11","R346T_BA1","R346T_BA275","R346T_BA2121","R346T_BA2","R346T_BA46","R346T_BA4","R346T_BF7","R346T_BA5","R346T_B11529")
-custom_lineage_names <- NULL #Save nextclade_pango lineage as _custom dataset. No custom lineage named. 2023-02-15
-# NOTE! If you change the custom lineages, you much also change the "custom"
-#       pangolin sql query (lines 305-320) in variant_surveillance_system.R to match!
-
-voc1 = c(# "AY.1", "AY.2",
+voc1 = c(
          "BA.1.1",
          "BA.2",
          "BA.2.12.1",
@@ -293,9 +239,8 @@ voc2_additional = c(
                     'MC.10.1',
                     'LP.8.1',
                     'MC.19',
-                    'XEK',
-                    'XEQ',
-                    'XEQ',
+	                    'XEK',
+	                    'XEQ',
                     'MC.28.1',
                     'XEC.4',
                     'XFC',
@@ -315,55 +260,6 @@ voc2_additional = c(
                     'XFG.6',
                     'XFY'
                     )
-# voc2_custom = c(voc2,
-#                custom_lineage_names)
-
-# define an alternate set of vocs
-voc2_reduced = voc1_reduced
-
-# Set voc's for Run3
-voc3 = c("B.1.1.7",   # Alpha  # and Q.1 to 8*
-         "B.1.351",   # Beta   # and B.1.351.*
-         "P.1",       # Gamma  # and P.*
-         "B.1.617.2", # Delta # and AY.3-AY.25*
-         "AY.1",
-         "AY.2",
-         "B.1.427",   # Epsilon  # B.1.427 & B.1.429 are aggregated on line 137 of "weekly_variant_report_nowcast.R"
-         "B.1.525",   # Eta
-         "B.1.526",   # Iota
-         "B.1.617.1", # Kappa
-         "B.1.617.3", # (unnamed)
-         "P.2",       # Zeta
-         "B.1.621",   # Mu
-         "B.1.1.529", # Omicron # and BA.*
-         "BA.2",
-         "BA.2.12.1",
-         "BA.2.75",
-         "BA.2.75.2",
-         "CH.1.1",
-         "BA.4",
-         "BA.4.6",
-         "BA.5",
-         'BA.5.2.6',
-         'BN.1',
-         "BF.7",
-         "BF.11",
-         "XBB",
-         'XBB.1.5',
-         'XBB.1.5.1',
-         'XBB.1.9.1',
-         'FD.2',
-         'XBB.1.9.2',
-         'XBB.1.16',
-	      'XBB.1.16.1',
-	      'XBB.1.16.1',
-         'XBB.2.3',
-         "BQ.1",
-         "BQ.1.1")
-# define an alternate set of vocs
-voc3_reduced = voc1_reduced
-
-
 
 # do not need to change these on a regular basis -------------------------------
 # specify survey design type (NO NEED TO CHANGE)
@@ -386,16 +282,6 @@ ci.type <- "KG"
 # set end date for national and regional survey estimates
 # this is generally the end of the previous week.
 time_end <- data_date - as.numeric(format(data_date, '%w')) - 1
-# time_end <- as.Date('2021-12-11') # VERY little data for this past week. Not worth including.
-# otherwise, set manually:
-# time_end <- as.Date("2021-10-30")
-
-# set end dates for state-level estimates (Run3)
-# (end of week = Saturday)
-# this is generally the end of 5 of the 6 most recent weeks (doesn't include most recent week):
-state_time_end = (data_date - as.numeric(format(data_date, '%w')) - 1) - (7*5:1)
-# otherwise set manually:
-# state_time_end=c(as.Date("2021-09-25"),as.Date("2021-10-02"),as.Date("2021-10-09"),as.Date("2021-10-16"),as.Date("2021-10-23"))
 
 date_frozen <- paste0('"', data_date, '"')
 if(data_date == Sys.Date()){
@@ -448,16 +334,9 @@ n_top = 10
 n_recent_weeks = 7
 
 # Multinomial model includes current week + model_weeks weeks of previous data
-# To exclude the -1 and -2 week (last week and the week before last week) from modeling,
-# change the model_weeks to 19 and use the model_time_end as data_date - as.numeric(format(data_date, '%w')) - 15
-model_weeks = 21 # early on the model ended up including 1 more week than was set here. Now it includes the number set here.
-#Model_week ends with the last weighted week
-#model_time_end = data_date - as.numeric(format(data_date, '%w')) - 15
-#Model_week ends with the week before the current week
+model_weeks = 21
 model_time_end = time_end
-# Criterion for inclusion in model (i.e to be included in model, weighted share
-# must be at least 0.01 in the n_recent_weeks)
-# share_cutoff = 0.01
+# Criterion for inclusion in model (weighted share must be at least 0.01 in the n_recent_weeks)
 
 # start of the first week
 week0day1 = get0("week0day1",
@@ -475,12 +354,8 @@ display_lookback = 8
 
 # define a start time to filter out old data
 # (this is intended to speed up processing of the overall dataset)
-# number of weeks to produce "weighted"/"thencast" estimates
-weighted_weeks <- 12
 # start-time for the weighted estimates
-# (this speeds up calculations by only calculating weighted variant proportions for the most recent "weighted_weeks")
-# time_start_weights <- time_end - 6 - weighted_weeks*7
-time_start_weights <- as.Date('2021-05-09') # keep using week of (2021-05-02 to 2021-05-08) for consistency
+time_start_weights <- as.Date('2021-05-09')
 # for 2023-5-9 to be implemented biweek estimates, change to 2021-05-09
 # start time will be the earlier of: 1) time_start_weights; 2) "model_weeks" before time_end
 time_start <- min(time_start_weights, time_end - model_weeks*7 + 1) # +1 to start on Monday
@@ -532,7 +407,6 @@ force_aggregate_omicron_except <- c(
          'BA.5.2.6',
          "BQ.1",
          "BQ.1.1")
-#c('BA.1.1','BA.2','BA.3','BA.4','BA.5','BA.5.2.6', 'BA.2.12.1','BA.4.6', 'BA.2.75', 'BF.7', 'BA.2.75.2', 'BQ.1', 'BQ.1.1') # 'BA.2.12', 'BA.1.1'
 
 
 # force-aggregate Delta sublineages
