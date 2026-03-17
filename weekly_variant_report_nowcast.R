@@ -152,115 +152,6 @@ initialize_weekly_results_dir <- function(results_dir, results_folder) {
   dir.create(file.path(results_dir, results_folder), showWarnings = FALSE)
 }
 
-shares_sum_to_one <- function(dt, group_cols) {
-  all(dt[, .(total_share = sum(Share)), by = group_cols][, unique(round(total_share, 5))] == 1)
-}
-
-normalize_hadoop_variant_names <- function(values) {
-  values <- gsub("Delta Aggregated", "B.1.617.2", values)
-  values <- gsub("Omicron Aggregated", "B.1.1.529", values)
-  gsub(" Aggregated", "", values)
-}
-
-build_hadoop_output <- function(results_df,
-                                base_columns,
-                                data_date,
-                                results_tag,
-                                run_label,
-                                cadence_label,
-                                calc_confirmed_infections,
-                                confirmed_columns) {
-  hadoop_df <- data.frame(results_df[, base_columns])
-  hadoop_df[is.na(hadoop_df)] <- "\\N"
-  hadoop_df[, 7:15] <- "\\N"
-  hadoop_df[, 16] <- "smoothed"
-  hadoop_df[, 17] <- cadence_label
-  hadoop_df[, 18] <- data_date
-  hadoop_df[, 19] <- paste0(results_tag, "_", run_label)
-  hadoop_df[, 20] <- 1
-
-  if (calc_confirmed_infections) {
-    hadoop_df[, 21:24] <- results_df[, confirmed_columns]
-  }
-
-  hadoop_df[, 3] <- normalize_hadoop_variant_names(hadoop_df[, 3])
-  hadoop_df[is.na(hadoop_df)] <- "\\N"
-  hadoop_df
-}
-
-write_hadoop_output <- function(results_df,
-                                file,
-                                base_columns,
-                                data_date,
-                                results_tag,
-                                run_label,
-                                cadence_label,
-                                calc_confirmed_infections,
-                                confirmed_columns) {
-  hadoop_df <- build_hadoop_output(
-    results_df = results_df,
-    base_columns = base_columns,
-    data_date = data_date,
-    results_tag = results_tag,
-    run_label = run_label,
-    cadence_label = cadence_label,
-    calc_confirmed_infections = calc_confirmed_infections,
-    confirmed_columns = confirmed_columns
-  )
-
-  write.table(
-    x = hadoop_df,
-    file = file,
-    quote = FALSE,
-    row.names = FALSE,
-    col.names = FALSE,
-    sep = ","
-  )
-}
-
-get_run1_lineages <- function(agg_var_mat) {
-  agg_lineages <- colnames(agg_var_mat)[colSums(agg_var_mat) > 0]
-  if ("Other" %notin% agg_lineages) {
-    agg_lineages <- c(agg_lineages, "Other Aggregated")
-  }
-  agg_lineages
-}
-
-get_run2_excluded_lineages <- function(agg_var_mat) {
-  c(
-    row.names(agg_var_mat)[row.names(agg_var_mat) %notin% "Other Aggregated"],
-    "Other",
-    colnames(agg_var_mat["Other Aggregated", , drop = FALSE])[agg_var_mat["Other Aggregated", , drop = FALSE] > 0]
-  )
-}
-
-rename_other_aggregated <- function(results_df) {
-  results_df[results_df$Variant == "Other Aggregated", "Variant"] <- "Other"
-  results_df
-}
-
-build_run1_output <- function(proj_res, agg_var_mat) {
-  rename_other_aggregated(proj_res[Variant %notin% get_run1_lineages(agg_var_mat)])
-}
-
-build_run2_output <- function(proj_res, agg_var_mat) {
-  rename_other_aggregated(proj_res[Variant %notin% get_run2_excluded_lineages(agg_var_mat)])
-}
-
-split_weekly_and_daily_results <- function(results_df) {
-  list(
-    weekly = data.table:::subset.data.table(
-      x = results_df,
-      subset = model_week %% 1 == 0,
-      select = !names(results_df) %in% c("total_test_positives_daily", "cases_daily", "cases_lo_daily", "cases_hi_daily")
-    ),
-    daily = data.table:::subset.data.table(
-      x = results_df,
-      select = !names(results_df) %in% c("total_test_positives_weekly", "cases_weekly", "cases_lo_weekly", "cases_hi_weekly")
-    )
-  )
-}
-
 weekly_variant_report_nowcast_main <- function() {
 
 # Setup ------------------------------------------------------------------------
@@ -303,13 +194,10 @@ tag <- paste0("_",state_source,"_Run", opts$run_number, reduced_voc_tag, custom_
       # cycle over each string in X and Y
       data = mapply(function(X, Y) {
         # get the length of the shorter (parent) string
-        #slen = seq_len(min(length(X), length(Y)))
         ylen <- seq_len(length(Y))
         
-        # test if the first slen characters are the same in both strings
+        # test if the first ylen characters are the same in both strings
         # if they're not the same, calculate the proportion of characters (starting from the beginning) that are the same (i.e. how far you get through the string before the first mismatch)
-        # wh <- (X[slen] == Y[slen])
-        # if(all(wh)) return(1) else (which.min(wh) - 1) / length(slen)
         wh <- (X[ylen] == Y[ylen])
         if(all(wh)) return(1) else (which.min(wh) - 1) / length(ylen)
       },
@@ -337,18 +225,11 @@ tag <- paste0("_",state_source,"_Run", opts$run_number, reduced_voc_tag, custom_
       # the longest complete match is the closest parent
       return(match100[ nchar(match100) == max(nchar(match100)) ])
       
-      # # return the longest complete match (that is still shorter than x) as the nearest parent
-      # match100_2 <- match100[ (nchar(match100) < nchar(x)) ]
-      #
-      # # if there are complete matches where
-      # if( length(match100_2) > 0 ) return(match100_2[ nchar(match100_2) == max(nchar(match100_2)) ])
-      # else return(no_match)
     } else {
       # if there are no complete matches, return "Other"
       return(no_match)
     }
   }
-  # sapply(sort(unname(unlist(extra_voc_to_consider))), function(x) nearest_parent(x, vocxl))
   
   # convert function "np" to work on a vector of x (reuses the same y vector for each element in x)
   nearest_parent <- function(x, y, no_match = 'Other') {
@@ -357,7 +238,6 @@ tag <- paste0("_",state_source,"_Run", opts$run_number, reduced_voc_tag, custom_
   }
   
 }
-
 
 
 
@@ -427,7 +307,7 @@ if( grepl("Run2", tag) ) {
         # dat.voc.1p  <- svy.dat[ week > (current_week - 14) & week < (current_week - 2) , .(yr_wk, FORTNIGHT_END, VARIANT, expanded_lineage)]
         dat.voc.1p  <- svy.dat[ week > (current_week - 16) & week <= (current_week - 2) , .(yr_wk, FORTNIGHT_END, VARIANT, expanded_lineage)]
         # subset of svy.dat including only the weeks used for .5p
-        # dat.voc.05p <- svy.dat[ week == (current_week - 2) , , .(yr_wk, FORTNIGHT_END, VARIANT, expanded_lineage)]
+        
         dat.voc.05p <- svy.dat[ FORTNIGHT_END == (svy.dat[week == (current_week - 4),unique(FORTNIGHT_END)]) , .(yr_wk, FORTNIGHT_END, VARIANT, expanded_lineage)]
         # These filters need to match this query:   https://cdp-01.biotech.cdc.gov:8889/hue/editor?editor=72645
         
@@ -576,10 +456,12 @@ if( grepl("Run2", tag) ) {
         )
         voc <- c(voc, extra_voc_to_consider_shortname)
         
-        # save the extra voc's to file
-        write.csv(x = data.frame('Added because of voc_extra_preaggregation' = extra_voc_to_consider_shortname ),
-                  file = paste0(script.basename, output_folder, '/voc_extra_preaggregation_variants_', data_date, tag, '.csv'),
-                  row.names = F)
+        write_results_csv(
+          x = data.frame("Added because of voc_extra_preaggregation" = extra_voc_to_consider_shortname),
+          script.basename = script.basename,
+          output_folder = output_folder,
+          filename = paste0("voc_extra_preaggregation_variants_", data_date, tag, ".csv")
+        )
       } # end if (voc2_extra_preaggregation)
       
     } else {
@@ -700,10 +582,12 @@ if (voc2_extra_preaggregation | (tolower(opts$voc_aggregation_method) == 'update
     voc_lut[voc_lut$variant == 'XCH','parent_variant']          <- voc_lut[voc_lut$variant == 'XBB', 'parent_variant']
   }
   
-  # save the voc aggregation look-up table to file
-  write.csv(x = voc_lut,
-            file = paste0(script.basename, output_folder, '/voc_aggregation_table_', data_date, tag, '.csv'),
-            row.names = F)
+  write_results_csv(
+    x = voc_lut,
+    script.basename = script.basename,
+    output_folder = output_folder,
+    filename = paste0("voc_aggregation_table_", data_date, tag, ".csv")
+  )
 }
 
 
@@ -1402,54 +1286,14 @@ src.dat$VARIANT2 = as.character(src.dat$VARIANT)
 # group all non-"variants of interest" together
 src.dat[src.dat$VARIANT %notin% voc, "VARIANT2"] <- "Other"
 
-# create a table of all the old and new (after aggregating) variant names
-# (using "VARIANT", which does NOT have the "OTHER" aggregation)
-write.csv(
-  x = src.dat[
-    , # no filtering
-    .(old = lineage, new = VARIANT), # create new columns with clearer names
-    by = c('lineage', 'VARIANT') # group by lineage and Variant
-  ][
-    ,
-    .(old, new) # select only these columns
-  ][
-    order(old), # reorder by the original lineage name
-  ],
-  file = paste0(script.basename,
-                output_folder, "/lineage_aggregations_",
-                ci.type,
-                "CI_",
-                svy.type,
-                "_",
-                data_date,
-                tag,
-                ".csv"),
-  row.names = F
-)
-
-# create a table of all the old and final (after aggregating) variant names
-# (using "VARIANT2", which includes the "OTHER" aggregation)
-write.csv(
-  x = src.dat[
-    , # no filtering
-    .(original = lineage, aggregated = VARIANT2), # create new columns with clearer names
-    by = c('lineage', 'VARIANT2') # group by lineage and Variant
-  ][
-    ,
-    .(original, aggregated) # select only these columns
-  ][
-    order(original), # reorder by the original lineage name
-  ],
-  file = paste0(script.basename,
-                output_folder, "/lineage_aggregations_summary_",
-                ci.type,
-                "CI_",
-                svy.type,
-                "_",
-                data_date,
-                tag,
-                ".csv"),
-  row.names = F
+write_lineage_aggregation_tables(
+  src.dat = src.dat,
+  script.basename = script.basename,
+  output_folder = output_folder,
+  ci.type = ci.type,
+  svy.type = svy.type,
+  data_date = data_date,
+  tag = tag
 )
 
 
@@ -2166,114 +2010,61 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
         )
         
         
-        # output data file depends on NO change in all.month3 column order!!!
-        # If new columns are to be added, they need to go to the end.
-        # write results to file
-        write.csv(x = all.month3,
-                  file = paste0(script.basename,
-                                output_folder, "/variant_share_",
-                                meth, # weighted or unweighted
-                                "_",
-                                ci.type,
-                                "CI_",
-                                svy.type,
-                                "_",
-                                data_date,
-                                tag,
-                                "_",
-                                results_tag,
-                                ".csv"),
-                  row.names = FALSE)
-        
-        if(meth == 'weighted'){
-          # process dataframe and save to a format for direct hadoop upload
-          all.month3_hadoop <- data.frame(all.month3[,c("USA_or_HHSRegion",
-                                                        "Month_ending",
-                                                        "Variant",
-                                                        "Share",
-                                                        "Share_lo",
-                                                        "Share_hi",
-                                                        "count",
-                                                        "denom_count",
-                                                        "DF",
-                                                        "eff.size",
-                                                        "CI_width",
-                                                        "nchs_flag",
-                                                        "nchs_flag_wodf")])
-          all.month3_hadoop[,14:15] = '\\N'
-          all.month3_hadoop[,16] = 'weighted'
-          all.month3_hadoop[,17] = '4_week'
-          all.month3_hadoop[,18] = data_date
-          all.month3_hadoop[,19] = paste0(results_tag, '_Run', opts$run_number)
-          all.month3_hadoop[,20] = 1
-          if (calc_confirmed_infections){
-            all.month3_hadoop[,21:24] = all.month3[,c("cases", "cases_hi", "cases_lo")]
-          }
-          
-          # The line above was used based on the calculation of confirmed infections
-          # according to CELR testing data, which was discontinued
-          all.month3_hadoop[is.na(all.month3_hadoop)] = '\\N'
-          write.table(x = all.month3_hadoop,
-                      file = paste0(script.basename,
-                                    output_folder, "/variant_share_weighted_",
-                                    ci.type,
-                                    "CI_",
-                                    svy.type,
-                                    "_",
-                                    data_date,
-                                    tag,
-                                    "_",
-                                    results_tag,
-                                    "_hadoop.csv"),
-                      quote = FALSE,
-                      row.names = FALSE,
-                      col.names = FALSE,
-                      sep =  ",")
-        }  else if (meth == "unweighted"){
-          # process dataframe and save to a format for direct hadoop upload
-          all.month3_hadoop <- data.frame(all.month3[,c("USA_or_HHSRegion",
-                                                        "Month_ending",
-                                                        "Variant",
-                                                        "Unwt_share",
-                                                        "Unwt_share_lo",
-                                                        "Unwt_share_hi",
-                                                        "count",
-                                                        "denom_count",
-                                                        "DF",
-                                                        "eff.size",
-                                                        "CI_width",
-                                                        "nchs_flag",
-                                                        "nchs_flag_wodf")])
-          all.month3_hadoop[,14:15] = '\\N'
-          all.month3_hadoop[,16] = 'empiric'
-          all.month3_hadoop[,17] = '4_week'
-          all.month3_hadoop[,18] = data_date
-          all.month3_hadoop[,19] = paste0(results_tag, '_Run', opts$run_number)
-          all.month3_hadoop[,20] = 1
-          if (calc_confirmed_infections){
-            all.month3_hadoop[,21:24] = all.month3[,c("cases", "cases_hi", "cases_lo")]
-          }
-          
-          # The line above was used based on the calculation of confirmed infections
-          # according to CELR testing data, which was discontinued
-          all.month3_hadoop[is.na(all.month3_hadoop)] = '\\N'
-          write.table(x = all.month3_hadoop,
-                      file = paste0(script.basename,
-                                    output_folder, "/variant_share_unweighted_",
-                                    ci.type,
-                                    "CI_",
-                                    svy.type,
-                                    "_",
-                                    data_date,
-                                    tag,
-                                    "_",
-                                    results_tag,
-                                    "_hadoop.csv"),
-                      quote = FALSE,
-                      row.names = FALSE,
-                      col.names = FALSE,
-                      sep =  ",")
-        }
+        write_empiric_output(
+          results_df = all.month3,
+          csv_file = paste0(
+            script.basename,
+            output_folder, "/variant_share_",
+            meth,
+            "_",
+            ci.type,
+            "CI_",
+            svy.type,
+            "_",
+            data_date,
+            tag,
+            "_",
+            results_tag,
+            ".csv"
+          ),
+          hadoop_file = paste0(
+            script.basename,
+            output_folder, "/variant_share_",
+            meth,
+            "_",
+            ci.type,
+            "CI_",
+            svy.type,
+            "_",
+            data_date,
+            tag,
+            "_",
+            results_tag,
+            "_hadoop.csv"
+          ),
+          base_columns = c(
+            "USA_or_HHSRegion",
+            "Month_ending",
+            "Variant",
+            "Share",
+            "Share_lo",
+            "Share_hi",
+            "count",
+            "denom_count",
+            "DF",
+            "eff.size",
+            "CI_width",
+            "nchs_flag",
+            "nchs_flag_wodf"
+          ),
+          share_columns = if (meth == "weighted") c("Share", "Share_lo", "Share_hi") else c("Unwt_share", "Unwt_share_lo", "Unwt_share_hi"),
+          estimate_label = if (meth == "weighted") "weighted" else "empiric",
+          cadence_label = "4_week",
+          data_date = data_date,
+          results_tag = results_tag,
+          run_number = opts$run_number,
+          calc_confirmed_infections = calc_confirmed_infections
+        )
         
         ### Weekly estimates
         # (repeat of above code, but with weeks instead of Months)
@@ -2833,88 +2624,47 @@ if ( grepl("Run(1|2)", tag) ){ # fortnight and weekly estimates
           
           
           
-          # save the results to file
-          write.csv(x = all.wkly3,
-                    file = paste0(script.basename,
-                                  output_folder, "/variant_share_weekly_",
-                                  meth,
-                                  "_",
-                                  ci.type,
-                                  "CI_",
-                                  svy.type,
-                                  "_",
-                                  data_date,
-                                  tag,
-                                  "_",
-                                  results_tag,
-                                  ".csv"),
-                    row.names=FALSE)
-          
-          if(meth == 'weighted'){
-            # process dataframe and save to a format for direct hadoop upload
-            all.wkly3_hadoop = data.frame(all.wkly3[,c(1:15)])
-            all.wkly3_hadoop[is.na(all.wkly3_hadoop)] = '\\N'
-            all.wkly3_hadoop[,16] = 'weighted'
-            all.wkly3_hadoop[,17] = 'weekly'
-            all.wkly3_hadoop[,18] = data_date
-            all.wkly3_hadoop[,19] = paste0(results_tag, '_Run', opts$run_number)
-            all.wkly3_hadoop[,20] = 1
-            if (calc_confirmed_infections){
-              all.wkly3_hadoop[,21:24] = all.wkly3[,c("cases", "cases_hi", "cases_lo")]
-            }
-            all.wkly3_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', all.wkly3_hadoop[,3])
-            all.wkly3_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', all.wkly3_hadoop[,3])
-            all.wkly3_hadoop[,3] = gsub(' Aggregated', '', all.wkly3_hadoop[,3])
-            all.wkly3_hadoop[is.na(all.wkly3_hadoop)] = '\\N'
-            write.table(x = all.wkly3_hadoop,
-                        file = paste0(script.basename,
-                                      output_folder, "/variant_share_weekly_weighted_",
-                                      ci.type,
-                                      "CI_",
-                                      svy.type,
-                                      "_",
-                                      data_date,
-                                      tag,
-                                      "_",
-                                      results_tag,
-                                      "_hadoop.csv"),
-                        quote = FALSE,
-                        row.names = FALSE,
-                        col.names = FALSE,
-                        sep = ",")
-          } else  if(meth == 'unweighted'){
-            # process dataframe and save to a format for direct hadoop upload
-            all.wkly3_hadoop = data.frame(all.wkly3[,c(1:15)])
-            all.wkly3_hadoop[is.na(all.wkly3_hadoop)] = '\\N'
-            all.wkly3_hadoop[,16] = 'unweighted'
-            all.wkly3_hadoop[,17] = 'weekly'
-            all.wkly3_hadoop[,18] = data_date
-            all.wkly3_hadoop[,19] = paste0(results_tag, '_Run', opts$run_number)
-            all.wkly3_hadoop[,20] = 1
-            if (calc_confirmed_infections){
-              all.wkly3_hadoop[,21:24] = all.wkly3[,c("cases", "cases_hi", "cases_lo")]
-            }
-            all.wkly3_hadoop[,3] = gsub('Delta Aggregated', 'B.1.617.2', all.wkly3_hadoop[,3])
-            all.wkly3_hadoop[,3] = gsub('Omicron Aggregated', 'B.1.1.529', all.wkly3_hadoop[,3])
-            all.wkly3_hadoop[,3] = gsub(' Aggregated', '', all.wkly3_hadoop[,3])
-            all.wkly3_hadoop[is.na(all.wkly3_hadoop)] = '\\N'
-            write.table(x = all.wkly3_hadoop,
-                        file = paste0(script.basename,
-                                      output_folder, "/variant_share_weekly_weighted_",
-                                      ci.type,
-                                      "CI_",
-                                      svy.type,
-                                      "_",
-                                      data_date,
-                                      tag,
-                                      "_",
-                                      results_tag,
-                                      "_hadoop.csv"),
-                        quote = FALSE,
-                        row.names = FALSE,
-                        col.names = FALSE,
-                        sep = ",")
-          }# end save hadoop data
+          write_empiric_output(
+            results_df = all.wkly3,
+            csv_file = paste0(
+              script.basename,
+              output_folder, "/variant_share_weekly_",
+              meth,
+              "_",
+              ci.type,
+              "CI_",
+              svy.type,
+              "_",
+              data_date,
+              tag,
+              "_",
+              results_tag,
+              ".csv"
+            ),
+            hadoop_file = paste0(
+              script.basename,
+              output_folder, "/variant_share_weekly_",
+              if (meth == "unweighted") "weighted" else meth,
+              "_",
+              ci.type,
+              "CI_",
+              svy.type,
+              "_",
+              data_date,
+              tag,
+              "_",
+              results_tag,
+              "_hadoop.csv"
+            ),
+            base_columns = names(all.wkly3)[1:15],
+            share_columns = if (meth == "weighted") c("Share", "Share_lo", "Share_hi") else c("Unwt_share", "Unwt_share_lo", "Unwt_share_hi"),
+            estimate_label = meth,
+            cadence_label = "weekly",
+            data_date = data_date,
+            results_tag = results_tag,
+            run_number = opts$run_number,
+            calc_confirmed_infections = calc_confirmed_infections
+          )
         } # end run 1 weekly estimates ("include_run1_weekly")
       } # end loop over weighted_method
     } # end !nowcast_only
@@ -2951,13 +2701,6 @@ if ( grepl("Run2",tag) ){
     
     # make sure that "Other" is not included
     us_var <- us_var[!names(us_var)=="Other"]
-    
-    ## force-remove delta from the list of most abundant variants
-    # (so that it is aggregated into "Other" and not automatically added into the
-    #  Nowcast model as 1 of the "n_top" most abundant lineages)
-    if(FALSE){
-      us_var <- us_var[ names(us_var) != 'B.1.617.2' ]
-    }
     
     # names of all the variants
     us_rank = names(us_var)
@@ -3093,31 +2836,15 @@ if ( grepl("Run2",tag) ){
                 sep = '')
     
     
-    # write model objects to file (for later trouble-shooting or reference)
-    saveRDS(object = svymlm_hhs,
-            file = paste0(script.basename,
-                          output_folder, '/svymlm_hhs_', # save to results instead of 'data' folder
-                          data_date,
-                          tag,
-                          '.RDS'))
-    saveRDS(object = svymlm_us,
-            file = paste0(script.basename,
-                          output_folder, '/svymlm_us_', # save to results instead of 'data' folder
-                          data_date,
-                          tag,
-                          '.RDS'))
-    
-    # optionally save src.moddat that's been prepped for analysis
-    if(save_datasets_to_file){
-      
-      # consider saving a list of everything that is needed to fit the nowcast model: list(src.moddat, mysvy, model_vars)
-      saveRDS(object = src.moddat,
-              file = paste0(script.basename,
-                            output_folder, '/src.moddat_', # save to results instead of 'data' folder
-                            data_date,
-                            tag,
-                            '.RDS'))
-    }
+    save_nowcast_model_artifacts(
+      script.basename = script.basename,
+      output_folder = output_folder,
+      data_date = data_date,
+      tag = tag,
+      svymlm_hhs = svymlm_hhs,
+      svymlm_us = svymlm_us,
+      src.moddat = if (save_datasets_to_file) src.moddat else NULL
+    )
     
     
     
@@ -3188,34 +2915,15 @@ if ( grepl("Run2",tag) ){
       format = '%m-%d'
     )
     
-    # create plot
-    if (fig_gen_run) jpeg(filename  = paste0(stub, "barplot_US", tag, ".jpg"),
-                          width     = 1500,
-                          height    = 1500,
-                          pointsize = 40)
-    # create a barplot of "observed" values (i.e. weighted counts)
-    bp = barplot(height = 100 * t(bp_us),
-                 xlab = "Week beginning",
-                 ylab = "Weighted variant share (%)",
-                 main = "Nationwide",
-                 border = NA,
-                 ylim = 110 * 0:1,
-                 col = col.dk,
-                 names.arg = rownames(bp_us),
-                 legend.text = display_vars,
-                 args.legend = list(x = "topleft",
-                                    bty = "n",
-                                    border = NA))
-    
-    # add text to the barplot
-    text(x = bp,
-         y = 3 + colSums(100 * t(tail(bp_us, 12))),
-         labels = with(subset(src.dat,
-                              week < current_week - 1 &
-                                week >= current_week - display_lookback),
-                       table(week)),
-         cex = 0.7)
-    if (fig_gen_run) dev.off()
+    plot_weighted_share_barplot_us(
+      bp_us = bp_us,
+      display_vars = display_vars,
+      src.dat = src.dat,
+      current_week = current_week,
+      display_lookback = display_lookback,
+      fig_gen_run = fig_gen_run,
+      filename = paste0(stub, "barplot_US", tag, ".jpg")
+    )
     
     
     ### barplot of model-predicted data (national) ----
@@ -3238,80 +2946,16 @@ if ( grepl("Run2",tag) ){
     # pred_us.df$week_end   = pred_us.df$week_start + 6
     # pred_us.df$week_mid   = pred_us.df$week_start + 3
     
-    # Barplot of Nowcast predicted values
-    if (fig_gen_run) jpeg(filename  = paste0(stub, "projection_US", tag, ".jpg"),
-                          width     = 1500,
-                          height    = 1500,
-                          pointsize = 40)
-    
-    bp = barplot(height = 100 * t(pred_us.df[, 1 + display_indices]),
-                 xlab = "Week beginning",
-                 ylab = "Weighted variant share (%)",
-                 main = "Nationwide",
-                 space = 0,
-                 border = NA,
-                 ylim = 110 * 0:1,
-                 col = col.dk,
-                 names.arg = ifelse(test = pred_us.df$model_week %% 1 == 0,
-                                    yes = format(((pred_us.df$model_week + (data_week_df$model_week - 2)) + model_week_min) * 7 + as.Date(week0day1), format = '%m-%d'),
-                                    no = NA),
-                 legend.text = display_vars,
-                 args.legend = list(x = "topleft",
-                                    bty = "n",
-                                    border = NA))
-    
-    # predicted percent contributions of some variants for the current week
-    # pc = unlist(100 * subset(pred_us.df,
-    #                          week==current_week)[, 1+display_indices])
-    pc = unlist(100 * subset(pred_us.df,
-                             model_week == data_week_df$model_week)[, 1+display_indices])
-    
-    # define a y-value for the text to be added to the plot
-    y = cumsum(pc) - pc/2
-    
-    # define x-values for grey boxes signifying that recent data is likely incomplete
-    # x = bp[which(pred_us.df$week %in% (current_week + c(-2, 0, 2)))]
-    x <- bp[which(pred_us.df$model_week %in% (data_week_df$model_week + c(-2, 0, 2)))]
-    
-    # add text to the plot
-    text(x = x[2], # 1.02 * tail(bp, 1),
-         y = y,
-         labels = round(pc, 1),
-         cex = 0.7,
-         xpd = TRUE,
-         adj = c(0.5, 0.5))
-    
-    # add grey rectangles to plot
-    rect(xleft   = x[1] + (x[2]-x[1])*.25, # shift it over by 1/2 week so that it is centered on individual weeks
-         ybottom = 0,
-         xright  = x[2] + (x[3]-x[2])*.25,
-         ytop    = 100,
-         border  = NA,
-         col = "#00000020")
-    # abline(v = x[2],
-    #        lty = 2, color = 'grey20')
-    
-    # add text to the plot
-    text(x = mean(c(x[1], x[2])) + (x[2]-x[1])*.25,
-         y = 101,
-         labels = 'Nowcast',
-         cex = 0.7,
-         xpd = TRUE,
-         adj = c(0.5, 0))
-    rect(xleft   = x[2] + (x[3]-x[2])*.25,
-         ybottom = 0,
-         xright  = x[3],
-         ytop    = 100,
-         border  = NA,
-         col = "#00000040")
-    # add text to the plot
-    text(x = mean(c(x[2], x[3]))+ (x[2]-x[1])*.125,
-         y = 101,
-         labels = 'Future',
-         cex = 0.7,
-         xpd = TRUE,
-         adj = c(0.5, 0))
-    if (fig_gen_run) dev.off()
+    plot_projection_barplot_us(
+      pred_us.df = pred_us.df,
+      display_indices = display_indices,
+      display_vars = display_vars,
+      data_week_df = data_week_df,
+      model_week_min = model_week_min,
+      week0day1 = week0day1,
+      fig_gen_run = fig_gen_run,
+      filename = paste0(stub, "projection_US", tag, ".jpg")
+    )
     
     ### WoW growth rate vs. transmission ----
     #  - the vertical axis depicts the variant share growth rate
@@ -3319,7 +2963,6 @@ if ( grepl("Run2",tag) ){
     #  - The axis on the right shows an estimate of variant transmissibility with
     #    respect to the overall mean transmissibility.
     
-    # Get the SE of the national estimate
     us.summary = se.multinom(mlm   = svymlm_us$mlm,
                              newdata_1row = data.frame(
                                model_week = data_week_df$model_week, # formerly "model_week_mid", but that doesn't always work
@@ -3327,154 +2970,27 @@ if ( grepl("Run2",tag) ){
                              ),
                              composite_variant = NULL,
                              dy_dt = data.frame(model_week=1))
+    us_growth_metrics <- compute_variant_growth_metrics(us.summary)
     
-    # calculate the SE of the estimated growth rate
-    se.gr = with(data = us.summary,
-                 expr = 100 * exp((sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2)))) - 100) # coeff of se.b_i^2 corrected [2022-01-13]
+    gr_tab <- build_growth_rate_table(
+      summary_obj = us.summary,
+      growth_metrics = us_growth_metrics,
+      model_vars = model_vars,
+      data_week_df = data_week_df
+    )
     
-    # p_i    = predicted probability (proportional representation/frequency)
-    # se.p_i = SE of predicted frequency
-    # b_i    = coefficient value (for intercept & week)
-    # se.b_i = SE of coefficient value
-    
-    # calculate the estimated growth rate
-    gr = with(data = us.summary,
-              expr = 100 * exp(b_i - sum(p_i * b_i)) - 100)
-    
-    # calculate doubling times
-    se.gr_link = with(data = us.summary,
-                      expr = sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2)))
-    gr_link = with(data = us.summary,
-                   expr = (b_i - sum(p_i * b_i)))
-    gr_lo_link = gr_link - 1.96 * se.gr_link
-    gr_hi_link = gr_link + 1.96 * se.gr_link
-    
-    gr_lo = 100 * exp(gr_lo_link) - 100
-    gr_hi = 100 * exp(gr_hi_link) - 100
-    
-    # calculate doubling time
-    doubling_time = log(2)/gr_link * 7
-    doubling_time_lo = log(2)/gr_lo_link * 7
-    doubling_time_hi = log(2)/gr_hi_link * 7
-    
-    # create a dataframe of variant shares & growth rates
-    gr_tab = data.frame(variant          = c(model_vars, "OTHER"),
-                        variant_share    = (100 * us.summary$p_i),
-                        variant_share_lo = 100 * (us.summary$p_i - 1.96 * us.summary$se.p_i),
-                        variant_share_hi = 100 * (us.summary$p_i + 1.96 * us.summary$se.p_i),
-                        growth_rate      = gr,
-                        growth_rate_lo   = gr_lo,
-                        growth_rate_hi   = gr_hi,
-                        doubling_time    = doubling_time,
-                        doubling_time_lo = doubling_time_lo,
-                        doubling_time_hi = doubling_time_hi,
-                        model_week       = data_week_df$model_week)
-    
-    # merge in date
-    gr_tab <- merge(gr_tab,
-                    data_week_df,
-                    by = 'model_week')
-    
-    # save growth rates to file
-    write.csv(x = gr_tab,
-              file = paste0(script.basename,
-                            output_folder, "/wow_growth_variant_share_",
-                            meth,
-                            "_",
-                            data_date,
-                            tag,
-                            ".csv"),
-              row.names = FALSE)
-    
-    
-    if (fig_gen_run) png(filename = paste0(stub, "growthrate_US_", meth, tag, ".png"),
-                         width = 8,
-                         height = 8,
-                         units = "in",
-                         pointsize = 16,
-                         res = 1000)
-    
-    # make enough room on the right side of the plot for a secondary axis.
-    orpar <- par()
-    par(mar = c(5.1, 4.1, 4.1, 4.1))
-    
-    # filter out extremely rare variants from the plot
-    gtp <- subset(gr_tab,
-                  variant_share >= 0.01) # this is already a percent, so this is filtering out variants with less than 1/1000 of a percent (not 1 percent)
-
-    wow_x_scale <- floor(log(min(gtp$variant_share),10))
-    wow_x_min <- 5 * (10 ^ (wow_x_scale - 1))
-    
-    # plot "nowcast" groth rates by variant
-    plot(x = gtp$variant_share,
-         y = gtp$growth_rate,
-         log = "x",
-         type = "n",
-         ylim = range(gtp$growth_rate_lo, gtp$growth_rate_hi),
-         xaxt = "n",
-         xlim = c(wow_x_min,110),
-         xlab = "Nowcast Estimated Proportion (%)",
-         ylab = "Week over week growth rate (%)",
-         main = "Nationwide")
-    
-    # Add an explanation for the lack of confidence intervals in the event that
-    # the Hessian was non-invertible
-    if(is.null(svymlm_us$SE)){
-      mtext(text = "*No SE estimates b/c of non-invertible Hessian in multinomial model fit.",
-            side = 3,
-            line = 0,
-            cex = 0.75,
-            font = 4,
-            col = 'red' )
-    }
-    
-    # add an x axis
-    axis(side = 1,
-         at     = 10 ^ seq(wow_x_scale,2,by=1),
-         labels = 10 ^ seq(wow_x_scale,2,by=1))
-    
-    # add a horizontal line at 0
-    abline(h = 0,
-           col = "grey65")
-    
-    # add lines for each variant
-    for (vv in 1:nrow(gtp)) {
-      
-      # vertical lines for uncertainty in growth rate
-      lines(x = rep(gtp$variant_share[vv], 2),
-            y = gtp[vv,c('growth_rate_lo', 'growth_rate_hi')],
-            col = "blue",
-            lwd = 2)
-      
-      # horizontal lines for uncertainty in variant proportion
-      lines(x = pmax(0.0001, gtp[vv, c('variant_share_lo', 'variant_share_hi')]),
-            y = rep(gtp$growth_rate[vv], 2),
-            col = "blue",
-            lwd = 2)
-    }
-    
-    # add the name of each variant
-    text(x = gtp$variant_share,
-         y = gtp$growth_rate,
-         labels = gtp$variant,
-         cex = 0.85,
-         col = "grey25",
-         adj = 1.15)
-    
-    # add text for doubling time
-    plot_growth_rates <- axTicks(2)
-    plot_doubling_times <- (log(2) / log((100 + plot_growth_rates)/100)) * 7
-    
-    # Add second axis
-    axis(side = 4,
-         at = plot_growth_rates,
-         labels = round(plot_doubling_times,1))
-    # Add second axis label
-    mtext("Doubling time (days)",
-          side = 4,
-          line = 3)
-    
-    if (fig_gen_run)  dev.off()
+    write_results_csv(
+      x = gr_tab,
+      script.basename = script.basename,
+      output_folder = output_folder,
+      filename = paste0("wow_growth_variant_share_", meth, "_", data_date, tag, ".csv")
+    )
+    plot_growth_rate_us(
+      gr_tab = gr_tab,
+      has_se = !is.null(svymlm_us$SE),
+      fig_gen_run = fig_gen_run,
+      filename = paste0(stub, "growthrate_US_", meth, tag, ".png")
+    )
     
     
     ## Model-smoothed estimates ("updated nowcast") ----
@@ -3487,352 +3003,19 @@ if ( grepl("Run2",tag) ){
     # Run 1. Therefore, it needs to aggregate some of the variants in the Nowcast
     # model to match those that are reported for Run 1.
     
-    ### aggregation matrix ----
-    # this is used to aggregate the results of run 2 to the vocs included in run 1.
-    # The aggregation matrix has a column for each of the vocs in run 2 and a row for each aggregated voc.
-    # 1's in the matrix specify which sub-variants to aggregate into an aggregate lineage.
-    if( tolower(opts$voc_aggregation_method) %in% c('updated', 'lineage_expanded') ){
-      
-      # create a column for each voc in the model (plus "OTHER")
-      agg_var_mat <- matrix(data = 0,
-                            nrow = 0,
-                            ncol = (length(model_vars)+1))
-      colnames(agg_var_mat) <- c(model_vars,"Other")
-      
-      # get the lineage_expanded for the model_vars
-      # model_vars_expanded <- c(setNames(voc_lut$lineage_expanded, voc_lut$variant)[ model_vars[model_vars!="Other"] ], "Other" = "Other")
-      model_vars_expanded <- setNames(voc_lut$lineage_expanded, voc_lut$variant)[ model_vars[model_vars!="Other"] ]
-      
-      # potential parent variants are voc1_expanded
-      voc1_expanded <- setNames(voc_lut$lineage_expanded, voc_lut$variant)[ voc1 ]
-      voc1_expanded <- subset(voc1_expanded, !is.na(voc1_expanded))
-      
-      # get the parent varients for the model_vars_expanded from the voc1_expanded
-      model_var_parents_expanded <- nearest_parent( model_vars_expanded,  voc1_expanded )
-      # get the short names for the parent variants of model_vars
-      #model_var_parents <- c(setNames( voc_lut$variant, voc_lut$lineage_expanded )[ model_var_parents_expanded[model_var_parents_expanded!="Other"] ], "Other" = "Other")
-      #model_var_parents <- setNames( voc_lut$variant, voc_lut$lineage_expanded )[ model_var_parents_expanded[model_var_parents_expanded!="Other"] ]
-      model_var_parents <- setNames( voc_lut$variant, voc_lut$lineage_expanded )[ model_var_parents_expanded ]
-      
-      # model_var look-up table
-      model_var_lut <- data.frame(
-        voc2_model_vars = model_vars,
-        voc1_model_vars = model_var_parents
-      )
-      
-      # only need to convert rows where voc2_model_vars != voc1_model_vars
-      mvl_sub <- model_var_lut[ model_var_lut$voc2_model_vars != model_var_lut$voc1_model_vars, ]
-      
-      # get the names of the parent variants that will have sub-lineages aggregated into them
-      unique_mvl_sub <- unique(mvl_sub$voc1_model_vars)
-      
-      # for each unique mvl_sub$voc1_model_vars, fill in values in the matrix for the variants that will be aggregated into it.
-      for (i in unique_mvl_sub) {
-        
-        # get the voc2 that are aggregated into the given voc1
-        # model_var_lut[ model_var_lut$voc1_model_vars == i, 'voc2_model_vars']
-        
-        # define an extra row to add onto the agg_var_mat
-        extra_row <- ifelse( colnames(agg_var_mat) %in%
-                               # the variant itself & all the sub-lineages to be aggregated into it
-                               c(i, model_var_lut[ model_var_lut$voc1_model_vars == i, 'voc2_model_vars']) ,
-                             1,
-                             0)
-        
-        # add the new row onto the aggregation matrix
-        agg_var_mat <- rbind(
-          agg_var_mat,
-          extra_row
-        )
-        row.names(agg_var_mat)[nrow(agg_var_mat)] <- paste(i, 'Aggregated')
-      } # end loop over unique_mvl_sub
-      
-      # all the variants (not in voc1) AND (not aggregated into something else)
-      # should be aggregated into "Other Aggregated"
-      other_agg <- base::setdiff(colnames(agg_var_mat)[colSums(agg_var_mat) == 0],
-                                 # voc1) # this assumes that everything in voc1 is included in model_vars
-                                 (voc1[voc1 %in% model_vars]))
-      # add the new row onto the aggregation matrix
-      agg_var_mat <- rbind(
-        agg_var_mat,
-        ifelse(colnames(agg_var_mat) %in% other_agg, 1, 0)
-      )
-      # update the row name
-      row.names(agg_var_mat)[nrow(agg_var_mat)] <- 'Other Aggregated'
-      
-      # double-check that no variant is aggregated into multiple vocs
-      if(max(colSums(agg_var_mat)) > 1){
-        warning(message = paste(
-          'Aggregated results are invalid! These variants are being aggregated multiple times:',
-          names(agg_var_mat)[colSums(agg_var_mat) > 1],
-          '. Fix the aggregation matrix.'))
-      }
-      
-      # Ensure variants not in voc1 still aggregate into a Run1 category.
-      sub_mat <- agg_var_mat[row.names(agg_var_mat) != 'Other Aggregated', setdiff(model_vars, voc1), drop = FALSE]
-      if(!all(colSums(sub_mat) > 0)){
-        problem_vocs <- colnames(sub_mat)[colSums(sub_mat) == 0]
-        warning(message = paste0('Not all variants in "voc" are aggregated into something in "voc1". ',
-                                 paste(problem_vocs, collapse = ', '),
-                                 ' is in voc2 but is not aggregated into anything in voc1. Therefore it will be aggregated into "Other Aggregated" for both run_1 and run_2 output. Either change voc1 and/or voc2 or change the way agg_var_mat works.'))
-      }
-      
-      
-      # save the aggregation matrix to file for double-checking
-      write.csv(
-        x = replace(agg_var_mat, agg_var_mat == 0, NA), # it's easier to view in Excel with only the 1's and no 0's
-        file = paste0(script.basename, output_folder, "/agg_var_mat_",
-                      ci.type,
-                      "CI_",
-                      svy.type,
-                      "_", # meth, '_', # weighted & unweighted agg_var_mat will be identical, so no need to save both
-                      data_date,
-                      tag,
-                      ".csv"),
-        row.names = T,
-        na = ""
-      )
-    } else {
-      # use the former aggregation
-      
-      # Check to see which lineages are in model_vars
-      # this returns all variants with "AY" in the name
-      AY_vars = model_vars[grep("^AY\\.", model_vars, perl=T)]
-      # this returns all variants with BA. in the name (Omicron sublineages)
-      BA_vars = model_vars[grep("(^B[AC-HJ-NP-VYZ]\\.)|(^C[A-HJ-NP-WYZ]\\.)|(^D[A-HJ-NP-WYZ]\\.)|(^E[A-FHJNPQRSTVWYZ]\\.)|(^F[ABCFJKMN]\\.)", model_vars, perl=T)]
-      # this returns all variants with XBB. in the name
-      XBB_vars = model_vars[grep("(^XBB\\.)|^E[GKLMU]\\.|^F[DEGHL]\\.", model_vars, perl=T)]
-
-      # get the names of the lineages included in Run1
-      run1_lineages = voc1
-
-      # this returns all "AY" variants to be aggregated for Run 1 results
-      # (i.e. not listed in run1_lineages)
-      AY_agg = AY_vars[AY_vars %notin% run1_lineages]
-      # this returns all "BA" variants to be aggregated for Run 1 results
-      # Note: this assumes that all BA subvariants will be aggregated into parent Omicron. That's no longer the case, so below I'm adding code to deal with BA subvariants that need their own aggregations.
-      BA_agg = BA_vars[BA_vars %notin% run1_lineages]
-      # some of these should be aggregated into parent omicron; others should be aggregated into some BA sublineage
-      # this returns all "XBB" variants to be aggregated for Run 1 results
-      XBB_agg = XBB_vars[XBB_vars %notin% run1_lineages]
-      # all other variants to be aggregated (used for Run 1 & Run 2 results)
-      Other_agg = model_vars[model_vars %notin% c(voc, 'B.1.617.2', 'B.1.1.529')] # also have to exclude any variants that have their own row in agg_var_mat. If delta is not included in VOC, then it gets included in both the delta row and the Other row.
-      
-      # generate a matrix that indicates which lineages to aggregate for the nowcast
-      # Columns B529.BF.7.4are the lineages in the nowcast model, so all the defined lineages
-      #  plus the "other" lineage
-      # Rows are the aggregated lineages desired
-      
-      # Check whether any of the large parent lineage aggregation has zero sublineage in the model variant list
-      agg_var_mat <- matrix(data = 0,
-                            nrow = 1,
-                            ncol = (length(model_vars)+1))
-      colnames(agg_var_mat) <- c(model_vars,"Other")
-      agg_var_mat[1,] <- ifelse(colnames(agg_var_mat) %in% c(Other_agg, "Other"),1,0)
-      row.names(agg_var_mat) <- c("Other Aggregated")
-      
-      if(length(AY_agg) != 0) {
-        extra_row <- ifelse(colnames(agg_var_mat) %in% c("B.1.617.2", AY_agg),1,0)
-        agg_var_mat <- rbind(agg_var_mat, extra_row)
-        row.names(agg_var_mat)[nrow(agg_var_mat)] <- c("Delta Aggregated")
-      }
-      if(length(BA_agg) != 0) {
-        extra_row <- ifelse(colnames(agg_var_mat) %in% c("B.1.1.529", BA_agg),1,0)
-        agg_var_mat <- rbind(agg_var_mat, extra_row)
-        row.names(agg_var_mat)[nrow(agg_var_mat)] <- c("Omicron Aggregated")
-      }
-      if(length(XBB_agg) != 0) {
-        extra_row <- ifelse(colnames(agg_var_mat) %in% c("XBB", XBB_agg),1,0)
-        agg_var_mat <- rbind(agg_var_mat, extra_row)
-        row.names(agg_var_mat)[nrow(agg_var_mat)] <- c("XBB Aggregated")
-      }
-      
-      
-      # add rows to agg_var_mat for each XBB subvariant in run1_lingeages
-      {
-        XBBs_in_r1l <- XBB_vars[XBB_vars %in% run1_lineages]
-        for (ll in XBBs_in_r1l){
-          if(exists('ll_agg')) rm(ll_agg)
-          if(ll == 'XBB.1.5'){
-            ll_agg <- grep("^XBB\\.1\\.5(?![0-9])|^FD\\.", XBB_vars, perl = T, value = T)
-            ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
-            ll_agg <- c(ll_agg, 'XBB.1.5')
-          }
-          if(ll == 'XBB.1.16'){
-            ll_agg <- grep("^XBB\\.1\\.16(?![0-9])", XBB_vars, perl = T, value = T)
-            ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
-            ll_agg <- c(ll_agg, 'XBB.1.16')
-          }
-          if(ll == 'XBB.1.9.2'){
-            ll_agg <- grep("^XBB\\.1\\.9\\.2(?![0-9])|^EG\\.", XBB_vars, perl = T, value = T)
-            ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
-            ll_agg <- c(ll_agg, 'XBB.1.9.2')
-          }
-          if(ll == 'XBB.2.3'){
-            ll_agg <- grep("^XBB\\.2\\.3(?![0-9])", XBB_vars, perl = T, value = T)
-            ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
-            ll_agg <- c(ll_agg, 'XBB.2.3')
-            
-          }
-          if(exists('ll_agg')){
-            # if ll_agg contains subvariants of ll, then add a new row to agg_var_mat
-            # if ll_agg only contains ll, don't add a new row
-            if(any(ll_agg != ll)){
-              # create an extra row for the agg_var_mat
-              extra_row <- ifelse(colnames(agg_var_mat) %in% ll_agg,1,0)
-              
-              # add the new row onto the aggregation matrix
-              agg_var_mat <- rbind(
-                agg_var_mat,
-                extra_row
-              )
-              row.names(agg_var_mat)[nrow(agg_var_mat)] <- paste(ll, 'Aggregated')
-              
-              # remove aggregation indices from "XBB Aggregated" if they're in the new row
-              om_row <- which(row.names(agg_var_mat) == 'XBB Aggregated')
-              agg_var_mat[om_row,which(agg_var_mat[ om_row,] == 1 & extra_row == 1)] <- 0
-            }
-          }
-        }
-      }
-      
-      
-      # add rows to agg_var_mat for each BA subvariant in run1_lineages
-      {
-        # get the BA subvariants that are in run1_lineages, and therefore might need their own aggregations
-        #  (e.g. aggregate BA.2.12 into BA.2 if both are in voc2, but only BA.2 is in voc1)
-        BAs_in_r1l <- BA_vars[BA_vars %in% run1_lineages]
-        for( ll in BAs_in_r1l){
-          if(exists('ll_agg')) rm(ll_agg)
-          # first get the BA_vars that should be aggregated into this "ll" instead of parent omicron
-          # grep(pattern = ll, x = BA_vars) # this won't work in all cases. I'll have to use a piece-wise/messy "solution"
-          if (ll == 'BA.1'){
-            # this always excludes BA.1.1
-            # if voc1 includes BA.1, but not BA.1.1, then this is going to result in BA.1.1 aggregated into parent omicron, NOT BA.1
-            ll_agg <- grep("(^BA\\.1)(?!(\\.1$))",BA_vars, perl = T, value = T)
-          }
-          if (ll == 'BA.1.1'){
-            ll_agg <- grep("(^BA\\.1\\.1)(?![0-9])",BA_vars, perl = T, value = T)
-          }
-          if (ll == 'BA.2') {
-            ll_agg <- grep("(^BA\\.2)(?![0-9])",BA_vars, perl = T, value = T)
-            ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
-            ll_agg <- c(ll_agg, 'BA.2')
-          }
-          if(ll == 'BA.2.12.1') {
-            ll_agg <- grep("(^BA\\.2\\.12\\.1)|(^BG\\.)",BA_vars, perl = T, value = T)
-          }
-          
-          if(ll == 'BA.2.75') {
-            ll_agg <- grep("(^BA\\.2\\.75)(?![0-9])|(^BN\\.)|(^CH\\.)",BA_vars, perl = T, value = T)
-            if(length(grep("(^CH\\.1\\.1)",run1_lineages, perl = T, value = T)) == 1) {
-              ll_agg_not <- grep("(^CH\\.1\\.1)(?![0-9])",ll_agg, perl = T, value =T)
-              ll_agg <- setdiff(ll_agg, ll_agg_not)
-            }
-            ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
-            ll_agg <- c(ll_agg, 'BA.2.75')
-          }
-          if(ll == 'CH.1.1'){
-            ll_agg <- grep("(^CH\\.1\\.1)(?![0-9])",BA_vars, perl = T, value =T)
-            ll_agg <- c(ll_agg, 'CH.1.1')
-          }
-          if (ll == 'BA.3') {
-            ll_agg <- grep("(^BA\\.3)(?![0-9])",BA_vars, perl = T, value = T)
-          }
-          if (ll == 'BA.4') {
-            ll_agg <- grep("(^BA\\.4)(?![0-9])",BA_vars, perl = T, value = T)
-            # this will keep BA.4.6 seperate ONLY if BA.4.6 is *ALSO* listed in run1_lineages
-            if( length(grep("(^BA\\.4\\.6)",run1_lineages, perl = T, value = T)) == 1 ){
-              ll_agg <- grep("(^BA\\.4)(?!([0-9])|(\\.6))",BA_vars, perl = T, value = T)
-            }
-          }
-          if (ll == 'BA.4.6'){
-            ll_agg <- grep("(^BA\\.4\\.6)(?![0-9])",BA_vars, perl = T, value = T)
-          }
-          if(ll == 'BQ.1.1') {
-            ll_agg <- grep("(^BQ\\.1\\.1)(?![0-9])|(^DK\\.)",BA_vars, perl = T, value = T)
-          }
-          if(ll == 'BQ.1') {
-            if(length(grep("^BQ\\.1\\.1(?![0-9])", run1_lineages, perl=T, value=T)) > 0){
-              ll_agg <- grep("(^BQ\\.1)(?![0-9]|(\\.1(?![0-9])))",BA_vars, perl = T, value = T)
-            } else {
-              ll_agg <- grep("(^BQ\\.1)(?![0-9])",BA_vars, perl = T, value = T)
-            }
-            ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
-            ll_agg <- c(ll_agg, 'BQ.1')
-          }
-          if(ll == 'BF.11') {
-            ll_agg <- grep("(^BF\\.11)(?![0-9])",BA_vars, perl = T, value = T)
-          }
-          if(ll == 'BF.7') {
-            ll_agg <- grep("(^BF\\.7)(?![0-9])",BA_vars, perl = T, value = T)
-          }
-          if(ll == 'BA.5') {
-            if( length(grep("(^BF\\.7)(?![0-9])",run1_lineages, perl = T, value = T)) > 0 ){
-              ll_agg <- grep("(^CQ\\.)|(^BA\\.5)(?![0-9])|(^BE\\.)|(^BF\\.(?!7(?![0-9])))|(^C[KR]\\.)|(^DF\\.)",BA_vars, perl = T, value = T)
-            } else {
-              ll_agg <- grep("(^CQ\\.)|(^BA\\.5)(?![0-9])|(^B[EF]\\.)|(^C[KR]\\.)|(^DF\\.)",BA_vars, perl = T, value = T)
-            }
-            # this will keep the sublineage seperate if it is ALSO listed in run1 lineages
-            ll_agg <- setdiff(ll_agg, ll_agg[ll_agg %in% run1_lineages])
-            ll_agg <- c(ll_agg, 'BA.5')
-          }
-          if(exists('ll_agg')){
-            # if ll_agg contains subvariants of ll, then add a new row to agg_var_mat
-            # if ll_agg only contains ll, don't add a new row
-            if(any(ll_agg != ll)){
-              # create an extra row for the agg_var_mat
-              extra_row <- ifelse(colnames(agg_var_mat) %in% ll_agg,1,0)
-              
-              # add the new row onto the aggregation matrix
-              agg_var_mat <- rbind(
-                agg_var_mat,
-                extra_row
-              )
-              row.names(agg_var_mat)[nrow(agg_var_mat)] <- paste(ll, 'Aggregated')
-              
-              # remove aggregation indices from "Omicron Aggregated" if they're in the new row
-              om_row <- which(row.names(agg_var_mat) == 'Omicron Aggregated')
-              agg_var_mat[om_row,which(agg_var_mat[ om_row,] == 1 & extra_row == 1)] <- 0
-            }
-          }
-        }
-      }
-      # print a warning if any columns have totals > 1
-      if(any(colSums(agg_var_mat)>1)) warning(paste0('agg_var_mat not correctly specified. Some variants are aggregated more than once.', agg_var_mat))
-      
-      # QA: make sure that any aggregated variant includes itself!
-      agg_var_names <- gsub(' Aggregated', '',
-                            sub('Delta', 'B.1.617.2',
-                                sub('Omicron', 'B.1.1.529',
-                                    row.names(agg_var_mat))))
-      if(!all(diag(agg_var_mat[, agg_var_names])==1)) {
-        # which variant is not included in itself?
-        stop(paste0(
-          "In 'agg_var_mat', ",
-          agg_var_names[diag(agg_var_mat[, agg_var_names])!=1],
-          ' is not included in ',
-          row.names(agg_var_mat)[diag(agg_var_mat[, agg_var_names])!=1])
-        )
-      }
-      
-      # save agg_var_mat
-      # weighting_methods (meth) will produce identical agg_var_mat for weighted & unweighted, so no need to save both. This will overwrite one with the other if running weighting_methods = "both"
-      write.csv(
-        x = replace(agg_var_mat, agg_var_mat == 0, NA), # it's easier to view in Excel with only the 1's and no 0's
-        file = paste0(script.basename,
-                      output_folder, "/agg_var_mat_",
-                      ci.type,
-                      "CI_",
-                      svy.type,
-                      "_",
-                      data_date,
-                      tag,
-                      ".csv"),
-        row.names = T,
-        na = ""
-      )
-    } # end agg_var_mat old method
+    agg_var_mat <- build_aggregation_matrix(
+      voc_aggregation_method = opts$voc_aggregation_method,
+      model_vars = model_vars,
+      voc1 = voc1,
+      voc = voc,
+      voc_lut = voc_lut,
+      script.basename = script.basename,
+      output_folder = output_folder,
+      ci.type = ci.type,
+      svy.type = svy.type,
+      data_date = data_date,
+      tag = tag
+    )
     
     
     ### Monthly estimates -----
@@ -3895,30 +3078,7 @@ if ( grepl("Run2",tag) ){
           doubling_time_lo = log(2)/(ests$g_S - 1.96 * ests$se.g_S) * 7, # c(doubling_time_lo, gr_agg$dt_lo),
           doubling_time_hi = log(2)/(ests$g_S + 1.96 * ests$se.g_S) * 7 # c(doubling_time_hi, gr_agg$dt_hi)
         )
-        
-        # Get binomial CI from p_i and se.p_i
-        binom.ci = apply(X = ests,
-                         MARGIN = 1,
-                         FUN = function(rr) svyCI(p = as.numeric(rr[4]),
-                                                  s = as.numeric(rr[5])))
-        
-        # add the CI into the estimates dataframe
-        ests$Share_lo = binom.ci[1,]
-        ests$Share_hi = binom.ci[2,]
-        
-        # optionally add 99% prediction interval
-        if(calc_99_CI_nowcast){
-          binom.ci.99 <- array(data = numeric(), dim = c(2, nrow(ests)))
-          for (rr in seq(nrow(ests))){
-            binom.ci.99[,rr] <- svyCI(p = as.numeric(ests[rr,4]),
-                                      s = as.numeric(ests[rr,5]),
-                                      conf.level = 0.99)
-          }
-          
-          # add the CI into the estimates dataframe
-          ests$Share_lo_99 = binom.ci.99[1,]
-          ests$Share_hi_99 = binom.ci.99[2,]
-        }
+        ests <- add_share_ci_columns(ests, calc_99 = calc_99_CI_nowcast)
         
         # add the estimates for this specific place & time to the results
         proj.res = rbind(proj.res,
@@ -3943,135 +3103,98 @@ if ( grepl("Run2",tag) ){
     if(calc_99_CI_nowcast) proj.res_column_names <- c(proj.res_column_names, 'Share_lo_99', 'Share_hi_99')
     proj.res = proj.res[,..proj.res_column_names]
     
-    # optionally calculate the number of infections attributable to each variant
     if (calc_confirmed_infections){
-      test_filepath <- paste0(script.basename,
-                              "/data/backup_",
-                              data_date, custom_tag, "/",
-                              data_date, "_tests_aggregated",
-                              custom_tag, ".RDS")
-      
-      if (file.exists(test_filepath)){
-        test_list <- readRDS(file = test_filepath)
-        
-        # get the monthly test tallies & aggregate them by fn across USA
-        tests_fn_us <- test_list$tests_month[,
-                                                 .('total_test_positives' = sum(POSITIVE, na.rm = T)),
-                                                 by = 'month_end'][,'HHS' := 'USA']
-        # aggregate monthly tests by HHS region
-        tests_fn_hhs <- test_list$tests_month[,
-                                                  .('total_test_positives' = sum(POSITIVE, na.rm = T)),
-                                                  by = c('month_end', 'HHS')]
-        
-        # merge the positive test results in with the variant proportion estimates
-        proj.res <- merge(
-          x = proj.res,
-          y = rbind(tests_fn_us,
-                    tests_fn_hhs)[,.(month_end = as.Date(month_end),
-                                     total_test_positives = total_test_positives,
-                                     HHS = HHS)],
-          by.x = c("USA_or_HHSRegion",
-                   "Month_ending"),
-          by.y = c('HHS',
-                   'month_end'),
-          all.x = TRUE)
-        
-        # calculate case totals for each variant
-        proj.res[, cases    := total_test_positives * Share]
-        proj.res[, cases_lo := total_test_positives * Share_lo]
-        proj.res[, cases_hi := total_test_positives * Share_hi]
-      } else {
-        print(paste0('File ',
-                     test_filepath,
-                     ' not found. Not calculating number of infections attributable to each variant for months.'))
-      }
+      proj.res <- attach_monthly_confirmed_infections(
+        proj.res = proj.res,
+        script.basename = script.basename,
+        data_date = data_date,
+        custom_tag = custom_tag
+      )
     }
     
     if(pre_aggregation==FALSE){
       run_1 <- build_run1_output(proj.res, agg_var_mat)
-
-      if (!shares_sum_to_one(run_1, c("USA_or_HHSRegion", "Month_ending"))){
-        warning(paste(
-          paste0(script.basename,
-                 output_folder, "/updated_nowcast_monthly_",
-                 data_date,
-                 sub(pattern = '2', replacement = '1', x = tag),
-                 ".csv"),
-          'results are invalid! The total proportion does not add up to 100% in each time period!')
-        )
-      } else {
-        write.csv(x = run_1,
-                  file = paste0(script.basename,
-                                output_folder, "/updated_nowcast_monthly_",
-                                meth,
-                                '_',
-                                data_date,
-                                sub(pattern = '2', replacement = '1', x = tag),
-                                "_",
-                                results_tag,
-                                ".csv"),
-                  row.names = FALSE)
-        write_hadoop_output(
-          results_df = run_1,
-          file = paste0(script.basename,
-                        output_folder, "/updated_nowcast_monthly_",
-                        data_date,
-                        sub(pattern = '2', replacement = '1', x = tag),
-                        "_",
-                        results_tag,
-                        "_hadoop.csv"),
-          base_columns = 1:6,
-          data_date = data_date,
-          results_tag = results_tag,
-          run_label = "Run1",
-          cadence_label = "4_week",
-          calc_confirmed_infections = calc_confirmed_infections,
-          confirmed_columns = 14:17
-        )
-      }
-    }
-    
-    run_2 <- build_run2_output(proj.res, agg_var_mat)
-    
-    if (!shares_sum_to_one(run_2, c("USA_or_HHSRegion", "Month_ending"))){
-      warning(paste(
-        paste0(script.basename,
-               output_folder, "/updated_nowcast_monthly_",
-               data_date,
-               tag,
-               ".csv"),
-        'results are invalid! The total proportion does not add up to 100% in all weeks!')
-      )
-    } else {
-      write.csv(x = run_2,
-                file = paste0(script.basename,
-                              output_folder, "/updated_nowcast_monthly_",
-                              meth,
-                              "_",
-                              data_date,
-                              tag,
-                              "_",
-                              results_tag,
-                              ".csv"),
-                row.names = FALSE)
-      write_hadoop_output(
-        results_df = run_2,
-        file = paste0(script.basename,
-                      output_folder, "/updated_nowcast_monthly_",
-                      data_date,
-                      tag,
-                      "_",
-                      results_tag,
-                      "_hadoop.csv"),
-        base_columns = 1:6,
+      write_validated_output(
+        results_df = run_1,
+        group_cols = c("USA_or_HHSRegion", "Month_ending"),
+        warning_file = paste0(
+          script.basename,
+          output_folder, "/updated_nowcast_monthly_",
+          data_date,
+          sub(pattern = "2", replacement = "1", x = tag),
+          ".csv"
+        ),
+        invalid_message = "results are invalid! The total proportion does not add up to 100% in each time period!",
+        csv_file = paste0(
+          script.basename,
+          output_folder, "/updated_nowcast_monthly_",
+          meth,
+          "_",
+          data_date,
+          sub(pattern = "2", replacement = "1", x = tag),
+          "_",
+          results_tag,
+          ".csv"
+        ),
+        hadoop_file = paste0(
+          script.basename,
+          output_folder, "/updated_nowcast_monthly_",
+          data_date,
+          sub(pattern = "2", replacement = "1", x = tag),
+          "_",
+          results_tag,
+          "_hadoop.csv"
+        ),
+        hadoop_base_columns = 1:6,
         data_date = data_date,
         results_tag = results_tag,
-        run_label = "Run2",
+        run_label = "Run1",
         cadence_label = "4_week",
         calc_confirmed_infections = calc_confirmed_infections,
         confirmed_columns = 14:17
       )
     }
+    
+    run_2 <- build_run2_output(proj.res, agg_var_mat)
+    write_validated_output(
+      results_df = run_2,
+      group_cols = c("USA_or_HHSRegion", "Month_ending"),
+      warning_file = paste0(
+        script.basename,
+        output_folder, "/updated_nowcast_monthly_",
+        data_date,
+        tag,
+        ".csv"
+      ),
+      invalid_message = "results are invalid! The total proportion does not add up to 100% in all weeks!",
+      csv_file = paste0(
+        script.basename,
+        output_folder, "/updated_nowcast_monthly_",
+        meth,
+        "_",
+        data_date,
+        tag,
+        "_",
+        results_tag,
+        ".csv"
+      ),
+      hadoop_file = paste0(
+        script.basename,
+        output_folder, "/updated_nowcast_monthly_",
+        data_date,
+        tag,
+        "_",
+        results_tag,
+        "_hadoop.csv"
+      ),
+      hadoop_base_columns = 1:6,
+      data_date = data_date,
+      results_tag = results_tag,
+      run_label = "Run2",
+      cadence_label = "4_week",
+      calc_confirmed_infections = calc_confirmed_infections,
+      confirmed_columns = 14:17
+    )
     
     cast_wks = (function(dd) as.Date(seq(from = dd[1],
                                          to = dd[2],
@@ -4104,51 +3227,12 @@ if ( grepl("Run2",tag) ){
                            ),
                            composite_variant = agg_var_mat,
                            dy_dt = data.frame(model_week=1))
-        se.gr = with(data = ests,
-                     expr = 100 * exp(sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2))) - 100)
-        gr = with(ests,
-                  100 * exp(b_i - sum(p_i * b_i)) - 100)
-        se.gr_link = with(data = ests,
-                          expr = sqrt(se.b_i^2 * (1 - 2 * p_i) + sum(se.p_i^2 * b_i^2 + p_i^2 * se.b_i^2)))
-        gr_link = with(data = ests,
-                       expr = (b_i - sum(p_i * b_i)))
-        gr_lo_link = gr_link - 1.96 * se.gr_link
-        gr_hi_link = gr_link + 1.96 * se.gr_link
-        
-        gr_lo = 100 * exp(gr_lo_link) - 100
-        gr_hi = 100 * exp(gr_hi_link) - 100
-        doubling_time    = log(2)/gr_link * 7
-        doubling_time_lo = log(2)/gr_lo_link * 7
-        doubling_time_hi = log(2)/gr_hi_link * 7
-        
-        gr_agg <- data.frame( variant = rownames(agg_var_mat),
-                              gr    = NA,
-                              se.gr = NA,
-                              gr_lo = NA,
-                              gr_hi = NA,
-                              dt    = NA,
-                              dt_lo = NA,
-                              dt_hi = NA)
-        for(r in 1:nrow(agg_var_mat)){
-          if(unname(rowSums(agg_var_mat)[r]) == 1){
-            col_ind <- which(agg_var_mat[r,]>0)
-            gr_agg[r,'gr']    <- gr[col_ind]
-            gr_agg[r,'se.gr'] <- se.gr[col_ind]
-            gr_agg[r,'gr_lo'] <- gr_lo[col_ind]
-            gr_agg[r,'gr_hi'] <- gr_hi[col_ind]
-            gr_agg[r,'dt']    <- doubling_time[col_ind]
-            gr_agg[r,'dt_lo'] <- doubling_time_lo[col_ind]
-            gr_agg[r,'dt_hi'] <- doubling_time_hi[col_ind]
-          } else {
-            col_ind <- unname(which(agg_var_mat[r,]>0))
-            gr_agg[r,'gr']    <- sum(   gr[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-            gr_agg[r,'gr_lo'] <- sum(gr_lo[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-            gr_agg[r,'gr_hi'] <- sum(gr_hi[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-            gr_agg[r,'dt']    <- sum(   doubling_time[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-            gr_agg[r,'dt_lo'] <- sum(doubling_time_lo[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-            gr_agg[r,'dt_hi'] <- sum(doubling_time_hi[col_ind] * ests$p_i[col_ind]) / sum(ests$p_i[col_ind])
-          }
-        }
+        growth_metrics <- compute_variant_growth_metrics(ests)
+        gr_agg <- aggregate_growth_metrics(
+          agg_var_mat = agg_var_mat,
+          base_share = ests$p_i,
+          metrics = growth_metrics
+        )
         
         ests = data.table::data.table(
           USA_or_HHSRegion = rgn,
@@ -4160,35 +3244,17 @@ if ( grepl("Run2",tag) ){
                     ests$composite_variant$p_i),
           se.Share = c(ests$se.p_i,
                        ests$composite_variant$se.p_i),
-          growth_rate    = c(gr,    gr_agg$gr),
-          growth_rate_lo = c(gr_lo, gr_agg$gr_lo),
-          growth_rate_hi = c(gr_hi, gr_agg$gr_hi),
-          doubling_time    = c(doubling_time,    gr_agg$dt),
-          doubling_time_lo = c(doubling_time_lo, gr_agg$dt_lo),
-          doubling_time_hi = c(doubling_time_hi, gr_agg$dt_hi),
+          growth_rate    = c(growth_metrics$growth_rate,    gr_agg$gr),
+          growth_rate_lo = c(growth_metrics$growth_rate_lo, gr_agg$gr_lo),
+          growth_rate_hi = c(growth_metrics$growth_rate_hi, gr_agg$gr_hi),
+          doubling_time    = c(growth_metrics$doubling_time,    gr_agg$dt),
+          doubling_time_lo = c(growth_metrics$doubling_time_lo, gr_agg$dt_lo),
+          doubling_time_hi = c(growth_metrics$doubling_time_hi, gr_agg$dt_hi),
           date        = wk_date,
           week_start  = week_start,
           model_week  = wk
         )
-        binom.ci = apply(X = ests,
-                         MARGIN = 1 ,
-                         FUN = function(rr) svyCI(p = as.numeric(rr[4]),
-                                                  s = as.numeric(rr[5])))
-        
-        ests$Share_lo = binom.ci[1,]
-        ests$Share_hi = binom.ci[2,]
-        
-        if(calc_99_CI_nowcast){
-          binom.ci.99 <- array(data = numeric(), dim = c(2, nrow(ests)))
-          for (rr in seq(nrow(ests))){
-            binom.ci.99[,rr] <- svyCI(p = as.numeric(ests[rr,4]),
-                                      s = as.numeric(ests[rr,5]),
-                                      conf.level = 0.99)
-          }
-          
-          ests$Share_lo_99 = binom.ci.99[1,]
-          ests$Share_hi_99 = binom.ci.99[2,]
-        }
+        ests <- add_share_ci_columns(ests, calc_99 = calc_99_CI_nowcast)
         proj.res = rbind(proj.res,
                          ests)
       }
@@ -4215,73 +3281,13 @@ if ( grepl("Run2",tag) ){
     if(calc_99_CI_nowcast) proj.res_column_names <- c(proj.res_column_names, 'Share_lo_99', 'Share_hi_99')
     proj.res = proj.res[,..proj.res_column_names]
     
-    # optionally calculate the number of infections attributable to each variant
     if (calc_confirmed_infections){
-      test_filepath <- paste0(script.basename,
-                              "/data/backup_",
-                              data_date, custom_tag, "/",
-                              data_date, "_tests_aggregated",
-                              custom_tag, ".RDS")
-      
-      if (file.exists(test_filepath)){
-        test_list <- readRDS(file = test_filepath)
-        
-        # get the daily test tallies & aggregate them by fn across USA
-        tests_dy_us <- test_list$tests_daily[,
-                                             .('total_test_positives_daily' = sum(POSITIVE_daily, na.rm = T)),
-                                             by = 'date'][,'HHS' := 'USA']
-        # aggregate daily tests by HHS region
-        tests_dy_hhs <- test_list$tests_daily[,
-                                              .('total_test_positives_daily' = sum(POSITIVE_daily, na.rm = T)),
-                                              by = c('date', 'HHS')]
-        
-        # get the weekly test tallies & aggregate them by fn across USA
-        tests_wk_us <- test_list$tests_weekly[,
-                                              .('total_test_positives_weekly' = sum(POSITIVE, na.rm = T)),
-                                              by = 'yr_wk'][,'HHS' := 'USA']
-        # aggregate weekly tests by HHS region
-        tests_wk_hhs <- test_list$tests_weekly[,
-                                               .('total_test_positives_weekly' = sum(POSITIVE, na.rm = T)),
-                                               by = c('yr_wk', 'HHS')]
-        
-        
-        # merge the daily positive test results in with the variant proportion estimates
-        proj.res <- merge(
-          x = proj.res,
-          y = rbind(tests_dy_us,
-                    tests_dy_hhs),
-          by.x = c("USA_or_HHSRegion",
-                   "date"),
-          by.y = c('HHS',
-                   'date'),
-          all.x = TRUE)
-        
-        
-        # merge the positive test results in with the variant proportion estimates
-        proj.res <- merge(
-          x = proj.res,
-          y = rbind(tests_wk_us,
-                    tests_wk_hhs)[,'Week_ending' := as.Date(yr_wk) + 6][, 'yr_wk' := NULL],
-          by.x = c("USA_or_HHSRegion",
-                   "Week_ending"),
-          by.y = c('HHS',
-                   'Week_ending'),
-          all.x = TRUE)
-        
-        # calculate case totals for each variant
-        proj.res[, cases_daily    := total_test_positives_daily * Share]
-        proj.res[, cases_lo_daily := total_test_positives_daily * Share_lo]
-        proj.res[, cases_hi_daily := total_test_positives_daily * Share_hi]
-        
-        proj.res[, cases_weekly    := total_test_positives_weekly * Share]
-        proj.res[, cases_lo_weekly := total_test_positives_weekly * Share_lo]
-        proj.res[, cases_hi_weekly := total_test_positives_weekly * Share_hi]
-      } else {
-        print(paste0('File ',
-                     test_filepath,
-                     ' not found. Not calculating number of infections attributable to each variant for weeks.'))
-      }
-      
+      proj.res <- attach_weekly_confirmed_infections(
+        proj.res = proj.res,
+        script.basename = script.basename,
+        data_date = data_date,
+        custom_tag = custom_tag
+      )
     }
     
     if(pre_aggregation==FALSE){
@@ -4290,68 +3296,69 @@ if ( grepl("Run2",tag) ){
       run_1_weekly <- run_1_split$weekly
       run_1_daily <- run_1_split$daily
 
-      if (!shares_sum_to_one(run_1_weekly, c("USA_or_HHSRegion", "Week_ending"))){
-        warning(paste(
-          paste0(script.basename,
-                 output_folder, "/updated_nowcast_weekly_",
-                 data_date,
-                 sub(pattern = '2', replacement = '1', x = tag),
-                 ".csv"),
-          'results are invalid! The total proportion does not add up to 100% in all weeks!')
-        )
-      } else {
-        write.csv(x = run_1_weekly,
-                  file = paste0(script.basename,
-                                output_folder, "/updated_nowcast_weekly_",
-                                meth,
-                                "_",
-                                data_date,
-                                sub(pattern = '2', replacement = '1', x = tag),
-                                "_",
-                                results_tag,
-                                ".csv"),
-                  row.names = FALSE)
-        write_hadoop_output(
-          results_df = run_1_weekly,
-          file = paste0(script.basename,
-                        output_folder, "/updated_nowcast_weekly_",
-                        data_date,
-                        sub(pattern = '2', replacement = '1', x = tag),
-                        "_",
-                        results_tag,
-                        "_hadoop.csv"),
-          base_columns = c(1:2, 4:7),
-          data_date = data_date,
-          results_tag = results_tag,
-          run_label = "Run1",
-          cadence_label = "weekly",
-          calc_confirmed_infections = calc_confirmed_infections,
-          confirmed_columns = 17:20
-        )
-      }
+      write_validated_output(
+        results_df = run_1_weekly,
+        group_cols = c("USA_or_HHSRegion", "Week_ending"),
+        warning_file = paste0(
+          script.basename,
+          output_folder, "/updated_nowcast_weekly_",
+          data_date,
+          sub(pattern = "2", replacement = "1", x = tag),
+          ".csv"
+        ),
+        invalid_message = "results are invalid! The total proportion does not add up to 100% in all weeks!",
+        csv_file = paste0(
+          script.basename,
+          output_folder, "/updated_nowcast_weekly_",
+          meth,
+          "_",
+          data_date,
+          sub(pattern = "2", replacement = "1", x = tag),
+          "_",
+          results_tag,
+          ".csv"
+        ),
+        hadoop_file = paste0(
+          script.basename,
+          output_folder, "/updated_nowcast_weekly_",
+          data_date,
+          sub(pattern = "2", replacement = "1", x = tag),
+          "_",
+          results_tag,
+          "_hadoop.csv"
+        ),
+        hadoop_base_columns = c(1:2, 4:7),
+        data_date = data_date,
+        results_tag = results_tag,
+        run_label = "Run1",
+        cadence_label = "weekly",
+        calc_confirmed_infections = calc_confirmed_infections,
+        confirmed_columns = 17:20
+      )
 
-      if (!shares_sum_to_one(run_1_daily, c("USA_or_HHSRegion", "date"))){
-        warning(paste(
-          paste0(script.basename,
-                 output_folder, "/updated_nowcast_weekly_",
-                 data_date,
-                 sub(pattern = '2', replacement = '1', x = tag),
-                 "_daily.csv"),
-          'results are invalid! The total proportion does not add up to 100% in all weeks!')
+      write_validated_output(
+        results_df = run_1_daily,
+        group_cols = c("USA_or_HHSRegion", "date"),
+        warning_file = paste0(
+          script.basename,
+          output_folder, "/updated_nowcast_weekly_",
+          data_date,
+          sub(pattern = "2", replacement = "1", x = tag),
+          "_daily.csv"
+        ),
+        invalid_message = "results are invalid! The total proportion does not add up to 100% in all weeks!",
+        csv_file = paste0(
+          script.basename,
+          output_folder, "/updated_nowcast_weekly_",
+          meth,
+          "_",
+          data_date,
+          sub(pattern = "2", replacement = "1", x = tag),
+          "_",
+          results_tag,
+          "_daily.csv"
         )
-      } else {
-        write.csv(x = run_1_daily,
-                  file = paste0(script.basename,
-                                output_folder, "/updated_nowcast_weekly_",
-                                meth,
-                                "_",
-                                data_date,
-                                sub(pattern = '2', replacement = '1', x = tag),
-                                "_",
-                                results_tag,
-                                "_daily.csv"),
-                  row.names = FALSE)
-      }
+      )
     }
 
     run_2 <- build_run2_output(proj.res, agg_var_mat)
@@ -4359,68 +3366,69 @@ if ( grepl("Run2",tag) ){
     run_2_weekly <- run_2_split$weekly
     run_2_daily <- run_2_split$daily
 
-    if (!shares_sum_to_one(run_2_weekly, c("USA_or_HHSRegion", "Week_ending"))){
-      warning(paste(
-        paste0(script.basename,
-               output_folder, "/updated_nowcast_weekly_",
-               data_date,
-               tag,
-               ".csv"),
-        'results are invalid! The total proportion does not add up to 100% in all weeks!')
-      )
-    } else {
-      write.csv(x = run_2_weekly,
-                file = paste0(script.basename,
-                              output_folder, "/updated_nowcast_weekly_",
-                              meth,
-                              "_",
-                              data_date,
-                              tag,
-                              "_",
-                              results_tag,
-                              ".csv"),
-                row.names = FALSE)
-      write_hadoop_output(
-        results_df = run_2_weekly,
-        file = paste0(script.basename,
-                      output_folder, "/updated_nowcast_weekly_",
-                      data_date,
-                      tag,
-                      "_",
-                      results_tag,
-                      "_hadoop.csv"),
-        base_columns = c(1:2, 4:7),
-        data_date = data_date,
-        results_tag = results_tag,
-        run_label = "Run2",
-        cadence_label = "weekly",
-        calc_confirmed_infections = calc_confirmed_infections,
-        confirmed_columns = 17:20
-      )
-    }
+    write_validated_output(
+      results_df = run_2_weekly,
+      group_cols = c("USA_or_HHSRegion", "Week_ending"),
+      warning_file = paste0(
+        script.basename,
+        output_folder, "/updated_nowcast_weekly_",
+        data_date,
+        tag,
+        ".csv"
+      ),
+      invalid_message = "results are invalid! The total proportion does not add up to 100% in all weeks!",
+      csv_file = paste0(
+        script.basename,
+        output_folder, "/updated_nowcast_weekly_",
+        meth,
+        "_",
+        data_date,
+        tag,
+        "_",
+        results_tag,
+        ".csv"
+      ),
+      hadoop_file = paste0(
+        script.basename,
+        output_folder, "/updated_nowcast_weekly_",
+        data_date,
+        tag,
+        "_",
+        results_tag,
+        "_hadoop.csv"
+      ),
+      hadoop_base_columns = c(1:2, 4:7),
+      data_date = data_date,
+      results_tag = results_tag,
+      run_label = "Run2",
+      cadence_label = "weekly",
+      calc_confirmed_infections = calc_confirmed_infections,
+      confirmed_columns = 17:20
+    )
 
-    if (!shares_sum_to_one(run_2_daily, c("USA_or_HHSRegion", "date"))){
-      warning(paste(
-        paste0(script.basename,
-               output_folder, "/updated_nowcast_weekly_",
-               data_date,
-               tag,
-               "_daily.csv"),
-        'results are invalid! The total proportion does not add up to 100% in all weeks!')
+    write_validated_output(
+      results_df = run_2_daily,
+      group_cols = c("USA_or_HHSRegion", "date"),
+      warning_file = paste0(
+        script.basename,
+        output_folder, "/updated_nowcast_weekly_",
+        data_date,
+        tag,
+        "_daily.csv"
+      ),
+      invalid_message = "results are invalid! The total proportion does not add up to 100% in all weeks!",
+      csv_file = paste0(
+        script.basename,
+        output_folder, "/updated_nowcast_weekly_",
+        meth,
+        "_",
+        data_date,
+        tag,
+        "_",
+        results_tag,
+        "_daily.csv"
       )
-    } else {
-      write.csv(x = run_2_daily,
-                file = paste0(script.basename,
-                              output_folder, "/updated_nowcast_weekly_",
-                              meth,
-                              '_',
-                              data_date,
-                              tag,
-                              "_",
-                              results_tag,
-                              "_daily.csv"),
-                row.names = FALSE)
-    }
+    )
   }
 } # end run 2 Nowcast modeling
   

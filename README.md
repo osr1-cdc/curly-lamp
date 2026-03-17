@@ -6,6 +6,7 @@ Code for applying weights and confidence intervals to SARS-CoV-2 proportion data
 
  **Written by** Prabasaj Paul <vig5@cdc.gov>, Molly Steele <xzn9@cdc.gov>
  **with updates from** Norman Hassell <ncy6@cdc.gov>, Philip Shirk <rsv4@cdc.gov>, Xiaoyu Sherry Zheng <qiu5@cdc.gov>
+ **recent contributors (past year)** Clint Paden <fep2@cdc.gov>, Juan Castro <jcb0@cdc.gov>, Peter Cook <ooj4@cdc.gov>, Casey Smith osr1 <osr1@cdc.gov>, Megha Aggarwal <tlz5@cdc.gov>
 
 **Reference**:
 Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants Circulating in the United States, December 2020–May 2021. MMWR Morb Mortal Wkly Rep 2021;70:846–850. DOI: [http://dx.doi.org/10.15585/mmwr.mm7023a3](http://dx.doi.org/10.15585/mmwr.mm7023a3)
@@ -24,6 +25,18 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
 ## Code
 
 - **config/config.R** - Specify configuration settings: data dates, VOCs (variants shown on CDC COVID Data Tracker), and figure settings.
+- **config/environment.yml** - Conda environment definition for the R and system dependencies used by the pipeline.
+- **config/conda_env.sh** - Shared shell activation settings used by the HPC wrappers.
+
+- **pipeline.R** - Main entrypoint for orchestration.
+  - Commands: `prepare-data`, `run1`, `run2`, `run-all`, `submit-all`
+  - Usage: `Rscript pipeline.R --help`
+
+- **pipeline_job.sh** - Generic Grid Engine wrapper that runs a single `pipeline.R` subcommand inside the configured conda environment.
+
+- **proportion_modeling_run.sh** - Thin submission wrapper for the full production workflow.
+  - Usage: `qsub proportion_modeling_run.sh -u <username> -p <password>`
+  - This wrapper calls `pipeline.R submit-all`
 
 - **variant_surveillance_system.R** - Generates the analytic dataset with survey weights from CDC databases.
   - Input: CDC database queries for sequences, lineages, and testing data
@@ -33,18 +46,10 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
   - Run 1: Calculates variant share/proportion and confidence intervals for fortnights and weeks (HHS regions & nationally)
   - Run 2: Generates the same output as Run 1, plus model-based smoothed trends (nowcasts) for both national and HHS regional estimates
 
-- **pipeline.R** - Consolidated pipeline entrypoint for preparing data, running Run 1, running Run 2, and orchestrating HPC submission.
-  - Usage: `Rscript pipeline.R --help`
+- **weekly_variant_report_functions.R** - Library of helper functions used by `weekly_variant_report_nowcast.R`
 
-- **pipeline_job.sh** - Generic HPC wrapper that submits `pipeline.R` subcommands through Grid Engine.
-
-- **proportion_modeling_run.sh** - Master wrapper script for running the complete monthly reporting workflow.
-  - Usage: `qsub proportion_modeling_run.sh -u <username> -p <password>`
-  - This wrapper calls `pipeline.R submit-all`, which submits prepare-data, Run 1, and Run 2 jobs
-
-- **weekly_variant_report_functions.R** - Library of helper functions used by weekly_variant_report_nowcast.R
-
-- **pango_tree_diagram.R** - Generates Pango lineage tree visualization diagrams
+- **pango_tree_diagram.R** - Optional utility for generating Pango lineage tree visualizations.
+- **Lineage_Colors_on_CDT.csv** - Optional color map used by `pango_tree_diagram.R`.
 
 ## Data Requirements
 
@@ -70,25 +75,22 @@ Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants C
 Result folder: `results_<data_date>_<results_tag>`
 
 ### Run 1 Outputs
-- Pre-modeling lineage aggregation results: `voc_aggregation_table<data_date>_state_tag_included_Run1.csv`
-- Fortnightly weighted estimates: `variant_share_weighted_KGCI_svyNEW_<data_date>state_tag_included_Run1<results_tag>.csv`
-- Weekly weighted estimates: `variant_share_weekly_weighted_KGCI_svyNEW_<data_date>state_tag_included_Run1<results_tag>.csv`
-- Fortnightly weighted estimates for Hadoop: `variant_share_weighted_KGCI_svyNEW_<data_date>state_tag_included_Run1<results_tag>_hadoop.csv`
-- Weekly weighted estimates for Hadoop: `variant_share_weekly_weighted_KGCI_svyNEW_<data_date>state_tag_included_Run1<results_tag>_hadoop.csv`
+- Pre-modeling lineage aggregation results: `voc_aggregation_table_<date><tag>.csv`
+- Lineage aggregation summaries: `lineage_aggregations_*.csv`, `lineage_aggregations_summary_*.csv`
+- Fortnightly empirical estimates: `variant_share_<weighted_method>_<ci.type>CI_<svy.type>_<date><tag>_<results_tag>.csv`
+- Weekly empirical estimates: `variant_share_weekly_<weighted_method>_<ci.type>CI_<svy.type>_<date><tag>_<results_tag>.csv`
+- Hadoop-ready versions of the empirical outputs: matching `*_hadoop.csv` files
 
 ### Run 2 Outputs
-**NOTE: Run 2 produces results for both Run 1 AND Run 2**
+Run 2 produces both empirical outputs and smoothed nowcast outputs.
 
-- Pre-modeling lineage aggregation results: `voc_aggregation_table<data_date>_state_tag_included_Run2.csv`
-- Fortnightly weighted estimates: `variant_share_weighted_KGCI_svyNEW_<data_date>_state_tag_included_Run2<results_tag>.csv`
-- Weekly weighted estimates: `variant_share_weekly_weighted_KGCI_svyNEW_<data_date>_state_tag_included_Run2<results_tag>.csv`
-- Fortnightly nowcast estimates: `updated_nowcast_fortnightly_<data_date>_state_tag_included_Run2<results_tag>.csv`
-- Weekly nowcast estimates: `updated_nowcast_weekly_<data_date>_state_tag_included_Run2<results_tag>.csv`
-- Fortnightly weighted estimates for Hadoop: `variant_share_weighted_KGCI_svyNEW_<data_date>_state_tag_included_Run2<results_tag>_hadoop.csv`
-- Weekly weighted estimates for Hadoop: `variant_share_weekly_weighted_KGCI_svyNEW_<data_date>_state_tag_included_Run2<results_tag>_hadoop.csv`
-- Fortnightly nowcast estimates for Hadoop: `updated_nowcast_fortnightly_<data_date>_state_tag_included_Run2<results_tag>_hadoop.csv`
-- Weekly nowcast estimates for Hadoop: `updated_nowcast_weekly_<data_date>_state_tag_included_Run2<results_tag>_hadoop.csv`
-- Post-modeling lineage aggregation results: `agg_var_mat_KGCI_svyNEW_<data_date>_state_tag_included_Run2.csv`
+- Pre-modeling lineage aggregation results: `voc_aggregation_table_<date><tag>.csv`
+- Post-modeling lineage aggregation results: `agg_var_mat_<ci.type>CI_<svy.type>_<date><tag>.csv`
+- Fortnightly nowcast estimates: `updated_nowcast_fortnightly_<weighted_method>_<date><tag>_<results_tag>.csv`
+- Weekly nowcast estimates: `updated_nowcast_weekly_<weighted_method>_<date><tag>_<results_tag>.csv`
+- Daily nowcast estimates: `updated_nowcast_weekly_<weighted_method>_<date><tag>_<results_tag>_daily.csv`
+- Hadoop-ready versions of the nowcast outputs: matching `*_hadoop.csv` files
+- Diagnostic/model artifacts such as `svymlm_*.RDS`, `src.moddat_*.RDS`, `src.dat_*.RDS`, and `wow_growth_variant_share_*.csv`
 
 ### Visualization Files (Run 2 only)
 National data:
@@ -108,7 +110,7 @@ Best run from rosalind (`rosalind.biotech.cdc.gov`).
 ### Step 1: Prepare Configuration
 Navigate to the repository:
 ```bash
-cd /scicomp/groups/Projects/SARS2Seq/repos/sc2_proportion_modeling
+cd /path/to/sc2_proportion_modeling
 ```
 
 Create or update the environment if needed:
@@ -131,8 +133,8 @@ Edit `config/config.R` with:
   select distinct date_frozen from sc2_archive.analytics_metadata_frozen
   order by date_frozen desc
   ```
-- **`voc1`**: Variants to display on CDC COVID Data Tracker (lines 70-105)
-- **`voc2_additional`**: Any additional variants to include in Run 2 beyond auto-selected ones (line 307)
+- **`voc1`**: Variants to display on CDC COVID Data Tracker
+- **`voc2_additional`**: Any additional variants to include in Run 2 beyond auto-selected ones
 - **`results_tag`**: Label for this run's results (used in filenames and database notes)
 
 ### Step 3: Get Auto-Selected VOC2 List
@@ -155,12 +157,12 @@ qsub proportion_modeling_run.sh -u <username> -p <cdp_password>
 
 This automatically executes:
 1. `pipeline.R submit-all` - HPC orchestration
-2. `pipeline.R prepare-data` - Data preparation
-3. `pipeline.R run1` - Run 1 analysis
-4. `pipeline.R run2` - Run 2 analysis
+2. `pipeline_job.sh prepare-data` - Data preparation job
+3. `pipeline_job.sh run1` - Run 1 job
+4. `pipeline_job.sh run2` - Run 2 job
 
 ### Step 6: Monitor Progress
-Check the log file: `/scicomp/groups/Projects/SARS2Seq/repos/sc2_proportion_modeling/log`
+Check the repo log file: `./log`
 
 Each script generates `.err` and `.out` files. The following warning can be ignored:
 ```
@@ -172,10 +174,7 @@ ERROR StatusLogger No Log4j 2 configuration file found. Using default configurat
 Check results folder: `results_<data_date>_<results_tag>`
 - Verify all expected output files are present
 - Check .err and .out files for errors
-- Move the corresponding .err and .out files to results folder:
-  ```bash
-  mv Run1_<results_tag>.[eo]* results/results_<data_date>_<results_tag>/
-  ```
+- Move any relevant scheduler `.err` and `.out` files into the matching results folder if you want them archived with the run.
 
 ### Step 8: Archive Code
 Commit configuration changes to git for record-keeping:
@@ -191,7 +190,7 @@ Input run information in [SC2_Proportion_Modeling_Run_Records](https://cdc.share
 
 ## Lab Aggregation
 
-Some submitting labs use slightly different names for their sequences, so they should be aggregated/normalized. This is done in `variant_surveillance_system.R` around lines 1548-1095.
+Some submitting labs use slightly different names for their sequences, so they are aggregated/normalized in `variant_surveillance_system.R` during data preparation.
 
 - Check the labs in the Run_var_sys.out file after "\nnewly added lab names:"
 - Compare to the list of all lab names immediately after
@@ -200,12 +199,11 @@ Some submitting labs use slightly different names for their sequences, so they s
 
 **To add more lab aggregations:**
 1. Find lab names that should be combined
-2. Copy-and-paste one of the existing aggregation blocks
-3. Change "XX_labs_to_agg" and "labnames_df_xx" to new UNIQUE names (verify with Ctrl-F)
-4. Change the regex pattern to match ONLY your set of labs
-5. Add "labnames_df_xx" to the "labnames_df" list
-6. Re-run `Rscript pipeline.R prepare-data -u <username> -p <password>`
-7. Verify aggregations in `data/backup_YYYY-MM-DD/lab_name_updates_YYYY-MM-DD.csv`
+2. Add a new rule to the `lab_rename_rules` list in `variant_surveillance_system.R`
+3. Use either `regex_lab_selector(...)` or a small custom selector function
+4. Set the replacement `new_name`
+5. Re-run `Rscript pipeline.R prepare-data -u <username> -p <password>`
+6. Verify aggregations in `data/backup_YYYY-MM-DD/lab_name_updates_YYYY-MM-DD.csv`
 
 ## Column Descriptions
 
@@ -245,10 +243,10 @@ Output from both Run 1 and Run 2 (rows where modeltype = 'weighted' and 'smoothe
 Once data is available, load the CSV files into [sc2_archive.proportion_modeling](https://cdp-01.biotech.cdc.gov:8889/hue/filebrowser/view=%2Fwarehouse%2Ftablespace%2Fexternal%2Fhive%2Fsc2_archive.db%2Fproportion_modeling) at `hdfs:///warehouse/tablespace/external/hive/sc2_archive.db/proportion_modeling` on CDP.
 
 Load the following files using Hue or hput:
-- `updated_nowcast_fortnightly_<date>_state_tag_included_Run1_<tag>_hadoop.csv`
-- `updated_nowcast_fortnightly_<date>_state_tag_included_Run2_<tag>_hadoop.csv`
-- `variant_share_weighted_KGCI_svyNEW_<date>_state_tag_included_Run1_<tag>_hadoop.csv`
-- `variant_share_weighted_KGCI_svyNEW_<date>_state_tag_included_Run2_<tag>_hadoop.csv`
+- `updated_nowcast_fortnightly_*_hadoop.csv`
+- `updated_nowcast_weekly_*_hadoop.csv`
+- `variant_share_*_hadoop.csv`
+- `variant_share_weekly_*_hadoop.csv`
 - (And all other `*_hadoop.csv` files)
 
 **Important:** Refresh the table after loading:

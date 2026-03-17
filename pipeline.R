@@ -1,5 +1,4 @@
 #!/usr/bin/env Rscript
-
 # Consolidated workflow entrypoint for the SC2 proportion modeling pipeline.
 
 `%||%` <- function(x, y) {

@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # Shared conda activation settings for repo shell entrypoints.
 
 CONDA_ACTIVATE=${CONDA_ACTIVATE:-/scicomp/groups/covlab/SARS2Seq/bin/miniconda/bin/activate}
@@ -18,6 +17,5 @@ activate_prop_model_env() {
         return 1
     fi
 
-    # shellcheck disable=SC1090
     source "${CONDA_ACTIVATE}" "${CONDA_ENV_PREFIX}"
 }

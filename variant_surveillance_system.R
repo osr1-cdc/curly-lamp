@@ -80,6 +80,10 @@ backup_dir_path <- function(data_dir, backup_date, custom_tag) {
   file.path(data_dir, paste0("backup_", backup_date, custom_tag))
 }
 
+backup_file_path <- function(data_dir, backup_date, custom_tag, filename) {
+  file.path(backup_dir_path(data_dir, backup_date, custom_tag), filename)
+}
+
 backup_rds_path <- function(data_dir, backup_date, object_date, object_name, custom_tag) {
   file.path(
     backup_dir_path(data_dir, backup_date, custom_tag),
@@ -123,6 +127,95 @@ save_backup_rds <- function(object, data_dir, backup_date, object_date, object_n
       object_name = object_name,
       custom_tag = custom_tag
     )
+  )
+}
+
+write_backup_csv <- function(x, data_dir, backup_date, custom_tag, filename, row.names = FALSE) {
+  write.csv(
+    x = x,
+    file = backup_file_path(data_dir, backup_date, custom_tag, filename),
+    row.names = row.names
+  )
+}
+
+save_backup_rds_file <- function(object, data_dir, backup_date, custom_tag, filename) {
+  saveRDS(
+    object = object,
+    file = backup_file_path(data_dir, backup_date, custom_tag, filename)
+  )
+}
+
+find_previous_backup_rds <- function(data_dir, current_date, custom_tag, suffix, previous_dates = 6:24) {
+  for (offset in previous_dates) {
+    previous_date <- current_date - offset
+    candidate <- backup_file_path(
+      data_dir = data_dir,
+      backup_date = previous_date,
+      custom_tag = custom_tag,
+      filename = paste0(previous_date, suffix, custom_tag, ".RDS")
+    )
+
+    if (file.exists(candidate)) {
+      return(candidate)
+    }
+  }
+
+  NA_character_
+}
+
+regex_lab_selector <- function(pattern) {
+  function(labs) {
+    grep(pattern = pattern, x = labs, ignore.case = TRUE, value = TRUE)
+  }
+}
+
+rename_labs_by_selector <- function(svy_dat, unique_labs, selector, new_name) {
+  matched_labs <- selector(unique_labs)
+  if (!length(matched_labs)) {
+    return(list(
+      svy_dat = svy_dat,
+      labnames_df = NULL
+    ))
+  }
+
+  svy_dat[LAB %in% matched_labs, LAB2 := new_name]
+
+  list(
+    svy_dat = svy_dat,
+    labnames_df = data.frame(
+      old_name = matched_labs,
+      new_name = new_name,
+      stringsAsFactors = FALSE
+    )
+  )
+}
+
+apply_lab_rename_rules <- function(svy_dat, unique_labs, rules) {
+  rename_logs <- vector(mode = "list", length = length(rules))
+
+  for (ii in seq_along(rules)) {
+    rename_result <- rename_labs_by_selector(
+      svy_dat = svy_dat,
+      unique_labs = unique_labs,
+      selector = rules[[ii]]$selector,
+      new_name = rules[[ii]]$new_name
+    )
+    svy_dat <- rename_result$svy_dat
+    rename_logs[[ii]] <- rename_result$labnames_df
+  }
+
+  rename_logs <- Filter(Negate(is.null), rename_logs)
+  if (!length(rename_logs)) {
+    rename_logs <- list(data.frame(
+      old_name = character(),
+      new_name = character(),
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  list(
+    svy_dat = svy_dat,
+    labnames_df = data.table::rbindlist(rename_logs, use.names = TRUE)
   )
 }
 
@@ -227,11 +320,8 @@ if(use_previously_imported_data & date_frozen_toread == data_date &
   dat <- as.data.table(dat)                                                 
 
   pangolin <- read_backup_rds(data_dir, data_date, data_date, "pangolin", custom_tag)
-  #baseline    <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_baseline",     custom_tag, ".RDS"))
-  # tests        <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_tests",        custom_tag, ".RDS"))
   tests_nrevss <- read_backup_rds(data_dir, data_date, data_date, "tests_nrevss", custom_tag)
   pops <- read_backup_rds(data_dir, data_date, data_date, "pops", custom_tag)
-  #s1_groups <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_s1_groups", custom_tag, ".RDS"))
   print('Finished reading in data.')
 } else if (use_previously_imported_data & date_frozen_toread != data_date &
     backup_files_exist(
@@ -245,11 +335,9 @@ if(use_previously_imported_data & date_frozen_toread == data_date &
   print('Reading in previously pulled data. analytics_metadata frozen date different from test date')
   dat <- read_backup_rds(data_dir, data_date, date_frozen_toread, "data", custom_tag)
   pangolin <- read_backup_rds(data_dir, data_date, date_frozen_toread, "pangolin", custom_tag)
-  #baseline    <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date,          "_baseline",     custom_tag, ".RDS"))
   tests <- read_backup_rds(data_dir, data_date, data_date, "tests", custom_tag)
   tests_nrevss <- read_backup_rds(data_dir, data_date, data_date, "tests_nrevss", custom_tag)
   pops <- read_backup_rds(data_dir, data_date, data_date, "pops", custom_tag)
-  #s1_groups <- readRDS(file = paste0(script.basename, "/data/backup_", data_date, custom_tag, "/", data_date, "_s1_groups", custom_tag, ".RDS"))
   print('Finished reading in data.')
 
 } else {
@@ -662,8 +750,6 @@ dat <- subset(dat, !(dat$covv_accession_id %in% c("EPI_ISL_19791260",
 dat <- as.data.table(dat)
 
 pangolin     = distinct(pangolin)
-#baseline    = distinct(baseline)
-# tests        = distinct(tests)
 tests_nrevss = distinct(tests_nrevss)
 pops         = distinct(pops)
 
@@ -952,294 +1038,74 @@ svy.dat = merge(x = svy.dat,
 # print('table of omicron variants before removing any labs:')
 # table(svy.dat$VARIANT[grep(pattern = '(B\\.1\\.1\\.529)|(BA\\.[0-9])', x = svy.dat$VARIANT)])
 
-#clean LAB names
-# svy.dat$LAB2 = as.character(svy.dat$LAB)
+# Clean lab names.
 svy.dat[, 'LAB2' := as.character(LAB)]
-
-# get a vector of unique lab names
 unique_labs <- unique(svy.dat$LAB)
 
-# Aggregate Maryland lab names
-MD_labs_to_agg <- grep(pattern = "(MARYLAND DEPARTMENT OF HEALTH)|(MD PHL)",
-                       x = unique_labs,
-                       ignore.case = T,
-                       value = TRUE)
-labnames_df_md <- data.frame(old_name = MD_labs_to_agg,
-                             new_name = "MD-DPH")
-# svy.dat[svy.dat$LAB %in% MD_labs_to_agg,"LAB2"] <- "MD-DPH"
-svy.dat[ LAB %in% MD_labs_to_agg, "LAB2" := "MD-DPH"]
+lab_rename_rules <- list(
+  list(selector = regex_lab_selector("(MARYLAND DEPARTMENT OF HEALTH)|(MD PHL)"), new_name = "MD-DPH"),
+  list(selector = regex_lab_selector("(New Jersey.+Public Health)|(NJ.PHEL)|(NJ.+Public Health)"), new_name = "NJ-DPH"),
+  list(selector = regex_lab_selector("(Texas Department of state health)|(TXDSHS)"), new_name = "TX-DPH"),
+  list(selector = regex_lab_selector("LSU"), new_name = "LSU LAB"),
+  list(selector = regex_lab_selector("Orange County"), new_name = "Orange County PHL"),
+  list(selector = regex_lab_selector("(LAURING LAB.+Michigan)|(Michigan.+Lauring Lab)"), new_name = "LAURING LAB, UNIVERSITY OF MICHIGAN"),
+  list(selector = regex_lab_selector("HELIX"), new_name = "HELIX"),
+  list(selector = regex_lab_selector("SOUTH DAKOTA public health"), new_name = "SD-DPH"),
+  list(selector = regex_lab_selector("(omega.+MOUNES)|(oemga.+mounes)"), new_name = "OMEGA DIAGNOSTICS AT MOUNES"),
+  list(selector = regex_lab_selector("Minnesota department of health"), new_name = "MN-DPH"),
+  list(selector = regex_lab_selector("Sonoma county public health"), new_name = "SONOMA COUNTY PHL"),
+  list(
+    selector = regex_lab_selector(
+      "(INFECTIOUS DISEASES,  NC SLPH COVID-19 RESPONSE TEAM)|(INFECTIOUS DISEASES,  NORTH CAROLINA STATE LABORATORY OF PUBLIC HEALTH COVID-19 RESPONSE TEAM)"
+    ),
+    new_name = "INFECTIOUS DISEASES, NC SLPH COVID-19 RESPONSE TEAM"
+  ),
+  list(
+    selector = function(labs) {
+      labs[
+        grepl(
+          pattern = "NORTH CAROLINA STATE LABORATORY OF PUBLIC HEALTH",
+          x = labs,
+          ignore.case = TRUE
+        ) &
+        !grepl(
+          pattern = "(INFECTIOUS DISEASES)|(COVID-19 RESPONSE TEAM)",
+          x = labs,
+          ignore.case = TRUE
+        )
+      ]
+    },
+    new_name = "NCSLPH"
+  ),
+  list(selector = regex_lab_selector("^UNMC COVID.*RESPONSE TEAM"), new_name = "UNMC COVID-19 RESPONSE TEAM"),
+  list(selector = regex_lab_selector("COUNTY OF SAN LUIS OBISPO"), new_name = "COUNTY OF SAN LUIS OBISPO PHL"),
+  list(selector = regex_lab_selector("SAN JOAQUIN COUNTY PUBLIC HEALTH"), new_name = "SAN JOAQUIN COUNTY PHL"),
+  list(selector = regex_lab_selector("SUMAN DAS LAB"), new_name = "DR. SUMAN DAS LAB - VANDERBILT UNIVERSITY MEDICAL CENTER"),
+  list(selector = regex_lab_selector("BOISE VA MEDICAL CENTER"), new_name = "BOISE VA MEDICAL CENTER")
+)
 
-# Aggregate New Jersey lab names
-NJ_labs_to_agg <- grep(pattern = "(New Jersey.+Public Health)|(NJ.PHEL)|(NJ.+Public Health)",
-                       x = unique_labs,
-                       ignore.case = T,
-                       value = TRUE)
-labnames_df_nj <- data.frame(old_name = NJ_labs_to_agg,
-                             new_name = "NJ-DPH")
-#svy.dat[svy.dat$LAB %in% NJ_labs_to_agg,"LAB2"] <- "NJ-DPH"
-svy.dat[ LAB %in% NJ_labs_to_agg, "LAB2" := "NJ-DPH"]
+lab_rename_results <- apply_lab_rename_rules(
+  svy_dat = svy.dat,
+  unique_labs = unique_labs,
+  rules = lab_rename_rules
+)
+svy.dat <- lab_rename_results$svy_dat
+labnames_df <- lab_rename_results$labnames_df
 
-# Aggregate Texas lab names
-TX_labs_to_agg <- grep(pattern = "(Texas Department of state health)|(TXDSHS)",
-                       x = unique_labs,
-                       value = TRUE,
-                       ignore.case = T)
-labnames_df_tx <- data.frame(old_name = TX_labs_to_agg,
-                             new_name = "TX-DPH")
-# svy.dat[svy.dat$LAB %in% TX_labs_to_agg,"LAB2"] <- "TX-DPH"
-svy.dat[ LAB %in% TX_labs_to_agg, "LAB2" := "TX-DPH"]
-
-# Aggregate CDC lab names
-# CDC_labs_to_agg <- grep(pattern = "Centers for Disease Control and Prevention",
-#                         x = unique_labs,
-#                         ignore.case = T,
-#                         value = TRUE)
-# labnames_df_cdc <- data.frame(old_name = CDC_labs_to_agg,
-#                               new_name = "CDC")
-# #svy.dat[svy.dat$LAB %in% CDC_labs_to_agg,"LAB2"] <- "CDC"
-# svy.dat[ LAB %in% CDC_labs_to_agg, "LAB2" := "CDC"]
-
-# Aggregate LSU lab names
-# As of 2022-05-26 this only returns "LSUHS EMERGING VIRAL THREAT LABORATORY", so I [Philip Shirk] removed it.
-LSU_labs_to_agg <- grep(pattern = "LSU",
-                        x = unique_labs,
-                        ignore.case = T,
-                        value = T)
-labnames_df_lsu <- data.frame(old_name = LSU_labs_to_agg,
-                              new_name = "LSU LAB")
-#svy.dat[svy.dat$LAB %in% LSU_labs_to_agg,"LAB2"] <- "LSU LAB"
-svy.dat[LAB %in% LSU_labs_to_agg, "LAB2" := "LSU LAB"]
-
-# Aggregate Orange County lab names
-OC_labs_to_agg <- grep(pattern = "Orange County",
-                       x = unique_labs,
-                       ignore.case = T,
-                       value = T)
-labnames_df_oc <- data.frame(old_name = OC_labs_to_agg,
-                             new_name = "Orange County PHL")
-#svy.dat[svy.dat$LAB %in% OC_labs_to_agg,"LAB2"] <- "Orange County PHL"
-svy.dat[LAB %in% OC_labs_to_agg, "LAB2" := "Orange County PHL"]
-
-# Aggregate Lauring Lab names
-LL_labs_to_agg <- grep(pattern = "(LAURING LAB.+Michigan)|(Michigan.+Lauring Lab)",
-                       x = unique_labs,
-                       ignore.case = T,
-                       value = T)
-labnames_df_ll <- data.frame(old_name = LL_labs_to_agg,
-                             new_name = "LAURING LAB, UNIVERSITY OF MICHIGAN")
-#svy.dat[svy.dat$LAB %in% LL_labs_to_agg,"LAB2"] <- "LAURING LAB, UNIVERSITY OF MICHIGAN"
-svy.dat[LAB %in% LL_labs_to_agg, "LAB2" := "LAURING LAB, UNIVERSITY OF MICHIGAN"]
-
-# Aggregate Helix lab names
-HE_labs_to_agg <- grep(pattern = "HELIX",
-                       x = unique_labs,
-                       ignore.case = T,
-                       value = T)
-labnames_df_he <- data.frame(old_name = HE_labs_to_agg,
-                             new_name = "HELIX")
-#svy.dat[svy.dat$LAB %in% HE_labs_to_agg,"LAB2"] <- "HELIX"
-svy.dat[LAB %in% HE_labs_to_agg, "LAB2" := "HELIX"]
-
-# Aggregate South Dakota lab names
-SD_labs_to_agg <- grep(pattern = "SOUTH DAKOTA public health",
-                       x = unique_labs,
-                       ignore.case = T,
-                       value = T)
-labnames_df_sd <- data.frame(old_name = SD_labs_to_agg,
-                             new_name = "SD-DPH")
-#svy.dat[svy.dat$LAB %in% SD_labs_to_agg,"LAB2"] <- "SD-DPH"
-svy.dat[LAB %in% SD_labs_to_agg, "LAB2" := "SD-DPH"]
-
-# Aggregate Mounes lab names
-OM_labs_to_agg <- grep(pattern = "(omega.+MOUNES)|(oemga.+mounes)",
-                       x = unique_labs,
-                       ignore.case = T,
-                       value = T)
-labnames_df_om <- data.frame(old_name = OM_labs_to_agg,
-                             new_name = "OMEGA DIAGNOSTICS AT MOUNES")
-# svy.dat[svy.dat$LAB %in% OM_labs_to_agg,"LAB2"] <- "OMEGA DIAGNOSTICS AT MOUNES"
-svy.dat[LAB %in% OM_labs_to_agg, "LAB2" := "OMEGA DIAGNOSTICS AT MOUNES"]
-
-# Aggregate Minnesota lab names
-MN_labs_to_agg <- grep(pattern = "Minnesota department of health",
-                       x = unique_labs,
-                       ignore.case = T,
-                       value = T)
-labnames_df_mn <- data.frame(old_name = MN_labs_to_agg,
-                             new_name = "MN-DPH")
-#svy.dat[svy.dat$LAB %in% MN_labs_to_agg,"LAB2"] <- "MN-DPH"
-svy.dat[LAB %in% MN_labs_to_agg, "LAB2" := "MN-DPH"]
-
-# Aggregate Sonoma lab names
-SO_labs_to_agg <- grep(pattern = "Sonoma county public health",
-                       x = unique_labs,
-                       ignore.case = T,
-                       value = T)
-labnames_df_so <- data.frame(old_name = SO_labs_to_agg,
-                             new_name = "SONOMA COUNTY PHL")
-#svy.dat[svy.dat$LAB %in% SO_labs_to_agg,"LAB2"] <- "SONOMA COUNTY PHL"
-svy.dat[LAB %in% SO_labs_to_agg, "LAB2" := "SONOMA COUNTY PHL"]
-
-# Aggregate NC labs
-NC_labs_to_agg <- grep(pattern = "(INFECTIOUS DISEASES,  NC SLPH COVID-19 RESPONSE TEAM)|(INFECTIOUS DISEASES,  NORTH CAROLINA STATE LABORATORY OF PUBLIC HEALTH COVID-19 RESPONSE TEAM)",
-                       x = unique_labs,
-                       ignore.case = T,
-                       value = T)
-if (length(NC_labs_to_agg)>0){
-labnames_df_nc <- data.frame(old_name = NC_labs_to_agg,
-                             new_name = "INFECTIOUS DISEASES, NC SLPH COVID-19 RESPONSE TEAM")
-# svy.dat[svy.dat$LAB %in% NC_labs_to_agg,"LAB2"] <- labnames_df_nc$new_name[1]
-svy.dat[LAB %in% NC_labs_to_agg, "LAB2" := labnames_df_nc$new_name[1]]
-} else labnames_df_nc <- NULL
-
-# Aggregate other NC labs
-NC2_labs_to_agg <- unique_labs[grepl(pattern = "NORTH CAROLINA STATE LABORATORY OF PUBLIC HEALTH",
-                                     x = unique_labs,
-                                     ignore.case = T) &
-                                 !grepl(pattern = "(INFECTIOUS DISEASES)|(COVID-19 RESPONSE TEAM)",
-                                        x = unique_labs,
-                                        ignore.case = T)]
-labnames_df_nc2 <- data.frame(old_name = NC2_labs_to_agg,
-                              new_name = "NCSLPH")
-#svy.dat[svy.dat$LAB %in% NC2_labs_to_agg,"LAB2"] <- labnames_df_nc2$new_name[1]
-svy.dat[LAB %in% NC2_labs_to_agg, "LAB2" := labnames_df_nc2$new_name[1]]
-
-# Aggregate UNMC labs
-UNMC_labs_to_agg <- grep(pattern = '^UNMC COVID.*RESPONSE TEAM',
-                          x = unique_labs,
-                          ignore.case = T,
-                          value = T)
-labnames_df_unmc <- data.frame(old_name = UNMC_labs_to_agg,
-                               new_name = 'UNMC COVID-19 RESPONSE TEAM')
-#svy.dat[svy.dat$LAB %in% UNMC_labs_to_agg, 'LAB2'] <- labnames_df_unmc$new_name[1]
-svy.dat[LAB %in% UNMC_labs_to_agg, 'LAB2' := labnames_df_unmc$new_name[1]]
-
-# Aggregate COUNTY OF SAN LUIS OBISPO labs
-SLO_labs_to_agg <- grep(pattern = 'COUNTY OF SAN LUIS OBISPO',
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_slo <- data.frame(old_name = SLO_labs_to_agg,
-                               new_name = 'COUNTY OF SAN LUIS OBISPO PHL')
-#svy.dat[svy.dat$LAB %in% SLO_labs_to_agg, 'LAB2'] <- labnames_df_slo$new_name[1]
-svy.dat[LAB %in% SLO_labs_to_agg, 'LAB2' := labnames_df_slo$new_name[1]]
-
-# Aggregate SAN JOAQUIN COUNTY PUBLIC HEALTH labs
-SJ_labs_to_agg <- grep(pattern = 'SAN JOAQUIN COUNTY PUBLIC HEALTH',
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_sj <- data.frame(old_name = SJ_labs_to_agg,
-                               new_name = 'SAN JOAQUIN COUNTY PHL')
-#svy.dat[svy.dat$LAB %in% SJ_labs_to_agg, 'LAB2'] <- labnames_df_sj$new_name[1]
-svy.dat[LAB %in% SJ_labs_to_agg, 'LAB2' := labnames_df_sj$new_name[1]]
-
-# added 2022-02-17
-# Aggregate Suman Das labs
-SDL_labs_to_agg <- grep(pattern = 'SUMAN DAS LAB',
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_sdl <- data.frame(old_name = SDL_labs_to_agg,
-                               new_name = 'DR. SUMAN DAS LAB - VANDERBILT UNIVERSITY MEDICAL CENTER')
-#svy.dat[svy.dat$LAB %in% SDL_labs_to_agg, 'LAB2'] <- labnames_df_sdl$new_name[1]
-svy.dat[LAB %in% SDL_labs_to_agg, 'LAB2' := labnames_df_sdl$new_name[1]]
-
-# added 2022-04-07
-# Aggregate Boise VA
-BVA_labs_to_agg <- grep(pattern = 'BOISE VA MEDICAL CENTER',
-                         x = unique_labs,
-                         ignore.case = T,
-                         value = T)
-labnames_df_bva <- data.frame(old_name = BVA_labs_to_agg,
-                               new_name = 'BOISE VA MEDICAL CENTER')
-svy.dat[LAB %in% BVA_labs_to_agg, 'LAB2' := labnames_df_bva$new_name[1]]
-
-
-# added 2023-05-24: remove sequences from "Broad Institute's Genomic Center For Infectious Diseases (GCID)" that were collected in 2023
-# added here before they get aggregated into "BROAD INSTITUTE"
+# Remove GCID sequences before any broader Broad aggregation is introduced.
 print(paste('Removing',
     svy.dat[ (LAB == toupper("Broad Institute's Genomic Center For Infectious Diseases (GCID)") & date >= '2023-01-01'), length(date) ],
     'sequences from "Broad Institute\'s Genomic Center For Infectious Diseases (GCID)" collected since 2023-01-01'))
 svy.dat <- svy.dat[ !(LAB == toupper("Broad Institute's Genomic Center For Infectious Diseases (GCID)") & date >= '2023-01-01') ]
 
-
-
-
-# Steps to add more lab aggregations
-# 1. find lab names that almost assuredly refer to the same lab
-# 2. copy-and-paste one of the blocks of code above
-# 3. change "XX_labs_to_agg" and "labnames_df_xx" to new AND UNIQUE names (do a control-F for the new name to make sure it's unique)
-# 4. change the regex pattern to something that will return ONLY your set of labs
-# 5. add "labnames_df_xx" to "labnames_df" below
-# 6. after running the new code, look at ./data/backup_YYYY-MM-DD/lab_name_updates_YYYY-MM-DD.csv to make sure that ONLY the intended labs are being renamed.
-
-# Other labs that might be duplicates, but that I have not combined:
-# 1. "INFECTIOUS DISEASE PROGRAM, BROAD INSTITUTE OF HARVARD AND MIT"
-# 1. "BROAD INSTITUTE"
-
-# 2. "RIPHL AT RUSH UNIVERSITY MEDICAL CENTER"
-# 2. "RUSH UNIVERSITY MEDICAL CENTER"
-# 2. "RHODE ISLAND STATE HEALTH LABORATORY"
-
-# 3. "MASS GENERAL BRIGHAM"
-# 3. "MASSACHUSETTS GENERAL HOSPITAL"
-
-# 4. "OREGON SARS-COV-2 GENOME SEQUENCING CENTER"
-# 4. "OREGON STATE PUBLIC HEALTH LABORATORY"
-
-# These definitely are not the same lab
-# "WADSWORTH CENTER, NEW YORK STATE DEPARTMENT OF HEALTH"
-# "NEW YORK CITY PUBLIC HEALTH LABORATORY"
-
-# create a dataframe of all the lab names that were changed
-labnames_df <- rbind(
-  labnames_df_md,
-  labnames_df_nj,
-  labnames_df_tx,
-  # labnames_df_cdc,
-  labnames_df_lsu, # removed 2022-05-26
-  labnames_df_oc,
-  labnames_df_ll,
-  labnames_df_he,
-  labnames_df_sd,
-  labnames_df_om,
-  labnames_df_mn,
-  labnames_df_so,
-  labnames_df_nc,
-  labnames_df_nc2,
-  labnames_df_unmc,
-  labnames_df_slo,
-  labnames_df_sj,
-  labnames_df_sdl,
-  labnames_df_bva
-  # labnames_df_in,
-  # labnames_df_wf,
-  # # labnames_df_mi,
-  # labnames_df_ct,
-  # labnames_df_bu,
-  # labnames_df_de,
-  # labnames_df_ks,
-  # labnames_df_ms,
-  # labnames_df_hhd,
-  # labnames_df_ga,
-  # labnames_df_pa,
-  # labnames_df_fs,
-  # labnames_df_la,
-  # labnames_df_sp,
-  # labnames_df_pi,
-  # labnames_df_broad,
-  # labnames_df_um,
-  # labnames_df_sflu,
-  # labnames_df_prcvsi,
-  # labnames_df_unm,
-  # labnames_df_ummc
-)
-
 # save the list of lab names that were changed to file
-write.csv(x = labnames_df,
-          file = paste0(script.basename, '/data/backup_', data_date, '/lab_name_updates_', data_date, '.csv'),
-          row.names = F)
+write_backup_csv(
+  x = labnames_df,
+  data_dir = data_dir,
+  backup_date = data_date,
+  custom_tag = custom_tag,
+  filename = paste0("lab_name_updates_", data_date, ".csv")
+)
 
 # Get counts of samples by lab
 # check_count <- aggregate(formula = count ~ LAB2,
@@ -1247,8 +1113,13 @@ write.csv(x = labnames_df,
 #                          FUN = sum)
 check_count <- as.data.frame(table(svy.dat$LAB2))
 names(check_count) <- c('LAB2', 'count')
-saveRDS(object = check_count,
-        file = paste0(script.basename, "/data/backup_", data_date, "/", data_date, "_sequence_counts_by_lab", custom_tag, ".RDS"))
+save_backup_rds_file(
+  object = check_count,
+  data_dir = data_dir,
+  backup_date = data_date,
+  custom_tag = custom_tag,
+  filename = paste0(data_date, "_sequence_counts_by_lab", custom_tag, ".RDS")
+)
 # print a list of cleaned lab names to the console
 # check_count
 
@@ -1263,16 +1134,12 @@ saveRDS(object = check_count,
    counts_by_week <- svy.dat[, .(count = .N), by = c('LAB2', 'yr_wk')]
 
    # compare to previous week(s)
-   previous_file <- NA
-   previous_dates <- 6:24 # search dates from 6 to 24 days ago
-   previous_date_counter <- 1
-   while(is.na(previous_file) & previous_date_counter <= length(previous_dates)){
-      # previous file to look for
-      file_to_look_for <- paste0(script.basename, "/data/backup_", data_date - previous_dates[previous_date_counter], "/", data_date - previous_dates[previous_date_counter], "_sequence_counts_by_lab_week", custom_tag, ".RDS")
-
-      if(file.exists(file_to_look_for)) previous_file <- file_to_look_for
-      previous_date_counter <- previous_date_counter + 1
-   }
+   previous_file <- find_previous_backup_rds(
+     data_dir = data_dir,
+     current_date = data_date,
+     custom_tag = custom_tag,
+     suffix = "_sequence_counts_by_lab_week"
+   )
 
    # if a previous file was found, compare it to the new one to find:
    # - 1. new labs that have been added
@@ -1312,13 +1179,13 @@ saveRDS(object = check_count,
          temp <- cbw[N_net <= 0]
          temp[, 'new_date':= data_date]
          temp[, 'old_date':= regmatches(previous_file,regexpr('[0-9]{4}-[0-9]{2}-[0-9]{2}',previous_file))]
-         write.csv(x = temp,
-                   file = paste0(script.basename,
-                                 "/data/backup_",
-                                 data_date, custom_tag, "/", data_date,
-                                 "_lost_sequences",
-                                 custom_tag, ".csv"),
-                   row.names = F)
+         write_backup_csv(
+           x = temp,
+           data_dir = data_dir,
+           backup_date = data_date,
+           custom_tag = custom_tag,
+           filename = paste0(data_date, "_lost_sequences", custom_tag, ".csv")
+         )
          if(nrow(cbw[N_net <= -n_lost_print_threshold])){
           print(paste0('At least ', n_lost_print_threshold, ' sequences were lost from these lab-week combinations:'))
           print(temp[N_net <= -n_lost_print_threshold][order(N_net),], nrow=500) # nrow is a data.table-specific argument
@@ -1329,13 +1196,13 @@ saveRDS(object = check_count,
       n_added_print_threshold <- 100
       temp <- cbw[ yr_wk <= (data_date - 8*7) & N_net > 0]
       if(nrow(temp)> 0){
-         write.csv(x = temp,
-                   file = paste0(script.basename,
-                                 "/data/backup_",
-                                 data_date, custom_tag, "/", data_date,
-                                 "_old_sequence_additions",
-                                 custom_tag, ".csv"),
-                   row.names = F)
+         write_backup_csv(
+           x = temp,
+           data_dir = data_dir,
+           backup_date = data_date,
+           custom_tag = custom_tag,
+           filename = paste0(data_date, "_old_sequence_additions", custom_tag, ".csv")
+         )
         if(nrow(temp[N_net >= n_added_print_threshold]) > 0){
           print(paste0('At least ', n_added_print_threshold, ' sequences were added to these old lab-week combinations:'))
           print(temp[N_net >= n_added_print_threshold][order(N_net, decreasing = TRUE)], nrow=500) # nrow is a data.table-specific argument
@@ -1347,14 +1214,13 @@ saveRDS(object = check_count,
    }
 
    # save the counts by lab & week to file
-   saveRDS(object = counts_by_week,
-           file = paste0(script.basename,
-                         "/data/backup_",
-                         data_date, custom_tag,
-                         "/", data_date,
-                         "_sequence_counts_by_lab_week",
-                         custom_tag,
-                         ".RDS"))
+   save_backup_rds_file(
+     object = counts_by_week,
+     data_dir = data_dir,
+     backup_date = data_date,
+     custom_tag = custom_tag,
+     filename = paste0(data_date, "_sequence_counts_by_lab_week", custom_tag, ".RDS")
+   )
 }
 
 
@@ -1406,27 +1272,26 @@ low_lab <- check_count$LAB2[ check_count$count < 100 ]
 svy.dat <- svy.dat[LAB2 %notin% c("CDC",low_lab), ]
 
 # save the dropped_sequences counts b/c that's all that's calculated in this script
-write.csv(x = dropped_sequences,
-          file = paste0(script.basename, "/data/backup_",data_date, custom_tag, "/dropped_sequence_counts_", data_date, custom_tag, "_v1.csv"),
-          row.names = F)
+write_backup_csv(
+  x = dropped_sequences,
+  data_dir = data_dir,
+  backup_date = data_date,
+  custom_tag = custom_tag,
+  filename = paste0("dropped_sequence_counts_", data_date, custom_tag, "_v1.csv")
+)
 
-# save aggregated NREVSS testing data to file
-if(TRUE){
-  saveRDS(list(
-    # aggregated by state and:
-    'tests_weekly'    = tests_nrevss_wk,
-    'tests_fortnight' = tests_nrevss_fn,
-    # 'tests_4weeks'    = tests_nrevss_state_bins_list, # UPDATE! CREATE THIS
-    # aggregated by hhs region and:
-    'tests_hhs_weekly'    = tests_nrevss_hhs_wk,
-    'tests_hhs_fortnight' = tests_nrevss_hhs_fn
-    ),
-    file = paste0(script.basename,
-                  "/data/backup_",
-                  data_date, custom_tag, "/",
-                  data_date, "_tests_nrevss_aggregated",
-                  custom_tag, ".RDS"))
-}
+save_backup_rds_file(
+  object = list(
+    tests_weekly = tests_nrevss_wk,
+    tests_fortnight = tests_nrevss_fn,
+    tests_hhs_weekly = tests_nrevss_hhs_wk,
+    tests_hhs_fortnight = tests_nrevss_hhs_fn
+  ),
+  data_dir = data_dir,
+  backup_date = data_date,
+  custom_tag = custom_tag,
+  filename = paste0(data_date, "_tests_nrevss_aggregated", custom_tag, ".RDS")
+)
 
 # Add in NREVSS testing data (grouped by state & week)
 # currently no plan to use this
@@ -1488,46 +1353,6 @@ if(date_frozen_toread == data_date) {
         file = paste0(script.basename, "/data/", "svydat_", data_date, custom_tag, "_", date_frozen_toread, "_frozendata",".RData"))
 }
 
-
-#--------------- Limitations, etc.---------------
-
-#Merging multiple disparate data streams into a single unified survey design is achieved
-# here by assuming each stream is a cluster in a PPS design. The analysis is limited by
-# the limitations of this assumption, and by incomplete information about the sampling
-# design within each stream. Owing to incomplete and imprecise test data, sources with
-# substantial contribution to the sequence database may be underweighted.
-
-# * Weights are derived using count of test results (including negatives) by state and
-#   collection date, currently from HHS Protect. There are a few states missing, and it
-#   has proved to be difficult to assign tests unambiguoisly to their source.
-# * The protocols used by different sources to select for sequences are unknown; an
-#   assumption of random selection is made here (with modifications for oversampling of
-#   SGTF samples, where noted), leading to the possibility of biased estimates.
-# * Current [NS3 guidelines for sampling](https://www.aphl.org/programs/preparedness/Crisis-Management/Documents/FEB%202021%20Revised%20NS3%20Submission%20Guidance_02052021%20FNL.pdf) are inadequate:
-
-#  > Ideally, specimens should represent geographic, demographic (e.g., age), and clinical
-#   (e.g., disease severity or outcome) diversity from across the jurisdiction. This can be
-#   achieved through random selection of specimens collected within the last 7 days.
-
-
-# Changelog
-
-# * 2021-03-07: updated lineage with pangolin as master-list
-# * 2021-03-07: updated test stats by collection date (some states missing!)
-# * 2021-03-07: updated designation of year-week to the date of first Sunday of week
-# * 2021-03-08: calibrated infections-over-positive weights to test-positivity by cluster
-# * 2021-03-08: switched to a PPS design to more accurately reflect subsampling within clusters
-# * 2021-03-09: added HHS region
-# * 2021-04-XX: added populations for territories; removed lab based weights; infection rates
-#   imputed using HHS Regional rates for states with missing testing data; removed
-#   submission/receive dates from svy.dat; sgtf_weights are now weights even for SGTF_UPSAMPLING = FALSE
-
-# Known issues/next steps
-
-# * Smooth out positve-over-sequenced weights, if needed
-# * Find test counts by collection date for states consistently missing at HHS Protect
-# * Adjust multinomial logistic growth rate models for R_t
-# * Locate all SGTF sequences using in silico PCR [row 5 (TCAACTCAGGACTTGTTCTTACCT) https://www.protocols.io/view/multiplexed-rt-qpcr-to-screen-for-sars-cov-2-b-1-1-br9vm966/materials]? (Probably not needed any longer)
 }
 
 if (sys.nframe() == 0) {
