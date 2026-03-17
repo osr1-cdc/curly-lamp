@@ -1,5 +1,0 @@
-<tsRequest>
- <credentials name="cdcuser" password="cdcpassword" >
-   <site contentUrl="" />
- </credentials>
-</tsRequest>
