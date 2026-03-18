@@ -1,83 +1,157 @@
-# SARS-CoV-2 Proportion Modeling and Nowcast
+# SC2 Proportion Modeling Pipeline v2.0
 
-**Standard Production Code for CDC Monthly Reporting**
+**Modern Python implementation of CDC SARS-CoV-2 variant proportion modeling with statistical nowcasting**
 
-Code for applying weights and confidence intervals to SARS-CoV-2 proportion data using a survey design-based approach.
+Standard production code for CDC monthly reporting on variant proportions and trends.
 
- **Written by** Prabasaj Paul <vig5@cdc.gov>, Molly Steele <xzn9@cdc.gov>
- **with updates from** Norman Hassell <ncy6@cdc.gov>, Philip Shirk <rsv4@cdc.gov>, Xiaoyu Sherry Zheng <qiu5@cdc.gov>
- **recent contributors (past year)** Clint Paden <fep2@cdc.gov>, Juan Castro <jcb0@cdc.gov>, Peter Cook <ooj4@cdc.gov>, Casey Smith osr1 <osr1@cdc.gov>, Megha Aggarwal <tlz5@cdc.gov>
+**Original authors:** Prabasaj Paul, Molly Steele  
+**Contributors:** Norman Hassell, Philip Shirk, Xiaoyu Sherry Zheng, Clint Paden, Juan Castro, Peter Cook, Casey Smith, Megha Aggarwal
 
-**Reference**:
+**Reference:**  
 Paul P, France AM, Aoki Y, et al. Genomic Surveillance for SARS-CoV-2 Variants Circulating in the United States, December 2020–May 2021. MMWR Morb Mortal Wkly Rep 2021;70:846–850. DOI: [http://dx.doi.org/10.15585/mmwr.mm7023a3](http://dx.doi.org/10.15585/mmwr.mm7023a3)
 
-- [Code](#code)
-- [Data Requirements](#data-requirements)
-- [Other Requirements](#other-requirements)
-- [Output Files](#output-files)
-- [How to Run Monthly Reporting](#how-to-run-monthly-reporting)
-- [Lab Aggregation](#lab-aggregation)
-- [Column Descriptions](#column-descriptions)
-- [Load Hadoop](#load-hadoop)
-- [Implementation Notes](#implementation-notes)
-- [Methods](#methods)
+## Quick Start
 
-## Code
+### Requirements
+- Python 3.11+
+- Docker (optional, for containerized deployment)
+- Singularity/Apptainer (for HPC deployment)
 
-- **config/config.R** - Specify configuration settings: data dates, VOCs (variants shown on CDC COVID Data Tracker), and figure settings.
-- **config/environment.yml** - Conda environment definition for the R and system dependencies used by the pipeline.
-- **config/conda_env.sh** - Shared shell activation settings used by the HPC wrappers.
+### Installation
 
-- **pipeline.R** - Main entrypoint for orchestration.
-  - Commands: `prepare-data`, `run1`, `run2`, `run-all`, `submit-all`
-  - Usage: `Rscript pipeline.R --help`
+```bash
+# Clone and install in development mode
+git clone https://github.com/anthropics/sc2-proportion-modeling.git
+cd sc2-proportion-modeling
+pip install -e .
+```
 
-- **pipeline_job.sh** - Generic Grid Engine wrapper that runs a single `pipeline.R` subcommand inside the configured conda environment.
+### Usage
 
-- **proportion_modeling_run.sh** - Thin submission wrapper for the full production workflow.
-  - Usage: `qsub proportion_modeling_run.sh -u <username> -p <password>`
-  - This wrapper calls `pipeline.R submit-all`
+```bash
+# Run full pipeline
+sc2-run --config /path/to/config.yml --output /path/to/results
 
-- **variant_surveillance_system.R** - Generates the analytic dataset with survey weights from CDC databases.
-  - Input: CDC database queries for sequences, lineages, and testing data
-  - Output: Processed data with survey design weights
+# Dry-run to validate configuration
+sc2-run --config /path/to/config.yml --dry-run
 
-- **weekly_variant_report_nowcast.R** - Creates variant proportion estimates using the dataset created in `variant_surveillance_system.R`.
-  - Run 1: Calculates variant share/proportion and confidence intervals for fortnights and weeks (HHS regions & nationally)
-  - Run 2: Generates the same output as Run 1, plus model-based smoothed trends (nowcasts) for both national and HHS regional estimates
+# Use cached data instead of fresh query
+sc2-run --config /path/to/config.yml --use-cache
+```
 
-- **weekly_variant_report_functions.R** - Library of helper functions used by `weekly_variant_report_nowcast.R`
+## Architecture
 
-- **pango_tree_diagram.R** - Optional utility for generating Pango lineage tree visualizations.
-- **Lineage_Colors_on_CDT.csv** - Optional color map used by `pango_tree_diagram.R`.
+### Pipeline Stages
 
-## Data Requirements
+1. **Fetch** - Query Impala database for sequence, lineage, and testing data
+2. **Aggregate** - Map PANGO lineages to WHO variant designations (VOC/VOI)
+3. **Weight** - Calculate inverse probability-of-selection weights via R survey package
+4. **Model** - Fit nowcast model and generate predictions
+5. **Export** - Export results in multiple formats (CSV, JSON, Parquet, PNG)
 
-- Sequence data (compiled by SSEV Bioinformatics infrastructure team)
-  - Source: CDP database `sc2_archive.analytics_metadata_frozen`
-- Pangolin lineages
-  - Source: CDP database `sc2_src.pangolin`
-- NREVSS testing data
-  - Source: CDP database `sc2_archive.nrevss_frozen`
-- HHS Protect RT-PCR testing data
-  - Source: CDP database `sc2_archive.hhs_protect_testing_frozen`
-- Population Data - State population data (as of 2018)
-  - Source: `./resources/ACStable_B01001_40_2018_5.txt`
+### Directory Structure
 
-## Other Requirements
+```
+src/sc2/
+├── config.py          # Configuration management (Pydantic)
+├── scripts/
+│   └── run.py         # CLI entry point
+└── pipeline/
+    ├── fetch.py       # Data fetching from Impala
+    ├── aggregate.py   # Lineage aggregation rules
+    ├── weight.py      # Survey weighting calculations
+    ├── model.py       # Nowcasting model fitting
+    ├── export.py      # Results export
+    └── exceptions.py  # Custom exceptions
+```
 
-- Cloudera Impala JDBC driver: configured in [config.R](/scicomp/home-pure/osr1/repos/sc2_proportion_modeling/config/config.R)
-- Conda environment: [environment.yml](/scicomp/home-pure/osr1/repos/sc2_proportion_modeling/config/environment.yml)
-- Shared shell activation settings: [conda_env.sh](/scicomp/home-pure/osr1/repos/sc2_proportion_modeling/config/conda_env.sh)
+## Configuration
+
+Configuration via YAML file (`config/config.yml`):
+
+```yaml
+impala:
+  host: localhost
+  port: 21050
+
+date_range:
+  start: 2026-01-01
+  end: 2026-03-18
+
+nowcast:
+  method: multinomial_regression  # or bayesian_logistic
+  prediction_weeks: 4
+  credible_interval: 0.95
+
+ci_type: KG  # Karneberger-Geiger, Wilson, or Agresti-Coull
+
+output:
+  formats: [csv, json, parquet, png]
+  results_dir: ./results/
+  cache_dir: ./cache/
+```
+
+## Deployment
+
+### Local Development
+
+```bash
+# Install with dev dependencies
+pip install -e ".[dev]"
+
+# Run tests
+pytest tests/ -v --cov=src/sc2
+
+# Code quality checks
+black src/ tests/
+ruff check src/ tests/
+mypy src/sc2/
+```
+
+### Docker
+
+```bash
+# Build image
+docker build -t sc2-proportion-modeling:latest .
+
+# Run pipeline
+docker compose up sc2-app
+
+# Run tests
+docker compose --profile test up sc2-test
+
+# Run linting
+docker compose --profile lint up sc2-lint
+```
+
+### HPC Deployment
+
+See [HPC_DEPLOYMENT.md](HPC_DEPLOYMENT.md) for Singularity container setup and SGE job submission.
 
 ## Output Files
 
-Result folder: `results_<data_date>_<results_tag>`
+Results are exported to `results_<date>/`:
 
-### Run 1 Outputs
-- Pre-modeling lineage aggregation results: `voc_aggregation_table_<date><tag>.csv`
-- Lineage aggregation summaries: `lineage_aggregations_*.csv`, `lineage_aggregations_summary_*.csv`
-- Fortnightly empirical estimates: `variant_share_<weighted_method>_<ci.type>CI_<svy.type>_<date><tag>_<results_tag>.csv`
+- `proportions.csv` - Empirical variant proportions with confidence intervals
+- `nowcasts.csv` - Model-based smoothed estimates and predictions
+- `results.json` - Combined results in JSON format
+- `proportions.parquet` - Efficient columnar storage
+- `proportions_by_region.png` - Figure showing regional trends
+- `proportions_growth.png` - Variant growth rate visualization
+- `metadata.json` - Pipeline metadata (data date, effective N, design effect, etc.)
+
+## Data Requirements
+
+### Inputs
+- Sequence metadata from CDC database: `sc2_archive.analytics_metadata_frozen`
+- Pangolin lineage assignments: `sc2_src.pangolin`
+- NREVSS RT-PCR testing: `sc2_archive.nrevss_frozen`
+- HHS Protect testing: `sc2_archive.hhs_protect_testing_frozen`
+- Population estimates: `resources/ACStable_B01001_40_2018_5.txt`
+
+### Configuration Files
+- `config/config.yml` - Runtime settings
+- `config/environment.yml` - Conda environment (R dependencies)
 - Weekly empirical estimates: `variant_share_weekly_<weighted_method>_<ci.type>CI_<svy.type>_<date><tag>_<results_tag>.csv`
 - Hadoop-ready versions of the empirical outputs: matching `*_hadoop.csv` files
 
