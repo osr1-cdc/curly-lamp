@@ -1,0 +1,18 @@
+# Bandit security configuration
+# See: https://bandit.readthedocs.io/en/latest/configuration.html
+
+assert_used:
+  skips: ['*/test*.py', '*/tests.py']
+
+blacklist_calls:
+  blacklist:
+    - name: marshal
+      message: Avoid using marshal module
+
+skip_strings: false
+
+exclude_dirs:
+  - /test
+  - /tests
+  - venv
+  - .venv

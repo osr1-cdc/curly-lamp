@@ -1,0 +1,88 @@
+repos:
+  # Code formatting with black
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        language_version: python3.11
+        files: 'src/|tests/'
+
+  # Import sorting with isort
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--profile", "black", "--filter-files"]
+        files: 'src/|tests/'
+
+  # Linting with ruff
+  - repo: https://github.com/PyCQA/ruff
+    rev: 0.1.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: 'src/|tests/'
+
+  # Type checking with mypy
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.7.1
+    hooks:
+      - id: mypy
+        additional_dependencies: [
+          "pydantic>=2.0.0",
+          "polars>=0.20.0",
+          "types-PyYAML",
+          "types-requests",
+          "types-requests",
+        ]
+        args: ["--strict", "--ignore-missing-imports"]
+        files: '^src/'
+        exclude: 'tests/'
+
+  # Security checks with bandit
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        args: [-c=.bandit]
+        files: '^src/'
+
+  # Standard pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        files: 'src/|tests/'
+      - id: end-of-file-fixer
+        files: 'src/|tests/'
+      - id: check-yaml
+        args: ['--unsafe']
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-merge-conflict
+      - id: debug-statements
+        files: 'src/|tests/'
+      - id: name-tests-test
+        args: ['--django']
+        files: '^tests/'
+
+# Configuration
+default_language_version:
+  python: python3.11
+
+# Skip these files/directories
+exclude: |
+  (?x)^(
+    docs/|
+    build/|
+    dist/|
+    \.git/|
+    venv/|
+    \.venv/|
+    __pycache__/|
+    \.pytest_cache/|
+    \.mypy_cache/|
+    node_modules/
+  )
+
+fail_fast: false

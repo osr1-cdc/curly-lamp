@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # Main SC2 proportion modeling pipeline
+  sc2-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sc2-proportion-modeling
+    image: sc2-proportion-modeling:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./config:/app/config:ro
+      - ./results:/app/results:rw
+      - ./cache:/app/cache:rw
+      - ./data:/app/data:ro
+      - ./logs:/app/logs:rw
+    working_dir: /app
+    command: sc2-run --config /app/config/config.yml
+    networks:
+      - sc2-network
+    healthcheck:
+      test: ["CMD", "sc2-run", "--help"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  # Test runner service
+  sc2-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sc2-test
+    image: sc2-proportion-modeling:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - .:/app:rw
+      - ./pytest-results:/app/.pytest_cache:rw
+    working_dir: /app
+    command: pytest tests/ -v --cov=src/sc2 --cov-report=html:/app/coverage
+    networks:
+      - sc2-network
+    profiles:
+      - test
+
+  # Code quality and linting service
+  sc2-lint:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sc2-lint
+    image: sc2-proportion-modeling:latest
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - .:/app:ro
+    working_dir: /app
+    command: >
+      bash -c "
+      echo '=== Black ===' &&
+      black --check src/ tests/ &&
+      echo '=== Ruff ===' &&
+      ruff check src/ tests/ &&
+      echo '=== MyPy ===' &&
+      mypy src/sc2/ || true
+      "
+    networks:
+      - sc2-network
+    profiles:
+      - lint
+
+networks:
+  sc2-network:
+    driver: bridge

@@ -138,15 +138,15 @@ class TestNowcastModel:
         """Test placeholder prediction generation."""
         predictions = model._placeholder_predictions(sample_proportions, prediction_weeks=4)
 
-        assert predictions.height() > sample_proportions.height()
+        assert predictions.height > sample_proportions.height
         assert "retrospective_smooth" in predictions.columns
 
         # Check smoothing flags
         fitted = predictions.filter(pl.col("retrospective_smooth") == True)
         predicted = predictions.filter(pl.col("retrospective_smooth") == False)
 
-        assert fitted.height() == sample_proportions.height()
-        assert predicted.height() == 12  # 4 weeks × 3 variants
+        assert fitted.height == sample_proportions.height
+        assert predicted.height == 12  # 4 weeks × 3 variants
 
     def test_placeholder_predictions_date_extension(self, model, sample_proportions):
         """Test that predictions extend dates correctly."""
@@ -169,7 +169,7 @@ class TestNowcastModel:
         predictions = model.fit_and_predict(sample_proportions, prediction_weeks=4)
 
         # Should have historical + predictions
-        assert predictions.height() >= sample_proportions.height()
+        assert predictions.height >= sample_proportions.height
 
         # All variants should have proportions < 1
         for prop in predictions["proportion"]:
@@ -192,7 +192,7 @@ class TestNowcastModel:
         fitted_rows = variant_preds.filter(pl.col("retrospective_smooth") == True)
         pred_rows = variant_preds.filter(pl.col("retrospective_smooth") == False)
 
-        if fitted_rows.height() > 0 and pred_rows.height() > 0:
+        if fitted_rows.height > 0 and pred_rows.height > 0:
             # Sample CIs
             fitted_ci_width = (
                 fitted_rows[-1]["ci_upper"] - fitted_rows[-1]["ci_lower"]
@@ -254,7 +254,7 @@ class TestNowcastIntegration:
             )
 
         # Validate results
-        assert predictions.height() > proportions_df.height()
+        assert predictions.height > proportions_df.height
         assert "retrospective_smooth" in predictions.columns
 
         # All variants should appear in predictions

@@ -178,17 +178,17 @@ class VariantDataFetcher:
         # Validate HHS regions (should be 1-10)
         invalid_regions = df.filter(
             (pl.col("hhs_region") < 1) | (pl.col("hhs_region") > 10)
-        ).height()
+        ).height
         if invalid_regions > 0:
             logger.warning(f"Found {invalid_regions} sequences with invalid HHS regions")
 
         # Validate dates are reasonable (after 2020-01-01)
         min_date = date(2020, 1, 1)
-        invalid_dates = df.filter(pl.col("collection_date") < min_date).height()
+        invalid_dates = df.filter(pl.col("collection_date") < min_date).height
         if invalid_dates > 0:
             logger.warning(f"Found {invalid_dates} sequences with dates before 2020-01-01")
 
-        logger.info(f"Validation complete: {df.height()} sequences")
+        logger.info(f"Validation complete: {df.height} sequences")
         return df
 
     def __enter__(self):

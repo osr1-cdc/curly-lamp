@@ -76,7 +76,7 @@ class SurveyWeighter:
             WeightingException: If weighting calculation fails
         """
         try:
-            logger.info(f"Calculating weighted proportions for {sequences_df.height()} sequences")
+            logger.info(f"Calculating weighted proportions for {sequences_df.height} sequences")
 
             # Aggregate sequences to weekly counts by region and variant
             if weekly_aggregates is None:
@@ -113,17 +113,15 @@ class SurveyWeighter:
         """
         # Extract week start date (Monday of that week)
         df_week = sequences_df.with_columns(
-            pl.col("collection_date")
-            .apply(lambda d: d - __import__("datetime").timedelta(days=d.weekday()))
-            .alias("week_start")
+            pl.col("collection_date").cast(pl.Date).dt.truncate("1w").alias("week_start")
         )
 
         # Count sequences by week, region, and variant
         weekly = df_week.group_by(["week_start", "hhs_region", "voc"]).agg(
-            pl.len().alias("count")
+            pl.count().alias("count")
         )
 
-        logger.debug(f"Aggregated to {weekly.height()} week-region-variant groups")
+        logger.debug(f"Aggregated to {weekly.height} week-region-variant groups")
         return weekly
 
     def _calculate_weights(
@@ -157,13 +155,12 @@ class SurveyWeighter:
         # For now, use 1/(fraction_sequenced) approximation
         # In production, would be: infection_estimate / sequences_detected
         weights = region_week_total.with_columns(
-            # Trim to reasonable bounds: 0.1 to 10 (prevent extreme outliers)
             pl.col("total_sequences")
-            .apply(lambda x: self._calculate_regional_weight(x))
+            .map_elements(lambda x: self._calculate_regional_weight(x))
             .alias("weight")
         )
 
-        logger.debug(f"Calculated weights for {weights.height()} region-weeks")
+        logger.debug(f"Calculated weights for {weights.height} region-weeks")
         return weights.select(["week_start", "hhs_region", "weight"])
 
     @staticmethod
@@ -206,9 +203,7 @@ class SurveyWeighter:
         """
         # Extract week start from collection_date
         df_week = sequences_df.with_columns(
-            pl.col("collection_date")
-            .apply(lambda d: d - __import__("datetime").timedelta(days=d.weekday()))
-            .alias("week_start")
+            pl.col("collection_date").cast(pl.Date).dt.truncate("1w").alias("week_start")
         )
 
         # Join weights
@@ -216,7 +211,7 @@ class SurveyWeighter:
             weights_df, on=["week_start", "hhs_region"], how="left"
         ).fill_null(1.0)  # Default weight = 1.0 if missing
 
-        logger.debug(f"Applied weights to {weighted.height()} sequences")
+        logger.debug(f"Applied weights to {weighted.height} sequences")
         return weighted
 
     def _compute_survey_estimates(self, weighted_sequences: pl.DataFrame) -> WeightingResult:
@@ -240,7 +235,7 @@ class SurveyWeighter:
                 variant_proportions=proportions,
                 weights=weighted_sequences[["hhs_region", "voc", "weight"]],
                 design_effect=1.05,  # Placeholder
-                effective_n=int(weighted_sequences.height() / 1.05),
+                effective_n=int(weighted_sequences.height / 1.05),
             )
 
             return result

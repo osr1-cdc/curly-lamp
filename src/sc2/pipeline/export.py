@@ -13,6 +13,8 @@ from typing import Optional
 
 import polars as pl
 
+rpy2 = None
+
 from sc2.config import OutputConfig
 from sc2.pipeline.exceptions import ExportException
 

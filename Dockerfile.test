@@ -1,0 +1,61 @@
+# SC2 Proportion Modeling - Test Docker Image
+# Lightweight test runner with development dependencies
+
+FROM python:3.11-slim
+
+LABEL maintainer="CDC Emerging Infectious Diseases Branch"
+LABEL purpose="Testing and development"
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    ca-certificates \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip
+RUN python -m pip install --upgrade pip setuptools wheel
+
+# Create app directory
+RUN mkdir -p /app
+
+WORKDIR /app
+
+# Copy project files
+COPY pyproject.toml poetry.lock* ./
+COPY src/ ./src/
+COPY tests/ ./tests/
+
+# Install test dependencies
+RUN python -m pip install --no-cache-dir \
+    pytest>=7.4.0 \
+    pytest-cov>=4.1.0 \
+    pytest-xdist>=3.3.0 \
+    black>=23.0.0 \
+    isort>=5.12.0 \
+    mypy>=1.4.0 \
+    ruff>=0.0.280 \
+    polars>=0.20.0 \
+    pydantic>=2.0.0 \
+    pydantic-settings>=2.0.0 \
+    pyyaml>=6.0 \
+    sqlalchemy>=2.0.0 \
+    pandas>=2.0.0 \
+    numpy>=1.24.0 \
+    cmdstanpy>=1.1.0 \
+    rpy2>=3.5.0 \
+    pyarrow>=12.0.0 \
+    requests>=2.31.0 \
+    python-dotenv>=1.0.0 \
+    loguru>=0.7.0
+
+# Install package in editable mode
+RUN python -m pip install -e . --no-deps
+
+# Default command
+CMD ["pytest", "tests/", "-v", "--cov=src/sc2"]

@@ -89,7 +89,7 @@ class NowcastModel:
         """
         try:
             logger.info(
-                f"Fitting nowcast model: {proportions_df.height()} proportions, "
+                f"Fitting nowcast model: {proportions_df.height} proportions, "
                 f"{prediction_weeks} week prediction horizon"
             )
 
@@ -99,7 +99,7 @@ class NowcastModel:
             # For now, return placeholder results (Stan integration pending)
             predictions = self._placeholder_predictions(proportions_df, prediction_weeks)
 
-            logger.info(f"Generated {predictions.height()} nowcast predictions")
+            logger.info(f"Generated {predictions.height} nowcast predictions")
             return predictions
 
         except Exception as e:
@@ -146,7 +146,7 @@ class NowcastModel:
             week_data = proportions_df.filter(pl.col(date_col) == week)
             for j, variant in enumerate(variants):
                 var_data = week_data.filter(pl.col("voc") == variant)
-                if var_data.height() > 0:
+                if var_data.height > 0:
                     proportions_matrix[i, j] = var_data["proportion"][0]
                     # Use CI width to estimate SE: SE ≈ (CI_upper - CI_lower) / 3.92
                     if "ci_upper" in var_data.columns and "ci_lower" in var_data.columns:

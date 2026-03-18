@@ -3,7 +3,7 @@
 Covers CSV/JSON/Parquet export, figure generation, and metadata tracking.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -339,7 +339,7 @@ class TestExportIntegration:
         base_date = date(2026, 1, 1)
 
         for week in range(12):
-            current_date = date(2026, 1, 1 + week * 7)
+            current_date = base_date + timedelta(weeks=week)
             for i, variant in enumerate(variants):
                 dates.append(current_date)
                 vocs.append(variant)

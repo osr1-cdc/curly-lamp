@@ -34,7 +34,7 @@ class TestWeightingResult:
 
         assert result.design_effect == 1.05
         assert result.effective_n == 1000
-        assert result.variant_proportions.height() == 2
+        assert result.variant_proportions.height == 2
 
 
 class TestSurveyWeighter:
@@ -79,7 +79,7 @@ class TestSurveyWeighter:
         assert "hhs_region" in weekly.columns
         assert "voc" in weekly.columns
         assert "count" in weekly.columns
-        assert weekly.height() > 0
+        assert weekly.height > 0
 
     def test_aggregate_by_week_counts(self, weighter):
         """Test weekly aggregation produces correct counts."""
@@ -95,7 +95,7 @@ class TestSurveyWeighter:
         weekly = weighter._aggregate_by_week(df)
 
         # Both dates fall in same week
-        assert weekly.height() == 2  # BA.1.1 and JN.1
+        assert weekly.height == 2  # BA.1.1 and JN.1
         ba_count = weekly.filter(pl.col("voc") == "BA.1.1")["count"][0]
         assert ba_count == 5
 
@@ -128,7 +128,7 @@ class TestSurveyWeighter:
         assert "hhs_region" in weights.columns
         assert "week_start" in weights.columns
         assert "weight" in weights.columns
-        assert weights.height() > 0
+        assert weights.height > 0
 
         # Check weight bounds
         for w in weights["weight"]:
@@ -141,7 +141,7 @@ class TestSurveyWeighter:
         weighted = weighter._apply_weights(sample_sequences, weights)
 
         assert "weight" in weighted.columns
-        assert weighted.height() == sample_sequences.height()
+        assert weighted.height == sample_sequences.height
         # No weights should be null (fill_null defaults to 1.0)
         assert weighted["weight"].null_count() == 0
 
@@ -177,7 +177,7 @@ class TestSurveyWeighter:
         result = weighter.calculate_weighted_proportions(sample_sequences)
 
         assert isinstance(result, WeightingResult)
-        assert result.variant_proportions.height() > 0
+        assert result.variant_proportions.height > 0
         assert result.design_effect > 0
         assert result.effective_n > 0
 
@@ -230,7 +230,7 @@ class TestWeightingIntegration:
             result = weighter.calculate_weighted_proportions(sequences)
 
         # Validate results
-        assert result.variant_proportions.height() == 3  # 3 variants
+        assert result.variant_proportions.height == 3  # 3 variants
         assert result.effective_n > 0
         assert result.design_effect > 0
 
@@ -284,5 +284,5 @@ class TestWeightingIntegration:
             result = weighter.calculate_weighted_proportions(sequences)
 
         # Should still work
-        assert result.variant_proportions.height() > 0
+        assert result.variant_proportions.height > 0
         assert result.effective_n > 0

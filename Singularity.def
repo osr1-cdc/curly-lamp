@@ -1,0 +1,102 @@
+BootStrap: docker
+From: python:3.11-slim
+
+%labels
+    Author CDC SC2 Team
+    Version 2.0.0
+    Description SC2 Proportion Modeling Pipeline - Singularity Container for HPC
+    Repository https://github.com/anthropics/sc2-proportion-modeling
+
+%help
+    SC2 Proportion Modeling Pipeline - Singularity Container
+
+    Usage:
+        singularity run sc2-proportion-modeling.sif [OPTIONS]
+        singularity exec sc2-proportion-modeling.sif sc2-run --help
+
+    Volume mounts (--bind):
+        /app/data          - Configuration and input data
+        /app/results       - Output directory for results
+        /app/cache         - Intermediate cache files
+
+    Example:
+        singularity run --bind $(pwd)/data:/app/data \
+                            --bind $(pwd)/results:/app/results \
+                            sc2-proportion-modeling.sif \
+                            --config /app/data/config.yml
+
+%environment
+    export PATH="/opt/conda/bin:${PATH}"
+    export PYTHONUNBUFFERED=1
+    export PYTHONDONTWRITEBYTECODE=1
+    export R_HOME=/opt/conda/envs/r-env
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
+
+%post
+    # Install system dependencies
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        git \
+        build-essential \
+        curl \
+        wget \
+        ca-certificates
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+
+    # Install Conda and R environment
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
+    bash /tmp/miniconda.sh -b -p /opt/conda
+    rm /tmp/miniconda.sh
+
+    /opt/conda/bin/conda config --add channels conda-forge
+    /opt/conda/bin/conda create -n r-env -y \
+        r-base \
+        r-survey \
+        r-ggplot2 \
+        r-dplyr \
+        r-tidyr \
+        r-gridextra \
+        r-scales
+    /opt/conda/bin/conda clean -afy
+
+    # Install Python dependencies
+    pip install --no-cache-dir --upgrade pip setuptools wheel
+    pip install --no-cache-dir poetry>=1.5.0
+
+    # Copy application files
+    mkdir -p /app
+    cd /app
+
+    # Create non-root user
+    groupadd -r appuser
+    useradd -r -g appuser -u 1000 appuser
+
+    # Create output directories
+    mkdir -p /app/results /app/cache /app/logs /app/data /app/config
+    chown -R appuser:appuser /app
+
+%files
+    pyproject.toml /app/
+    poetry.lock /app/
+    src/ /app/src/
+    tests/ /app/tests/
+
+%post
+    cd /app
+
+    # Install Python application
+    poetry config virtualenvs.create false
+    poetry install --no-dev --no-interaction --no-ansi
+
+    # Fix permissions
+    chown -R appuser:appuser /app
+
+%runscript
+    #!/bin/bash
+    exec sc2-run "$@"
+
+%startscript
+    #!/bin/bash
+    exec sc2-run "$@"

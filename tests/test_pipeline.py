@@ -159,7 +159,7 @@ class TestLineageAggregator:
 
         assert "voc" in result.columns
         assert "pango_lineage" not in result.columns
-        assert result.height() == 4
+        assert result.height == 4
 
     def test_aggregate_dataframe_with_voc_list(self):
         """Test aggregation enforces VOC list."""
